@@ -1,0 +1,25 @@
+#!/sbin/openrc-run
+# Gerado por instalar-na-vm.sh — não editar INSTALL_DIR manualmente
+
+INSTALL_DIR="__INSTALL_DIR__"
+name="${RC_SVCNAME}"
+description="Termo Online API (FastAPI)"
+
+export PORT=8001
+export TERM0_API_ONLY=1
+export TERM0_RELOAD=0
+export TERM0_DATA="${INSTALL_DIR}/data"
+export TERM0_CORS_ORIGINS="https://termo.cloudive.com.br,http://localhost:8000"
+export TERM0_LOG_LEVEL=INFO
+
+command="${INSTALL_DIR}/.venv/bin/python"
+command_args="-m uvicorn main:Aplicacao --host 0.0.0.0 --port 8001 --app-dir ${INSTALL_DIR}/src"
+command_background=yes
+command_user=root
+directory="${INSTALL_DIR}/src"
+pidfile="/run/${RC_SVCNAME}.pid"
+
+depend() {
+	need net
+	after firewall
+}

@@ -67,23 +67,60 @@ if [ ! -f src/static/dist/index.html ]; then
   exit 1
 fi
 
-echo "==> Serviços systemd"
 INST="$RAIZ"
-sed \
-  -e "s|/root/termo-online|$INST|g" \
-  deploy/vm/termo-api.service > /etc/systemd/system/termo-api.service
-sed \
-  -e "s|/root/termo-online|$INST|g" \
-  deploy/vm/termo-web.service > /etc/systemd/system/termo-web.service
+SERVICO_API=termo-api
+SERVICO_WEB=termo-web
 
-systemctl daemon-reload
-systemctl enable termo-api termo-web
-systemctl restart termo-api termo-web
+if [ -d /etc/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
+  echo "==> Serviços systemd"
+  sed -e "s|/root/termo-online|$INST|g" deploy/vm/termo-api.service > /etc/systemd/system/termo-api.service
+  sed -e "s|/root/termo-online|$INST|g" deploy/vm/termo-web.service > /etc/systemd/system/termo-web.service
+  systemctl daemon-reload
+  systemctl enable "$SERVICO_API" "$SERVICO_WEB"
+  systemctl restart "$SERVICO_API" "$SERVICO_WEB"
+elif command -v rc-service >/dev/null 2>&1; then
+  echo "==> Serviços OpenRC (Alpine)"
+  for svc in termo-api termo-web; do
+    sed "s|__INSTALL_DIR__|$INST|g" "deploy/vm/openrc/$svc" > "/etc/init.d/$svc"
+    chmod +x "/etc/init.d/$svc"
+  done
+  rc-update add "$SERVICO_API" default 2>/dev/null || true
+  rc-update add "$SERVICO_WEB" default 2>/dev/null || true
+  rc-service "$SERVICO_API" stop 2>/dev/null || true
+  rc-service "$SERVICO_WEB" stop 2>/dev/null || true
+  rc-service "$SERVICO_API" start
+  rc-service "$SERVICO_WEB" start
+else
+  echo "==> Sem systemd/OpenRC — iniciando em background"
+  pkill -f "uvicorn main:Aplicacao.*8001" 2>/dev/null || true
+  pkill -f "servir_frontend.py" 2>/dev/null || true
+  (
+    cd "$INST/src" && export PORT=8001 TERM0_API_ONLY=1 TERM0_RELOAD=0 \
+      TERM0_DATA="$INST/data" \
+      TERM0_CORS_ORIGINS="https://termo.cloudive.com.br,http://localhost:8000" \
+      TERM0_LOG_LEVEL=INFO
+    nohup "$INST/.venv/bin/python" -m uvicorn main:Aplicacao \
+      --host 0.0.0.0 --port 8001 --app-dir "$INST/src" \
+      >>"$INST/data/termo-api.log" 2>&1 &
+  )
+  (
+    cd "$INST" && export PORT=8000
+    nohup "$INST/.venv/bin/python" "$INST/src/servir_frontend.py" \
+      >>"$INST/data/termo-web.log" 2>&1 &
+  )
+  echo "    Logs: $INST/data/termo-api.log e termo-web.log"
+  echo "    Configure OpenRC ou systemd para persistir após reboot."
+fi
 
 sleep 2
 echo ""
 echo "==> Verificação"
-systemctl is-active termo-api termo-web || true
+if command -v systemctl >/dev/null 2>&1 && [ -d /etc/systemd/system ]; then
+  systemctl is-active "$SERVICO_API" "$SERVICO_WEB" 2>/dev/null || true
+elif command -v rc-service >/dev/null 2>&1; then
+  rc-service "$SERVICO_API" status 2>/dev/null || true
+  rc-service "$SERVICO_WEB" status 2>/dev/null || true
+fi
 curl -sf http://127.0.0.1:8001/api/health && echo "API /api/health OK" || echo "API falhou"
 curl -sf -o /dev/null -w "Frontend HTTP %{http_code}\n" http://127.0.0.1:8000/ || echo "Frontend falhou"
 

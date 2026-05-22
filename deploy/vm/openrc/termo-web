@@ -1,0 +1,20 @@
+#!/sbin/openrc-run
+# Gerado por instalar-na-vm.sh — não editar INSTALL_DIR manualmente
+
+INSTALL_DIR="__INSTALL_DIR__"
+name="${RC_SVCNAME}"
+description="Termo Online frontend (Vue estático)"
+
+export PORT=8000
+
+command="${INSTALL_DIR}/.venv/bin/python"
+command_args="${INSTALL_DIR}/src/servir_frontend.py"
+command_background=yes
+command_user=root
+directory="${INSTALL_DIR}"
+pidfile="/run/${RC_SVCNAME}.pid"
+
+depend() {
+	need net
+	after firewall
+}

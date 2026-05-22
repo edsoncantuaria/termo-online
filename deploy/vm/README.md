@@ -23,7 +23,7 @@ O script `instalar.sh` (ou `deploy/vm/instalar-na-vm.sh`) faz tudo:
 2. Cria `.venv` e instala `requirements.txt`
 3. Inicializa `data/termo.db`
 4. Build do Vue com `VITE_API_ORIGIN=https://api-termo.cloudive.com.br`
-5. Sobe **termo-web** (porta 8000) e **termo-api** (porta 8001) via systemd
+5. Sobe **termo-web** (porta 8000) e **termo-api** (porta 8001) via **OpenRC** (Alpine) ou **systemd** (Debian/Ubuntu)
 
 ## Atualizar versão
 
@@ -57,6 +57,7 @@ cd /root/termo-online && sh instalar.sh
 | Arquivo | Função |
 |---------|--------|
 | `instalar-na-vm.sh` | Instalação completa |
-| `termo-api.service` | API FastAPI :8001 |
-| `termo-web.service` | Estáticos Vue :8000 |
+| `openrc/termo-*` | Init scripts Alpine (padrão na VM) |
+| `termo-api.service` | Unit systemd (Debian/Ubuntu) |
+| `termo-web.service` | Unit systemd (Debian/Ubuntu) |
 | `sincronizar.sh` | Envia código via rsync (opcional) |
