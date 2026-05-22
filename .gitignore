@@ -7,7 +7,7 @@ data/
 scripts/.cache_hunspell/
 frontend/node_modules/
 src/static/dist/
-Palavras_PT-BR/
+dicionario/
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**

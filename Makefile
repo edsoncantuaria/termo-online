@@ -18,7 +18,7 @@ help:
 	@echo "  make frontend-build — gera src/static/dist/"
 	@echo "  make test           — pytest"
 	@echo "  make backup-db      — cópia de data/termo.db"
-	@echo "  make dicionario     — regenera dicionário Hunspell"
+	@echo "  make dicionario     — regenera dicionário (dicionario/dicionario.db)"
 
 # --- Instalação ---
 
@@ -98,4 +98,5 @@ backup-db:
 
 dicionario:
 	@test -x $(PYTHON) || (echo "Rode: make install-dev" && exit 1)
-	$(PYTHON) scripts/gerar_dicionario.py --baixar
+	@test -f dicionario/dicionario.db || (echo "Coloque dicionario.db em dicionario/" && exit 1)
+	$(PYTHON) scripts/gerar_dicionario_db.py

@@ -34,8 +34,8 @@ def NormalizarPalavra(Palavra: str) -> str:
 
 
 def PalavraExisteNoDicionario(PalavraNormalizada: str) -> bool:
-    _, PalavrasSemAcentoLista, _ = ObterDicionario()
-    return PalavraNormalizada in PalavrasSemAcentoLista
+    _, _, Indice = ObterDicionario()
+    return PalavraNormalizada in Indice
 
 
 def ObterPalavraComAcento(PalavraNormalizada: str) -> str | None:

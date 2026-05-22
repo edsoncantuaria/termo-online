@@ -162,6 +162,8 @@ make test
 
 ### Dicionário
 
+Requer `dicionario/dicionario.db` localmente (ver `docs/DICIONARIO.md`).
+
 ```bash
 make install-dev
 make dicionario
