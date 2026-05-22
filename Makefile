@@ -1,4 +1,4 @@
-.PHONY: help install install-dev install-python install-frontend frontend-build dev run run-prod stop stop-vite restart clean test backup-db dicionario
+.PHONY: help install install-dev install-python install-frontend frontend-build dev run run-prod stop stop-vite restart clean test backup-db dicionario dicionario-db
 
 PORT ?= 8000
 VITE_PORT ?= 5173
@@ -18,7 +18,8 @@ help:
 	@echo "  make frontend-build — gera src/static/dist/"
 	@echo "  make test           — pytest"
 	@echo "  make backup-db      — cópia de data/termo.db"
-	@echo "  make dicionario     — regenera dicionário (dicionario/dicionario.db)"
+	@echo "  make dicionario     — alias para dicionario-db"
+	@echo "  make dicionario-db  — gera src/dicionario.txt a partir de dicionario/dicionario.db"
 
 # --- Instalação ---
 
@@ -96,7 +97,9 @@ backup-db:
 	cp data/termo.db "data/backups/termo-$$(date +%Y%m%d-%H%M%S).db"
 	@echo "Backup em data/backups/"
 
-dicionario:
+dicionario: dicionario-db
+
+dicionario-db:
 	@test -x $(PYTHON) || (echo "Rode: make install-dev" && exit 1)
 	@test -f dicionario/dicionario.db || (echo "Coloque dicionario.db em dicionario/" && exit 1)
 	$(PYTHON) scripts/gerar_dicionario_db.py

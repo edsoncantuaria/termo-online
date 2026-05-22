@@ -39,6 +39,8 @@ import {
 } from "../utils/jogador.js";
 import { TextoXpGanho } from "../utils/progresso.js";
 import { acoesRanqueada } from "./termo/acoes-ranqueada.js";
+import { acoesSolo } from "./termo/acoes-solo.js";
+import { acoesResultado } from "./termo/acoes-resultado.js";
 import {
   ObterSessao,
   LimparSessao,
@@ -727,12 +729,8 @@ export const useTermoStore = defineStore("termo", {
     },
 
     ...acoesRanqueada,
-
-    revelarTentativaSolo(indice, tentativa, animar = false) {
-      const t = { ...NormalizarTentativa(tentativa), animar: !!animar };
-      this.tentativasHist[indice] = t;
-      if (animar) AgendarFimAnimacao(t);
-    },
+    ...acoesSolo,
+    ...acoesResultado,
 
     irParaView(nome) {
       this.view = nome;
@@ -871,10 +869,6 @@ export const useTermoStore = defineStore("termo", {
       this.irParaView("jogo");
     },
 
-    persistir() {
-      PersistirSessao(this.$state);
-    },
-
     async verResultadoDiaria() {
       if (!this.diariaFeita) return;
       try {
@@ -963,158 +957,6 @@ export const useTermoStore = defineStore("termo", {
       this.statsLocais = S;
     },
 
-    criarGradesMulti(qtd) {
-      this.gradesMulti = Array.from({ length: qtd }, () => ({
-        tentativas: [],
-      }));
-    },
-
-    aplicarChuteMulti(linhas, indiceTentativa, animar = false) {
-      if (!linhas) return;
-      linhas.forEach((linha) => {
-        const g = this.gradesMulti[linha.indice];
-        if (!g) return;
-        if (linha.venceu && !linha.estados?.length) {
-          const tab = this.tabuleiros?.[linha.indice];
-          const ult = tab?.tentativas?.[tab.tentativas.length - 1];
-          if (ult) {
-            const t = { ...NormalizarTentativa(ult), animar: !!animar };
-            g.tentativas[indiceTentativa] = t;
-            if (animar) AgendarFimAnimacao(t);
-          }
-          return;
-        }
-        const t = { ...NormalizarTentativa(linha), animar: !!animar };
-        g.tentativas[indiceTentativa] = t;
-        if (animar) AgendarFimAnimacao(t);
-        if (linha.estados?.length) {
-          this.teclado = RegistrarLetrasNoTeclado(linha, this.teclado);
-        }
-      });
-    },
-
-    restaurarPartidaSolo(D, salvoSolo) {
-      this.maxTentativas = D.maximoTentativas || 6;
-      this.encerrada = !!D.encerrada;
-      this.tabuleiros = D.tabuleiros || null;
-      const tentativas = (D.tentativas || []).map(NormalizarTentativa);
-
-      if (D.tabuleiros?.length > 1) {
-        this.criarGradesMulti(D.tabuleiros.length);
-        this.teclado = { ...(salvoSolo?.teclado || {}) };
-        tentativas.forEach((tent, idx) => {
-          if (!tent.linhas) return;
-          this.aplicarChuteMulti(tent.linhas, idx);
-          tent.linhas.forEach((linha) => {
-            if (linha.estados?.length) {
-              this.teclado = RegistrarLetrasNoTeclado(linha, this.teclado);
-            }
-          });
-        });
-      } else {
-        this.teclado = { ...(salvoSolo?.teclado || {}) };
-        tentativas.forEach((t) => {
-          this.teclado = RegistrarLetrasNoTeclado(t, this.teclado);
-        });
-        this.tentativasHist = tentativas;
-      }
-
-      this.tentativa = tentativas.length;
-      if (this.encerrada) {
-        this.letras = LetrasVazias();
-        this.indiceCursor = 0;
-      } else {
-        this.letras = LetrasEmProgressoSalvas(salvoSolo);
-        this.indiceCursor =
-          typeof salvoSolo?.indiceCursor === "number"
-            ? salvoSolo.indiceCursor
-            : ProximoIndiceVazio(this.letras);
-      }
-    },
-
-    async iniciarModo(modo, opcoes = {}) {
-      this.nick = this.nickJogo;
-      SalvarNickLocal(this.nick);
-      const dificuldade = opcoes.dificuldade || this.dificuldade;
-      const codigoDesafio = opcoes.codigoDesafio || null;
-
-      if (modo === "diaria") {
-        if (!this.conta?.podeRanqueada) {
-          this.mostrarToast(
-            "Crie uma conta para jogar a palavra do dia (uma vez por dia).",
-            true
-          );
-          this.abrirCriarConta();
-          return;
-        }
-        try {
-          const info = await api.diariaInfo(this.nickJogo);
-          if (info.jaJogou) {
-            const S = ObterStats();
-            const grade =
-              S.ultimaGrade || info.resultado?.gradeTexto || "";
-            if (grade) {
-              this.resultado = MontarResultadoUi({
-                modo: "diaria",
-                venceu: !!info.resultado?.venceu,
-                tentativa: info.resultado?.tentativasUsadas || 0,
-                maxTentativas: info.maximoTentativas || 6,
-                gradeTexto: grade,
-                pontos: info.resultado?.pontos,
-                dataDia: info.dataDia,
-              });
-              this.resultado.titulo = "Seu resultado de hoje";
-              this.abrirDialog("resultado");
-            } else {
-              this.mostrarToast("Você já jogou a palavra do dia hoje.", true);
-            }
-            return;
-          }
-        } catch {
-          /* segue */
-        }
-      }
-
-      LimparSessao();
-      this.modo = modo;
-      try {
-        const D = await api.jogarIniciar({
-          nomeJogador: this.nickJogo,
-          modo,
-          dificuldade,
-          codigoDesafio,
-        });
-        this.idPartida = D.idPartida;
-        this.dataDia = D.dataDia;
-        this.maxTentativas = D.maximoTentativas || 6;
-        this.tabuleiros = D.tabuleiros || null;
-        const labels = {
-          diaria: "Palavra do dia",
-          pratica: "Prática",
-          dueto: "Dueto",
-          quarteto: "Quarteto",
-          desafio: `Desafio ${codigoDesafio || ""}`.trim(),
-        };
-        this.iniciarTelaJogo(labels[modo] || modo);
-        if (D.tabuleiros?.length > 1) {
-          this.criarGradesMulti(D.tabuleiros.length);
-          if (!localStorage.getItem(CHAVE_TUTORIAL_MULTI)) {
-            localStorage.setItem(CHAVE_TUTORIAL_MULTI, "1");
-            this.mostrarAviso({
-              titulo: "Dueto e Quarteto",
-              mensagem:
-                "Um chute vale para todas as palavras ao mesmo tempo. Cada grade tem sua própria resposta — as cores podem ser diferentes entre elas.",
-              dica: "Você tem mais tentativas que no modo clássico.",
-            });
-          }
-        }
-        this.persistir();
-        this.fecharDialogs();
-      } catch (e) {
-        this.mostrarToast(e.message || "Não foi possível iniciar", true);
-      }
-    },
-
     selecionarCelula(indice) {
       if (this.encerrada) return;
       if (indice < 0 || indice >= TAMANHO_PALAVRA) return;
@@ -1166,21 +1008,13 @@ export const useTermoStore = defineStore("termo", {
         this.mostrarToast("Preencha as 5 letras", true);
         return;
       }
-      const palavra = MontarPalavraChute(this.letras);
-      const tentativasAnteriores = EhModoSalaOnline(this.modo)
-        ? this.arenaTentativas
-        : this.tentativasHist;
-      if (PalavraJaFoiTentada(palavra, tentativasAnteriores)) {
-        this.tratarChuteInvalido("Você já tentou essa palavra.");
-        return;
-      }
-      const noCache = PalavraNoCache(palavra, cacheDicionarioSet);
-      if (noCache === false) {
-        this.tratarChuteInvalido("Palavra não encontrada no dicionário.");
-        return;
-      }
-
       if (EhModoSalaOnline(this.modo)) {
+        const palavra = MontarPalavraChute(this.letras);
+        const tentativasAnteriores = this.arenaTentativas;
+        if (PalavraJaFoiTentada(palavra, tentativasAnteriores)) {
+          this.tratarChuteInvalido("Você já tentou essa palavra.");
+          return;
+        }
         if (this.espectador) {
           this.mostrarToast("Espectadores não chutam.", true);
           return;
@@ -1199,117 +1033,7 @@ export const useTermoStore = defineStore("termo", {
         return;
       }
 
-      this.carregandoChute = true;
-      try {
-        const D = await api.jogarChute({
-          idPartida: this.idPartida,
-          palavra,
-          nomeJogador: this.nickJogo,
-        });
-
-        if (!D.valido) {
-          this.tratarChuteInvalido(D.mensagem);
-          return;
-        }
-
-        this.mostrarToast("");
-        const idx = this.tentativa;
-        if (D.tentativa.linhas) {
-          this.aplicarChuteMulti(D.tentativa.linhas, idx, true);
-          this.tabuleiros = D.tabuleiros;
-        } else {
-          this.revelarTentativaSolo(idx, D.tentativa, true);
-          this.teclado = RegistrarLetrasNoTeclado(
-            D.tentativa,
-            this.teclado
-          );
-        }
-        this.tentativa++;
-        this.letras = LetrasVazias();
-        this.indiceCursor = 0;
-
-        if (D.venceu || D.tentativa.linhas?.some((L) => L.venceu)) {
-          TocarSom("acerto");
-        } else {
-          TocarSom("chute");
-        }
-
-        if (D.progresso) {
-          this.aplicarProgressoResposta(D.progresso);
-        }
-
-        if (D.encerrada) {
-          this.encerrada = true;
-          LimparSessao();
-          this.registrarVitoria(D.modo, D.tentativasUsadas, D.venceu);
-          const palavraFim =
-            D.palavrasSecretas?.join(", ") || D.palavraSecreta || "";
-          setTimeout(() => {
-            if (D.venceu) TocarSom("vitoria");
-            this.mostrarResultadoSolo(
-              D.venceu,
-              palavraFim,
-              D.pontos,
-              D.modo,
-              D.tentativasUsadas
-            );
-          }, DURACAO_FLIP_LINHA + 80);
-        } else {
-          this.persistir();
-        }
-      } finally {
-        this.carregandoChute = false;
-      }
-    },
-
-    mostrarResultadoSolo(venceu, palavra, pontos, modo, tentativasUsadas) {
-      const tentativa =
-        tentativasUsadas ?? this.tentativa ?? this.tentativasHist.length;
-      const gradeTexto = GerarTextoCompartilhar({
-        modo,
-        tentativa,
-        maxTentativas: this.maxTentativas,
-        tentativasHist: this.tentativasHist,
-        dataDia: this.dataDia,
-        codigoSala: this.codigoSala,
-        venceu,
-      });
-      this.resultado = MontarResultadoUi({
-        modo,
-        venceu,
-        tentativa,
-        maxTentativas: this.maxTentativas,
-        gradeTexto,
-        pontos,
-        palavra,
-        dataDia: this.dataDia,
-      });
-      if (modo === "diaria") {
-        const S = ObterStats();
-        S.ultimaGrade = gradeTexto;
-        SalvarStats(S);
-        this.statsLocais = S;
-        api
-          .diariaGrade({
-            nick: this.nickJogo,
-            gradeTexto,
-            venceu,
-            tentativasUsadas: this.tentativa,
-            pontos: typeof pontos === "number" ? pontos : 0,
-          })
-          .catch(() => {});
-        this.carregarInfoDiaria();
-      }
-      if (modo === "arena" && venceu) {
-        const S = ObterStats();
-        S.vitorias = (S.vitorias || 0) + 1;
-        S.sequencia = (S.sequencia || 0) + 1;
-        SalvarStats(S);
-        this.statsLocais = S;
-      }
-      this.atualizarStatsUI();
-      if (modo === "pratica" || modo === "diaria") LimparSessao();
-      this.abrirDialog("resultado");
+      return acoesSolo.enviarChuteSolo.call(this, cacheDicionarioSet);
     },
 
     mostrarAviso({
@@ -1696,79 +1420,6 @@ export const useTermoStore = defineStore("termo", {
           LimparSessao();
         }
       }
-    },
-
-    mostrarResultadoArena(D, venci, campeao) {
-      const ehRanq =
-        this.modo === "ranqueada" || D.configuracao?.ranqueada;
-      const porVitorias = ModoVitoriasArena(D);
-      const meta = D.metaVitorias || 5;
-      const meuPlacar = D.placar?.find((j) => j.idJogador === this.idJogador);
-      const meuRanq = (D.resultadosRanqueada || []).find(
-        (r) => r.idConta && r.idConta === this.conta?.idConta
-      );
-      const linhas = (D.placar || [])
-        .map((j, i) =>
-          porVitorias
-            ? `${i + 1}. ${j.nomeJogador} — ${j.vitoriasRodada || 0}/${meta} vit.`
-            : `${i + 1}. ${j.nomeJogador} — ${j.pontosAcumulados} pts`
-        )
-        .join("\n");
-      const gradeTexto = `Termo Arena ${D.codigoSala}\nRodadas: ${D.rodadaAtual}\n\n${linhas}`;
-      this.resultado = {
-        titulo: ehRanq
-          ? venci
-            ? "Vitória no ranqueado!"
-            : "Derrota no ranqueado"
-          : venci
-            ? "Você venceu a sessão!"
-            : "Sessão encerrada",
-        texto: campeao
-          ? porVitorias
-            ? `Campeão: ${campeao.nomeJogador} com ${campeao.vitoriasRodada || 0} vitórias (meta ${meta}).`
-            : `Campeão: ${campeao.nomeJogador} com ${campeao.pontosAcumulados} pontos.`
-          : "Obrigado por jogar!",
-        pontos: meuRanq
-          ? `${meuRanq.delta >= 0 ? "+" : ""}${meuRanq.delta} RP · ${meuRanq.pontosDepois} pts (${(meuRanq.eloDepois || "").replace(/^./, (c) => c.toUpperCase())})`
-          : meuPlacar
-            ? porVitorias
-              ? `Você: ${meuPlacar.vitoriasRodada || 0}/${meta} vitórias`
-              : `Você fez ${meuPlacar.pontosAcumulados} pontos`
-            : "",
-        confete: venci,
-        gradeTexto,
-        mostrarGrade: true,
-        mostrarCopiar: true,
-        mostrarCompartilhar: true,
-        mostrarRevanche: !!(this.souCriador && this.codigoSala),
-        mostrarRevancheRanqueada: !!(
-          ehRanq && D.revancheRanqueada?.disponivel
-        ),
-        revancheOponenteNick: D.revancheRanqueada?.oponenteNick || "",
-      };
-      if (venci) {
-        const S = ObterStats();
-        S.vitorias = (S.vitorias || 0) + 1;
-        S.sequencia = (S.sequencia || 0) + 1;
-        SalvarStats(S);
-        this.statsLocais = S;
-      }
-      if (meuRanq && this.conta) {
-        this.conta = {
-          ...this.conta,
-          pontosRanqueada: meuRanq.pontosDepois,
-          elo: meuRanq.eloDepois,
-          eloNome: (meuRanq.eloDepois || "").replace(/^./, (c) => c.toUpperCase()),
-        };
-        SalvarAuthLocal(this.token, this.conta);
-        this.carregarRankingRanqueado();
-        api.progressoEu().then((p) => {
-          this.conta = { ...this.conta, progresso: p };
-          SalvarAuthLocal(this.token, this.conta);
-        }).catch(() => {});
-      }
-      this.atualizarStatsUI();
-      this.abrirDialog("resultado");
     },
 
     atualizarEntreRodadas(D) {
