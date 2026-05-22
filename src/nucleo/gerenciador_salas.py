@@ -20,6 +20,11 @@ from .arena_rodadas import (
     SessaoAtingiuLimite,
 )
 from .dicionario import ObterPalavraComAcento
+from .sala_chat import (
+    AdicionarMensagemChatSala,
+    FrasesChatPermitidas,
+    MaximoMensagensChat,
+)
 from .logica_jogo import (
     AvaliarChute,
     EscolherPalavraAleatoria,
@@ -34,7 +39,6 @@ TempoLimiteMinimoSegundos = 60
 TempoLimiteMaximoSegundos = 900
 TempoInativoSegundos = 300
 MaximoEspectadores = 6
-MaximoMensagensChat = 40
 SegundosCountdown = 3
 _NotificarLobbySalas = None
 
@@ -47,20 +51,6 @@ def RegistrarNotificadorLobbySalas(Callback) -> None:
 def _DispararNotificacaoLobby() -> None:
     if _NotificarLobbySalas:
         _NotificarLobbySalas()
-
-
-FrasesChatPermitidas = (
-    "Boa!",
-    "Uau!",
-    "Difícil!",
-    "Quase!",
-    "Gg",
-    "Bora",
-    "😅",
-    "🔥",
-    "👏",
-    "🎯",
-)
 
 
 @dataclass
@@ -686,22 +676,9 @@ class GerenciadorSalas:
         return True
 
     def AdicionarMensagemChat(self, Sala: SalaJogo, IdJogador: str, Texto: str) -> str | None:
-        Jogador = Sala.Jogadores.get(IdJogador)
-        if not Jogador:
-            return "Jogador inválido."
-        Mensagem = (Texto or "").strip()[:80]
-        if Mensagem not in FrasesChatPermitidas:
-            return "Mensagem não permitida."
-        Sala.MensagensChat.append(
-            {
-                "idJogador": IdJogador,
-                "nomeJogador": Jogador.NomeJogador,
-                "texto": Mensagem,
-                "quando": time.time(),
-            }
-        )
-        if len(Sala.MensagensChat) > MaximoMensagensChat:
-            Sala.MensagensChat = Sala.MensagensChat[-MaximoMensagensChat:]
+        Erro = AdicionarMensagemChatSala(Sala, IdJogador, Texto)
+        if Erro:
+            return Erro
         self.PersistirSala(Sala)
         return None
 

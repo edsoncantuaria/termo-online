@@ -20,6 +20,7 @@ const store = useTermoStore();
 const classesApp = computed(() => ({
   "app-desktop": true,
   "modo-jogo": store.emJogo,
+  "modo-jogo-multi": store.emJogo && store.modoMulti,
   "modo-jogo-arena": store.modoJogoArena,
   "modo-jogo-ranqueada": store.modoJogoRanqueada,
   "modo-sala-espera": store.emLobby,

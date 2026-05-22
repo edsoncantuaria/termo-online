@@ -79,3 +79,14 @@ def MontarMetasSemanaisConta(IdConta: str) -> list[dict]:
             }
         )
     return Lista
+
+
+def LembreteMetasPendentes(IdConta: str) -> str | None:
+    """Texto curto para UI quando falta pouco para concluir uma meta."""
+    for Item in MontarMetasSemanaisConta(IdConta):
+        if Item["concluida"]:
+            continue
+        Falta = Item["meta"] - Item["progresso"]
+        if 0 < Falta <= 2:
+            return f"Falta {Falta} para a meta «{Item['nome']}» esta semana."
+    return None

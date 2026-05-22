@@ -9,8 +9,11 @@ from fastapi.staticfiles import StaticFiles
 from nucleo.dicionario import CarregarDicionario
 
 from .manutencao import TarefaManutencaoSalas
+from .metricas import MiddlewareMetricas
+from .observabilidade import ConfigurarLogging
 from .rate_limit import MiddlewareRateLimit
 from .rotas import RegistrarRotas
+from .saude import RoteadorSaude
 from .websocket import RegistrarWebSocket
 
 
@@ -26,6 +29,7 @@ async def CicloVida(Aplicacao: FastAPI):
 
 
 def CriarAplicacao() -> FastAPI:
+    ConfigurarLogging()
     CarregarDicionario()
 
     Aplicacao = FastAPI(
@@ -35,7 +39,9 @@ def CriarAplicacao() -> FastAPI:
         lifespan=CicloVida,
     )
 
+    Aplicacao.add_middleware(MiddlewareMetricas)
     Aplicacao.add_middleware(MiddlewareRateLimit)
+    Aplicacao.include_router(RoteadorSaude)
     RegistrarRotas(Aplicacao)
     RegistrarWebSocket(Aplicacao)  # registra também notificador do lobby
 

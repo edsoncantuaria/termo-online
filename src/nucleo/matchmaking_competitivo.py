@@ -26,6 +26,9 @@ JANELA_RP_MESMO_ELO_EXTRA = 45
 JANELA_RP_BOT_BASE = 90
 """Bots: oponente com RP próximo ao seu (cresce com a espera)."""
 
+PARTIDAS_PLACEMENT = 5
+"""Contas com menos partidas ranqueadas: janela mais ampla no início."""
+
 
 def LarguraFaixaElo(Pontos: int) -> int:
     Elo = EloDePontos(Pontos)
@@ -67,11 +70,15 @@ def PodeParearRp(
     SegundosA: float,
     PontosB: int,
     SegundosB: float,
+    PartidasA: int = 99,
+    PartidasB: int = 99,
 ) -> bool:
     Diff = abs(int(PontosA) - int(PontosB))
     Janela = JanelaRpEntreJogadores(PontosA, SegundosA, PontosB, SegundosB)
     if EloDePontos(PontosA) == EloDePontos(PontosB):
         Janela += JANELA_RP_MESMO_ELO_EXTRA
+    if PartidasA < PARTIDAS_PLACEMENT or PartidasB < PARTIDAS_PLACEMENT:
+        Janela = min(JANELA_RP_MAXIMA, Janela + 60)
     return Diff <= Janela
 
 

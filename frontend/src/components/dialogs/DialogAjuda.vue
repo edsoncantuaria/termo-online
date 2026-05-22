@@ -165,16 +165,30 @@ const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
             <small>Símbolos nas peças</small>
           </span>
         </label>
+        <label class="ajuda-campo">
+          <span class="ajuda-toggle-texto">
+            <strong>Tema</strong>
+          </span>
+          <select
+            class="ajuda-select"
+            :value="store.preferencias.temaModo || (store.preferencias.temaClaro ? 'claro' : 'escuro')"
+            @change="store.definirPreferenciaTemaModo($event.target.value)"
+          >
+            <option value="sistema">Sistema</option>
+            <option value="escuro">Escuro</option>
+            <option value="claro">Claro</option>
+          </select>
+        </label>
         <label class="ajuda-toggle">
           <input
             type="checkbox"
-            :checked="!!store.preferencias.temaClaro"
-            @change="store.definirPreferenciaTema($event.target.checked)"
+            :checked="!!store.preferencias.reduzirAnimacao"
+            @change="store.definirPreferenciaAnimacao($event.target.checked)"
           />
           <span class="ajuda-toggle-ui" />
           <span class="ajuda-toggle-texto">
-            <strong>Tema claro</strong>
-            <small>Interface em fundo claro</small>
+            <strong>Reduzir animação</strong>
+            <small>Menos movimento nas peças</small>
           </span>
         </label>
         <button

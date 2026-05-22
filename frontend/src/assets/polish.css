@@ -848,6 +848,31 @@ body::-webkit-scrollbar-corner,
   gap: 0.65rem;
 }
 
+.ajuda-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0;
+}
+
+.ajuda-select {
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: inherit;
+  max-width: 12rem;
+}
+
+.perfil-lembrete-metas {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-size: 0.9rem;
+}
+
 .ajuda-toggle {
   display: flex;
   align-items: center;
@@ -3138,6 +3163,190 @@ html.tema-claro .resultado-grade-card {
 
 .btn-chat-frase:hover {
   transform: translateY(-1px);
+}
+
+/* --- Dueto / Quarteto: grades separadas, tamanho confortável --- */
+
+.app.modo-jogo-multi .layout-jogo,
+.app.modo-jogo-multi .jogo-principal {
+  max-width: min(96vw, 52rem);
+}
+
+.app.modo-jogo-multi .principal {
+  align-items: stretch;
+}
+
+.grade-wrap--multi {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.25rem 0;
+  margin-bottom: 0.85rem;
+}
+
+.grades-multi {
+  --tile-multi: 50px;
+  --gap-letra-multi: 9px;
+  --gap-linha-multi: 9px;
+  display: grid;
+  gap: 1.5rem 2rem;
+  width: 100%;
+  margin: 0 auto;
+  justify-items: center;
+  justify-content: center;
+}
+
+.grades-multi--dueto {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2.25rem;
+  max-width: min(100%, 44rem);
+  padding: 0 0.25rem;
+}
+
+.grades-multi--dueto .grade-multi-item {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
+}
+
+.grades-multi--quarteto {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 2rem;
+  row-gap: 1.65rem;
+  max-width: min(100%, 42rem);
+  padding: 0 0.25rem;
+}
+
+.grade-multi-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+  max-width: 16.5rem;
+  padding: 0.85rem 0.85rem 1rem;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface, #1a1528) 88%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.2);
+}
+
+.grades-multi--dueto .grade-multi-item,
+.grades-multi--quarteto .grade-multi-item {
+  max-width: none;
+}
+
+.grade-multi-label {
+  display: block;
+  width: 100%;
+  margin: 0 0 0.55rem;
+  padding-bottom: 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.grades-multi .grade {
+  align-items: center;
+  width: max-content;
+  max-width: 100%;
+}
+
+.grades-multi .grade-mini-compacta {
+  gap: var(--gap-linha-multi);
+}
+
+.grades-multi .grade-mini-compacta .linha {
+  gap: var(--gap-letra-multi);
+  justify-content: center;
+}
+
+.grades-multi .grade-mini-compacta .tile {
+  width: var(--tile-multi);
+  height: var(--tile-multi);
+  font-size: 1.05rem;
+  font-weight: 800;
+  border-radius: 10px;
+  border-width: 2px;
+}
+
+html.tema-claro .grade-multi-item {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+html.tema-claro .grade-multi-label {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+@media (min-width: 900px) {
+  .grades-multi {
+    --tile-multi: 54px;
+    --gap-letra-multi: 10px;
+    --gap-linha-multi: 10px;
+  }
+
+  .grades-multi--dueto {
+    gap: 2.5rem;
+    max-width: min(100%, 48rem);
+  }
+
+  .grades-multi--quarteto {
+    max-width: min(100%, 46rem);
+  }
+}
+
+@media (max-width: 720px) {
+  .grades-multi {
+    --tile-multi: 44px;
+    --gap-letra-multi: 7px;
+    --gap-linha-multi: 7px;
+  }
+
+  .grades-multi--dueto {
+    gap: 1.5rem;
+    max-width: min(100%, 22rem);
+  }
+
+  .grades-multi--quarteto {
+    column-gap: 1.35rem;
+    row-gap: 1.25rem;
+    max-width: min(100%, 20rem);
+  }
+}
+
+@media (max-width: 520px) {
+  .grades-multi--dueto {
+    flex-direction: column;
+    align-items: center;
+    gap: 1.35rem;
+    max-width: min(100%, 18rem);
+    padding: 0;
+  }
+
+  .grades-multi--quarteto {
+    grid-template-columns: 1fr;
+    max-width: min(100%, 18rem);
+    gap: 1.25rem;
+  }
+
+  .grades-multi {
+    --tile-multi: 42px;
+  }
+
+  .grade-multi-item {
+    max-width: 100%;
+    width: 100%;
+  }
 }
 
 @media (max-width: 960px) {

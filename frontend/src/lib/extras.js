@@ -21,7 +21,9 @@ export function AplicarDaltonismo(Ativo) {
   document.body.classList.toggle("modo-daltonico", !!Ativo);
 }
 
-export function AplicarTema(claro) {
+export { AplicarTemaPreferencias as AplicarTema, ObservarTemaSistema } from "../utils/tema.js";
+
+export function AplicarTemaLegado(claro) {
   document.documentElement.classList.toggle("tema-claro", !!claro);
 }
 

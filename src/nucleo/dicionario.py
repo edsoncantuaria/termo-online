@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 from unidecode import unidecode
 
@@ -44,3 +45,16 @@ def ObterPalavraComAcento(PalavraNormalizada: str) -> str | None:
         return None
     PalavrasComAcentoLista, _, _ = ObterDicionario()
     return PalavrasComAcentoLista[IndicePalavra]
+
+
+def ObterHashDicionario() -> str:
+    """Hash estável para cache do cliente validar palavras offline."""
+    _, PalavrasSem, _ = ObterDicionario()
+    Conteudo = "\n".join(PalavrasSem).encode("utf-8")
+    return hashlib.sha256(Conteudo).hexdigest()[:16]
+
+
+def PalavraExisteNoConjuntoLocal(PalavraNormalizada: str, Conjunto: set[str] | None) -> bool:
+    if Conjunto is not None:
+        return PalavraNormalizada in Conjunto
+    return PalavraExisteNoDicionario(PalavraNormalizada)

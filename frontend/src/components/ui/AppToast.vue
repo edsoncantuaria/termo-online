@@ -12,7 +12,8 @@ const store = useTermoStore();
       erro: store.toastErro,
       sucesso: store.toastSucesso,
     }"
-    role="status"
+    role="alert"
+    aria-live="assertive"
   >
     <span v-if="store.toastErro" class="toast-icone" aria-hidden="true">!</span>
     <span v-else-if="store.toastSucesso" class="toast-icone" aria-hidden="true">✓</span>

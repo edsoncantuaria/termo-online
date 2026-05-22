@@ -120,6 +120,9 @@ const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
           </p>
         </div>
       </details>
+      <p v-if="progresso.lembreteMetas" class="perfil-lembrete-metas" role="status">
+        {{ progresso.lembreteMetas }}
+      </p>
       <details v-if="progresso.metasSemanais?.length" class="perfil-colapsavel">
         <summary class="perfil-colapsavel-resumo">
           Metas da semana ({{ metasConcluidas }}/{{ metasTotal }})

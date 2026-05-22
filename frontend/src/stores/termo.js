@@ -7,6 +7,7 @@ import {
   CHAT_MAX_VISIVEIS,
   DURACAO_TOAST_MS,
   CHAVE_TUTORIAL_VISTO,
+  CHAVE_TUTORIAL_MULTI,
 } from "../utils/constantes.js";
 import { TextoProximaDiaria } from "../utils/diaria.js";
 import {
@@ -57,16 +58,22 @@ import {
   SalvarPreferencias,
   AplicarDaltonismo,
   AplicarTema,
+  ObservarTemaSistema,
 } from "../lib/extras.js";
+import {
+  CarregarCacheDicionario,
+  PalavraNoCache,
+} from "../utils/dicionario-cache.js";
+import * as acoesArena from "./termo/acoes-arena.js";
 import { TocarSom, prepararSons } from "../lib/som.js";
 import { AgendarFimAnimacao, DURACAO_FLIP_LINHA } from "../utils/animacao.js";
 
-let socket = null;
 let socketLobby = null;
 let tentativasReconexaoLobby = 0;
 let intervaloTimer = null;
-let intervaloSyncArena = null;
 let timersChat = new Map();
+let cacheDicionarioSet = null;
+let pararObservadorTema = null;
 let timerToast = null;
 
 function ChaveMsgChat(M) {
@@ -571,10 +578,28 @@ export const useTermoStore = defineStore("termo", {
       }
     },
 
-    definirPreferenciaTema(claro) {
-      this.preferencias = { ...this.preferencias, temaClaro: !!claro };
+    definirPreferenciaTemaModo(modo) {
+      const m = modo === "claro" || modo === "escuro" ? modo : "sistema";
+      this.preferencias = {
+        ...this.preferencias,
+        temaModo: m,
+        temaClaro: m === "claro",
+      };
       SalvarPreferencias(this.preferencias);
-      AplicarTema(claro);
+      AplicarTema(this.preferencias);
+    },
+
+    definirPreferenciaTema(claro) {
+      this.definirPreferenciaTemaModo(claro ? "claro" : "escuro");
+    },
+
+    definirPreferenciaAnimacao(reduzir) {
+      this.preferencias = { ...this.preferencias, reduzirAnimacao: !!reduzir };
+      SalvarPreferencias(this.preferencias);
+      document.documentElement.classList.toggle(
+        "reduzir-animacao",
+        !!reduzir
+      );
     },
 
     definirFiltroSalasPublicas(filtro) {
@@ -1073,6 +1098,15 @@ export const useTermoStore = defineStore("termo", {
         this.iniciarTelaJogo(labels[modo] || modo);
         if (D.tabuleiros?.length > 1) {
           this.criarGradesMulti(D.tabuleiros.length);
+          if (!localStorage.getItem(CHAVE_TUTORIAL_MULTI)) {
+            localStorage.setItem(CHAVE_TUTORIAL_MULTI, "1");
+            this.mostrarAviso({
+              titulo: "Dueto e Quarteto",
+              mensagem:
+                "Um chute vale para todas as palavras ao mesmo tempo. Cada grade tem sua própria resposta — as cores podem ser diferentes entre elas.",
+              dica: "Você tem mais tentativas que no modo clássico.",
+            });
+          }
         }
         this.persistir();
         this.fecharDialogs();
@@ -1140,14 +1174,20 @@ export const useTermoStore = defineStore("termo", {
         this.tratarChuteInvalido("Você já tentou essa palavra.");
         return;
       }
+      const noCache = PalavraNoCache(palavra, cacheDicionarioSet);
+      if (noCache === false) {
+        this.tratarChuteInvalido("Palavra não encontrada no dicionário.");
+        return;
+      }
 
       if (EhModoSalaOnline(this.modo)) {
         if (this.espectador) {
           this.mostrarToast("Espectadores não chutam.", true);
           return;
         }
-        if (socket?.readyState === WebSocket.OPEN) {
-          socket.send(
+        const sock = acoesArena.obterSocketSala();
+        if (sock?.readyState === WebSocket.OPEN) {
+          sock.send(
             JSON.stringify({
               tipo: "chute",
               dados: { palavra },
@@ -1449,132 +1489,23 @@ export const useTermoStore = defineStore("termo", {
     },
 
     pararSyncArena() {
-      if (intervaloSyncArena) {
-        clearInterval(intervaloSyncArena);
-        intervaloSyncArena = null;
-      }
+      acoesArena.pararSyncArena();
     },
 
-    async sincronizarArenaHttp() {
-      if (!this.codigoSala || !this.idJogador) return;
-      try {
-        const R = await api.salaEstado(this.codigoSala, this.idJogador);
-        if (!R.ok) {
-          if (R.status === 404) {
-            this.mostrarToast("Sala não encontrada.", true);
-            this.pararSyncArena();
-          }
-          return;
-        }
-        const D = await R.json();
-        if (D.estadoSala === "aguardando") {
-          this.dadosSala = D;
-          if (this.view !== "jogo") {
-            this.irParaView(
-              this.modo === "ranqueada" ? "inicio" : "arenaLobby"
-            );
-          }
-        } else {
-          this.atualizarArena(D);
-        }
-      } catch {
-        /* rede */
-      }
+    sincronizarArenaHttp() {
+      return acoesArena.sincronizarArenaHttp(this);
     },
 
     iniciarSyncArena() {
-      this.pararSyncArena();
-      this.sincronizarArenaHttp();
-      intervaloSyncArena = setInterval(
-        () => this.sincronizarArenaHttp(),
-        2500
-      );
+      acoesArena.iniciarSyncArena(this);
     },
 
     conectarWs() {
-      if (!this.codigoSala || !this.idJogador) return;
-      this.pararLobbyWs();
-      const proto = location.protocol === "https:" ? "wss:" : "ws:";
-      const url = `${proto}//${location.host}/ws/sala/${this.codigoSala}/${this.idJogador}`;
-      if (
-        socket &&
-        this.wsUrl === url &&
-        (socket.readyState === WebSocket.OPEN ||
-          socket.readyState === WebSocket.CONNECTING)
-      ) {
-        this.iniciarSyncArena();
-        return;
-      }
-      if (socket) {
-        socket.onclose = null;
-        socket.onerror = null;
-        socket.close();
-      }
-      this.wsUrl = url;
-      socket = new WebSocket(url);
-      this.iniciarSyncArena();
-
-      socket.onopen = () => {
-        this.tentativasReconexao = 0;
-        this.bannerReconexao = false;
-        this.wsConectado = true;
-        this.sincronizarArenaHttp();
-      };
-      socket.onmessage = (e) => {
-        try {
-          const M = JSON.parse(e.data);
-          this.processarWs(M);
-        } catch {
-          /* inválido */
-        }
-      };
-      socket.onerror = () => {
-        this.bannerReconexao = true;
-        this.wsConectado = false;
-      };
-      socket.onclose = () => {
-        this.wsConectado = false;
-        if (
-          !EhModoSalaOnline(this.modo) ||
-          !this.codigoSala ||
-          !this.idJogador ||
-          this.encerrada ||
-          this.view === "inicio"
-        ) {
-          this.pararSyncArena();
-          return;
-        }
-        this.bannerReconexao = true;
-        if (this.tentativasReconexao < 12) {
-          this.tentativasReconexao++;
-          const espera = Math.min(
-            1500 * this.tentativasReconexao,
-            8000
-          );
-          setTimeout(() => this.conectarWs(), espera);
-        }
-      };
+      acoesArena.conectarWsArena(this);
     },
 
     processarWs(M) {
-      if (M.tipo === "chuteInvalido") {
-        this.tratarChuteInvalido(M.mensagem);
-      } else       if (M.tipo === "erro") {
-        this.mostrarToast(M.mensagem, true);
-        TocarSom("erro");
-        this.linhaShake = this.tentativa;
-        setTimeout(() => {
-          this.linhaShake = null;
-        }, 480);
-      }
-      if (M.tipo === "expulso") {
-        this.mostrarToast(M.mensagem || "Você foi removido da sala.", true);
-        this.voltarInicio();
-        return;
-      }
-      if (M.tipo === "conectado" || M.tipo === "estadoSala") {
-        this.atualizarArena(M.dados);
-      }
+      acoesArena.processarWsArena(this, M);
     },
 
     alternarProntoLobby() {
@@ -1588,9 +1519,7 @@ export const useTermoStore = defineStore("termo", {
     },
 
     wsEnviar(tipo, dados = {}) {
-      if (socket?.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ tipo, dados }));
-      }
+      acoesArena.wsEnviar(tipo, dados);
     },
 
     atualizarArena(D) {
@@ -1757,7 +1686,7 @@ export const useTermoStore = defineStore("termo", {
         const campeao = D.placar?.[0];
         const venci = D.vencedorId === this.idJogador;
         setTimeout(() => this.mostrarResultadoArena(D, venci, campeao), 300);
-        socket?.close();
+        acoesArena.fecharSocketSala();
         this.irParaView("inicio");
         if (this.modo === "ranqueada") {
           this.modo = null;
@@ -1935,23 +1864,7 @@ export const useTermoStore = defineStore("termo", {
 
     fecharSocketSala() {
       this.pararSyncArena();
-      if (!socket) return;
-      socket.onclose = null;
-      socket.onerror = null;
-      socket.onmessage = null;
-      try {
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({ tipo: "sair", dados: {} }));
-        }
-      } catch {
-        /* ok */
-      }
-      try {
-        socket.close();
-      } catch {
-        /* ok */
-      }
-      socket = null;
+      acoesArena.fecharSocketSala();
       this.wsUrl = null;
       this.wsConectado = false;
       this.bannerReconexao = false;
@@ -2257,7 +2170,19 @@ export const useTermoStore = defineStore("termo", {
       this.aplicarQuerySala();
       this.aplicarQueryDesafio();
       AplicarDaltonismo(this.preferencias.daltonismo);
-      AplicarTema(this.preferencias.temaClaro);
+      document.documentElement.classList.toggle(
+        "reduzir-animacao",
+        !!this.preferencias.reduzirAnimacao
+      );
+      AplicarTema(this.preferencias);
+      if (pararObservadorTema) pararObservadorTema();
+      pararObservadorTema = ObservarTemaSistema(() => {
+        if ((this.preferencias.temaModo || "sistema") === "sistema") {
+          AplicarTema(this.preferencias);
+        }
+      });
+      const cache = await CarregarCacheDicionario();
+      if (cache instanceof Set) cacheDicionarioSet = cache;
       if (this.token) {
         try {
           const D = await api.authEu();

@@ -24,6 +24,7 @@ from .matchmaking_competitivo import (
     ScoreQualidadePar,
     SegundosNaFila,
 )
+from .persistencia import ContarPartidasRanqueadasConta
 from .ranqueada import EloDePontos, NomeEloExibicao
 
 
@@ -257,7 +258,11 @@ class FilaMatchmaking:
             Sa = SegundosNaFila(A.EntrouEm, Agora)
             for B in Entradas[i + 1 :]:
                 Sb = SegundosNaFila(B.EntrouEm, Agora)
-                if not PodeParearRp(A.Pontos, Sa, B.Pontos, Sb):
+                Pa = ContarPartidasRanqueadasConta(A.IdConta)
+                Pb = ContarPartidasRanqueadasConta(B.IdConta)
+                if not PodeParearRp(
+                    A.Pontos, Sa, B.Pontos, Sb, PartidasA=Pa, PartidasB=Pb
+                ):
                     continue
                 Candidatos.append(
                     (ScoreQualidadePar(A.Pontos, Sa, B.Pontos, Sb), A, B)

@@ -28,6 +28,9 @@ Dados persistentes no volume `termo-data` (`data/termo.db`).
 | Variável | Padrão | Descrição |
 |----------|--------|-----------|
 | `PORT` | `8000` | Porta HTTP |
+| `TERM0_DATA` | `./data` | Diretório do SQLite |
+| `TERM0_LOG_LEVEL` | `INFO` | Nível de log (`DEBUG`, `WARNING`, …) |
+| `TERM0_REDIS_URL` | — | Reservado para estado distribuído (salas/fila); sem URL = memória |
 
 ## HTTPS e domínio
 
@@ -40,10 +43,13 @@ Coloque um reverse proxy (Caddy, nginx, Traefik) na frente do container ou do `m
 ## Checklist pós-deploy
 
 1. Abrir `/` — UI Vue carrega
-2. `GET /api/health` ou criar partida de prática
-3. WebSocket da arena (`/ws/sala/...`)
-4. Arquivos estáticos: `/sounds/`, `/assets/`, `favicon.svg`
-5. PWA: `manifest.webmanifest` e service worker (opcional)
+2. `GET /api/health` e `GET /api/ready`
+3. `GET /api/metricas` (opcional, por processo)
+4. WebSocket da arena (`/ws/sala/...`)
+5. Arquivos estáticos: `/sounds/`, `/assets/`, `favicon.svg`
+6. PWA: `manifest.webmanifest` e service worker (opcional)
+
+Backup local: `make backup-db`
 
 ## Atualização
 

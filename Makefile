@@ -1,4 +1,4 @@
-.PHONY: help install install-dev install-python install-frontend frontend-build dev run run-prod stop stop-vite restart clean test dicionario
+.PHONY: help install install-dev install-python install-frontend frontend-build dev run run-prod stop stop-vite restart clean test backup-db dicionario
 
 PORT ?= 8000
 VITE_PORT ?= 5173
@@ -17,6 +17,7 @@ help:
 	@echo "  make stop           — libera portas $(PORT) e $(VITE_PORT)"
 	@echo "  make frontend-build — gera src/static/dist/"
 	@echo "  make test           — pytest"
+	@echo "  make backup-db      — cópia de data/termo.db"
 	@echo "  make dicionario     — regenera dicionário Hunspell"
 
 # --- Instalação ---
@@ -88,6 +89,12 @@ clean:
 test:
 	@test -x $(PYTHON) || (echo "Rode: make install-dev" && exit 1)
 	$(PYTHON) -m pytest tests/ -q
+
+backup-db:
+	@mkdir -p data/backups
+	@test -f data/termo.db || (echo "data/termo.db não existe." && exit 1)
+	cp data/termo.db "data/backups/termo-$$(date +%Y%m%d-%H%M%S).db"
+	@echo "Backup em data/backups/"
 
 dicionario:
 	@test -x $(PYTHON) || (echo "Rode: make install-dev" && exit 1)

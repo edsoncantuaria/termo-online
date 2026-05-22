@@ -26,7 +26,8 @@ Jogo de palavras em português — moderno e social. Conta opcional (visitante s
 - Retomar partida/sala via `localStorage` + servidor
 - Link direto: `http://localhost:8000/?sala=CODIGO` ou `/?desafio=CODIGO`
 - Compartilhar resultado (diária, prática e arena)
-- Rate limit nas APIs
+- Rate limit nas APIs (global e rotas sensíveis)
+- `GET /api/health`, `/api/ready`, `/api/metricas`
 - Arena em tempo real: **WebSocket** por sala (`/ws/sala/...`) + sync HTTP no lobby
 
 Ver [DEPLOY.md](DEPLOY.md) para colocar em produção.
@@ -128,12 +129,14 @@ make run
 | `make dev` | API `:8000` + Vite `:5173` |
 | `make run` | Build Vue → `src/static/dist/` + só `:8000` |
 | `make test` | pytest (backend) |
+| `make backup-db` | backup SQLite em `data/backups/` |
 
 ### Frontend (Vue)
 
 ```
 frontend/src/
-  stores/termo.js      — estado e lógica (Pinia)
+  stores/termo.js      — estado Pinia
+  stores/termo/acoes-ranqueada.js, acoes-arena.js
   services/api.js
   components/          — views, jogo, arena, dialogs, ui
   lib/som.js           — efeitos sonoros (Kenney CC0)

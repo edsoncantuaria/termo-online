@@ -1,17 +1,14 @@
 import random
 import string
-import uuid
-from dataclasses import dataclass, field
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from nucleo.dicionario import ObterPalavraComAcento
+from nucleo.dicionario import ObterHashDicionario, ObterPalavraComAcento
 from nucleo.estatisticas import ObterEstatisticasJogador
 from nucleo.gerenciador_salas import (
     ConfiguracaoSala,
-    FrasesChatPermitidas,
     MaximoCaracteresSenha,
     MaximoJogadoresPermitido,
     MinimoJogadoresSala,
@@ -35,7 +32,6 @@ from nucleo.modos_solo import (
     ModoDesafio,
     ModoDueto,
     ModoQuarteto,
-    QuantidadePalavrasModo,
 )
 from nucleo import persistencia
 from nucleo.arena_rodadas import FormatarModoSessao, ModoPontos, ModoVitorias
@@ -50,65 +46,20 @@ from nucleo.contas import (
 from nucleo.matchmaking import FilaGlobal
 from nucleo.pontuacao import CalcularPontuacao, ObterRanking, RegistrarPontuacao
 from nucleo.ranqueada import ELOS, EloDePontos, NomeEloExibicao
+from nucleo.redis_estado import StatusRedis
+from nucleo.sala_chat import FrasesChatPermitidas
+from nucleo.temporada_ranqueada import MontarInfoTemporada
 from servidor.dependencias_auth import ContaObrigatoria, ContaOpcional, ContaRegistrada
 from servidor.estado_global import GerenciadorVersus
+from servidor.metricas import MontarSnapshotMetricas
+from servidor.partida_solo import (
+    MontarRespostaPartida,
+    NovaPartida,
+    ObterPartida,
+    PartidaSolo,
+    SalvarPartida,
+)
 from servidor.websocket import BroadcastEstadoSala
-
-
-@dataclass
-class PartidaSolo:
-    IdPartida: str
-    PalavraSecreta: str
-    PalavraComAcento: str
-    Modo: str = ModoPratica
-    DataDia: str | None = None
-    Tentativas: list[dict] = field(default_factory=list)
-    Tabuleiros: list[dict] = field(default_factory=list)
-    Dificuldade: str = DificuldadeNormal
-    CodigoDesafio: str | None = None
-    Encerrada: bool = False
-    Venceu: bool = False
-    NomeJogador: str = "Jogador"
-    IdConta: str | None = None
-
-
-def MontarRespostaPartida(Partida: PartidaSolo) -> dict:
-    MaxTent = MaximoTentativasModo(Partida.Modo)
-    Usadas = (
-        ContarTentativasGlobais(Partida.Tabuleiros)
-        if Partida.Tabuleiros
-        else len(Partida.Tentativas)
-    )
-    return {
-        "idPartida": Partida.IdPartida,
-        "modo": Partida.Modo,
-        "dataDia": Partida.DataDia,
-        "dificuldade": Partida.Dificuldade,
-        "codigoDesafio": Partida.CodigoDesafio,
-        "maximoTentativas": MaxTent,
-        "tentativasUsadas": Usadas,
-        "encerrada": Partida.Encerrada,
-        "venceu": Partida.Venceu,
-        "tentativas": Partida.Tentativas,
-        "tabuleiros": Partida.Tabuleiros or None,
-        "quantidadePalavras": QuantidadePalavrasModo(Partida.Modo),
-    }
-
-
-PartidasSolo: dict[str, PartidaSolo] = {}
-
-
-def ObterPartida(IdPartida: str) -> PartidaSolo | None:
-    if IdPartida not in PartidasSolo:
-        Carregada = persistencia.CarregarPartidaSolo(IdPartida, PartidaSolo)
-        if Carregada:
-            PartidasSolo[IdPartida] = Carregada
-    return PartidasSolo.get(IdPartida)
-
-
-def SalvarPartida(Partida: PartidaSolo) -> None:
-    PartidasSolo[Partida.IdPartida] = Partida
-    persistencia.SalvarPartidaSolo(Partida)
 
 
 class IniciarJogoRequest(BaseModel):
@@ -358,20 +309,17 @@ def RegistrarRotas(Aplicacao) -> None:
         else:
             Tabuleiros = CriarTabuleiros(Corpo.modo, Corpo.dificuldade, CodigoDesafio)
 
-        IdPartida = str(uuid.uuid4())
-        Partida = PartidaSolo(
-            IdPartida=IdPartida,
+        Partida = NovaPartida(
             PalavraSecreta=Tabuleiros[0]["palavraSecreta"],
             PalavraComAcento=Tabuleiros[0]["palavraComAcento"],
             Modo=Corpo.modo,
-            DataDia=DataDia,
-            NomeJogador=Nome,
             Tabuleiros=Tabuleiros,
+            DataDia=DataDia,
             Dificuldade=Corpo.dificuldade,
             CodigoDesafio=CodigoDesafio,
+            NomeJogador=Nome,
             IdConta=IdConta,
         )
-        SalvarPartida(Partida)
         if Corpo.modo == ModoDiaria and IdConta and DataDia:
             persistencia.IniciarSessaoDiariaConta(IdConta, DataDia, IdPartida)
         Resposta = MontarRespostaPartida(Partida)
@@ -411,7 +359,9 @@ def RegistrarRotas(Aplicacao) -> None:
                 raise HTTPException(status_code=400, detail="Palavra do dia já concluída.")
 
         Valido, MensagemOuPalavra = ValidarPalavra(
-            Corpo.palavra, Partida.Tentativas
+            Corpo.palavra,
+            Partida.Tentativas,
+            ModoDificil=Partida.Dificuldade == DificuldadeDificil,
         )
         if not Valido:
             return {"valido": False, "mensagem": MensagemOuPalavra}
@@ -633,6 +583,29 @@ def RegistrarRotas(Aplicacao) -> None:
     @Roteador.get("/arena/frases-chat")
     def FrasesChat():
         return {"frases": list(FrasesChatPermitidas)}
+
+    @Roteador.get("/dicionario/info")
+    def InfoDicionario():
+        from nucleo.dicionario import ObterDicionario
+
+        _, Palavras, _ = ObterDicionario()
+        return {
+            "hash": ObterHashDicionario(),
+            "total": len(Palavras),
+            "tamanhoPalavra": 5,
+        }
+
+    @Roteador.get("/metricas")
+    def Metricas():
+        return MontarSnapshotMetricas()
+
+    @Roteador.get("/ranqueada/temporada")
+    def TemporadaRanqueada():
+        return MontarInfoTemporada()
+
+    @Roteador.get("/infra/redis")
+    def InfraRedis():
+        return StatusRedis()
 
     @Roteador.post("/pontuacao/registrar")
     def RegistrarPontuacaoEndpoint():

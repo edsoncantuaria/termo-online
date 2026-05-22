@@ -201,7 +201,7 @@ def MontarProgressoConta(IdConta: str) -> dict:
     for Def in BADGES:
         if Def["id"] not in BadgesIds:
             Badges.append({**Def, "desbloqueada": False})
-    from .metas_semanais import MontarMetasSemanaisConta
+    from .metas_semanais import LembreteMetasPendentes, MontarMetasSemanaisConta
 
     Estilo = EstiloNivel(Estado.Nivel)
     Hoje = persistencia.ObterXpGanhoDiario(IdConta)
@@ -221,6 +221,7 @@ def MontarProgressoConta(IdConta: str) -> dict:
         "xpRestanteHoje": max(0, CAP_XP_DIARIO - Hoje),
         "multiplicadorXpPct": round(100 * Mult),
         "metasSemanais": MontarMetasSemanaisConta(IdConta),
+        "lembreteMetas": LembreteMetasPendentes(IdConta),
         "historico7d": MontarHistorico7Dias(IdConta),
     }
 

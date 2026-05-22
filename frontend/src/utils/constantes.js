@@ -15,3 +15,4 @@ export const DURACAO_TOAST_MS = 2600;
 export const DURACAO_TOAST_ERRO_MS = DURACAO_TOAST_MS;
 export const INTERVALO_SALAS_PUBLICAS_MS = 20000;
 export const CHAVE_TUTORIAL_VISTO = "termoTutorialVisto";
+export const CHAVE_TUTORIAL_MULTI = "termoTutorialMultiVisto";

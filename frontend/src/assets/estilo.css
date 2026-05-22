@@ -1764,22 +1764,7 @@ dialog:not([open]) {
   color: #fff;
 }
 
-.grades-multi {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.75rem;
-  width: 100%;
-  max-width: 560px;
-  margin: 0 auto 0.5rem;
-}
-
-.grade-multi-item .grade-multi-label {
-  display: block;
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  margin-bottom: 0.25rem;
-  text-align: center;
-}
+/* grades-multi: layout detalhado em polish.css */
 
 .vitoria-rodada-toast {
   text-align: center;

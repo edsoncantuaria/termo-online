@@ -77,7 +77,10 @@ const verOutros = computed(
 
         <div
           class="grade-wrap"
-          :class="{ 'grade-aguardando': store.carregandoChute }"
+          :class="{
+            'grade-aguardando': store.carregandoChute,
+            'grade-wrap--multi': store.mostrarGradesMulti,
+          }"
         >
           <GradesMulti v-if="store.mostrarGradesMulti" />
           <GradeTermo

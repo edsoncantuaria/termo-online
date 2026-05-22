@@ -6,10 +6,18 @@ import { TAMANHO_PALAVRA } from "../../utils/constantes.js";
 
 const store = useTermoStore();
 
+const classeLayout = computed(() => {
+  const q = store.gradesMulti.length;
+  if (q >= 4) return "grades-multi--quarteto";
+  if (q >= 2) return "grades-multi--dueto";
+  return "";
+});
+
 const grades = computed(() =>
   store.gradesMulti.map((g, indice) => {
     const max = store.maxTentativas;
     const linhas = [];
+    const temDica = Object.values(store.teclado || {}).includes("presente");
     for (let i = 0; i < max; i++) {
       if (g.tentativas[i]) {
         linhas.push({
@@ -17,6 +25,15 @@ const grades = computed(() =>
           revelada: true,
           atual: false,
           animar: !!g.tentativas[i].animar,
+        });
+      } else if (i === store.tentativa && !store.encerrada) {
+        linhas.push({
+          letras: [...store.letras],
+          estados: [],
+          revelada: false,
+          atual: true,
+          comDica: temDica,
+          indiceCursor: store.indiceCursor,
         });
       } else {
         linhas.push({
@@ -33,14 +50,20 @@ const grades = computed(() =>
 </script>
 
 <template>
-  <div class="grades-multi">
+  <div class="grades-multi" :class="classeLayout">
     <div
       v-for="g in grades"
       :key="g.indice"
       class="grade-multi-item"
     >
-      <span class="grade-multi-label">#{{ g.indice + 1 }}</span>
-      <GradeTermo :linhas="g.linhas" />
+      <span class="grade-multi-label">Palavra {{ g.indice + 1 }}</span>
+      <GradeTermo
+        :linhas="g.linhas"
+        compacta
+        :shake-linha="store.linhaShake"
+        :editavel="!store.encerrada"
+        @selecionar-celula="(_, col) => store.selecionarCelula(col)"
+      />
     </div>
   </div>
 </template>

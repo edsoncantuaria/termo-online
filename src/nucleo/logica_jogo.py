@@ -40,9 +40,33 @@ def PalavraJaFoiTentada(Tentativas: list[dict], PalavraNormalizada: str) -> bool
     return any(_PalavraDeTentativa(T) == Alvo for T in Tentativas)
 
 
+def ValidarModoDificil(
+    TentativasAnteriores: list[dict],
+    PalavraNormalizada: str,
+) -> tuple[bool, str | None]:
+    """Modo difícil: letras verdes devem permanecer na mesma posição."""
+    Letras = list(PalavraNormalizada)
+    for Tent in TentativasAnteriores:
+        Estados = Tent.get("estados") or []
+        LetrasTent = list(NormalizarPalavra("".join(Tent.get("letras") or [])))
+        if len(LetrasTent) != TamanhoPalavra and Tent.get("palavra"):
+            LetrasTent = list(NormalizarPalavra(Tent["palavra"]))
+        while len(LetrasTent) < TamanhoPalavra:
+            LetrasTent.append("")
+        for I, Estado in enumerate(Estados[:TamanhoPalavra]):
+            if Estado == EstadoLetra.CORRETO.value and LetrasTent[I]:
+                if Letras[I] != LetrasTent[I]:
+                    return (
+                        False,
+                        f"A letra '{LetrasTent[I].upper()}' deve ficar na posição {I + 1}.",
+                    )
+    return True, None
+
+
 def ValidarPalavra(
     Palavra: str,
     TentativasAnteriores: list[dict] | None = None,
+    ModoDificil: bool = False,
 ) -> tuple[bool, str | None]:
     PalavraNormalizada = NormalizarPalavra(Palavra)
 
@@ -54,6 +78,11 @@ def ValidarPalavra(
 
     if TentativasAnteriores and PalavraJaFoiTentada(TentativasAnteriores, PalavraNormalizada):
         return False, "Você já tentou essa palavra."
+
+    if ModoDificil and TentativasAnteriores:
+        Ok, Msg = ValidarModoDificil(TentativasAnteriores, PalavraNormalizada)
+        if not Ok:
+            return False, Msg
 
     return True, PalavraNormalizada
 
@@ -82,3 +111,13 @@ def AvaliarChute(PalavraSecreta: str, PalavraChute: str) -> list[EstadoLetra]:
 
 def PalavraFoiAcertada(PalavraSecreta: str, PalavraChute: str) -> bool:
     return PalavraSecreta == NormalizarPalavra(PalavraChute)
+
+
+def SecretaSatisfazFeedback(
+    PalavraSecreta: str,
+    PalavraChute: str,
+    Estados: list[EstadoLetra],
+) -> bool:
+    """A secreta deve reproduzir o mesmo feedback ao reavaliar o chute."""
+    Gerado = AvaliarChute(PalavraSecreta, PalavraChute)
+    return [E.value for E in Gerado] == [E.value for E in Estados]
