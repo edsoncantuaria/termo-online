@@ -120,6 +120,7 @@ export const useTermoStore = defineStore("termo", {
 
     modo: null,
     idPartida: null,
+    tokenPartida: null,
     dataDia: null,
     maxTentativas: 6,
     tentativa: 0,
@@ -1550,6 +1551,7 @@ export const useTermoStore = defineStore("termo", {
       this.codigoSala = null;
       this.idJogador = null;
       this.idPartida = null;
+      this.tokenPartida = null;
       this.dadosSala = null;
       this.configArena = null;
       this.estadoSalaArena = null;
@@ -1653,10 +1655,14 @@ export const useTermoStore = defineStore("termo", {
           return false;
         }
         try {
-          const D = await api.jogarEstado(salvo.solo.idPartida);
+          const D = await api.jogarEstado(
+            salvo.solo.idPartida,
+            salvo.solo.tokenPartida
+          );
           if (D.encerrada) throw new Error("fim");
           this.modo = D.modo;
           this.idPartida = D.idPartida;
+          this.tokenPartida = D.tokenPartida || salvo.solo.tokenPartida;
           this.dataDia = D.dataDia;
           const labels = {
             diaria: "Palavra do dia",
@@ -1719,7 +1725,7 @@ export const useTermoStore = defineStore("termo", {
             })
             .catch(() => {}),
           api
-            .historicoDiaria(this.nickJogo)
+            .historicoDiaria()
             .then((d) => {
               this.historicoDiaria = d.historico || [];
             })

@@ -25,10 +25,7 @@ export const api = {
   dicionarioPalavras: () => fetch("/api/dicionario/palavras").then(JsonOuErro),
   stats: (nick) =>
     fetch(`/api/stats?nick=${encodeURIComponent(nick)}`).then((r) => r.json()),
-  historicoDiaria: (nick) =>
-    fetch(`/api/diaria/historico?nick=${encodeURIComponent(nick)}`).then((r) =>
-      r.json()
-    ),
+  historicoDiaria: () => fetchAuth("/api/diaria/historico").then(JsonOuErro),
   salasPublicas: () => fetch("/api/salas/publicas").then((r) => r.json()),
   frasesChat: () => fetch("/api/arena/frases-chat").then((r) => r.json()),
   jogarIniciar: (body) =>
@@ -44,8 +41,12 @@ export const api = {
       body: JSON.stringify(body),
     }).then(JsonOuErro),
   progressoEu: () => fetchAuth("/api/progresso/eu").then(JsonOuErro),
-  jogarEstado: (id) =>
-    fetch(`/api/jogar/estado/${id}`).then(JsonOuErro),
+  jogarEstado: (id, tokenPartida) => {
+    const q = tokenPartida
+      ? `?tokenPartida=${encodeURIComponent(tokenPartida)}`
+      : "";
+    return fetchAuth(`/api/jogar/estado/${id}${q}`).then(JsonOuErro);
+  },
   salaCriar: (body) =>
     fetch("/api/sala/criar", {
       method: "POST",

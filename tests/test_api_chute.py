@@ -23,16 +23,18 @@ def test_chute_repetido_invalido(cliente):
         json={"nomeJogador": "teste", "modo": "pratica"},
     )
     assert I.status_code == 200
-    Id = I.json()["idPartida"]
-    C1 = cliente.post(
-        "/api/jogar/chute",
-        json={"idPartida": Id, "palavra": "termo", "nomeJogador": "teste"},
-    )
+    Corpo = I.json()
+    Id = Corpo["idPartida"]
+    Token = Corpo["tokenPartida"]
+    Payload = {
+        "idPartida": Id,
+        "tokenPartida": Token,
+        "palavra": "termo",
+        "nomeJogador": "teste",
+    }
+    C1 = cliente.post("/api/jogar/chute", json=Payload)
     assert C1.json()["valido"] is True
-    C2 = cliente.post(
-        "/api/jogar/chute",
-        json={"idPartida": Id, "palavra": "termo", "nomeJogador": "teste"},
-    )
+    C2 = cliente.post("/api/jogar/chute", json=Payload)
     assert C2.json()["valido"] is False
     assert "já tentou" in C2.json()["mensagem"].lower()
 
@@ -52,6 +54,41 @@ def test_dicionario_palavras(cliente):
     assert len(Corpo["palavras"]) > 1000
     assert "termo" in Corpo["palavras"]
     assert len(Corpo["hash"]) == 16
+
+
+def test_iniciar_dueto_nao_vaza_secreto(cliente):
+    I = cliente.post(
+        "/api/jogar/iniciar",
+        json={"nomeJogador": "teste", "modo": "dueto"},
+    )
+    assert I.status_code == 200
+    Tabs = I.json().get("tabuleiros") or []
+    assert len(Tabs) >= 2
+    for Tab in Tabs:
+        assert "palavraSecreta" not in Tab
+        assert "palavraComAcento" not in Tab
+
+
+def test_chute_token_invalido(cliente):
+    I = cliente.post(
+        "/api/jogar/iniciar",
+        json={"nomeJogador": "teste", "modo": "pratica"},
+    )
+    Id = I.json()["idPartida"]
+    R = cliente.post(
+        "/api/jogar/chute",
+        json={
+            "idPartida": Id,
+            "tokenPartida": "token-errado",
+            "palavra": "termo",
+            "nomeJogador": "teste",
+        },
+    )
+    assert R.status_code == 403
+
+
+def test_diaria_historico_exige_conta(cliente):
+    assert cliente.get("/api/diaria/historico").status_code == 401
 
 
 def test_diaria_grade_exige_conta(cliente):

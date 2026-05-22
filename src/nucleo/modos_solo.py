@@ -128,3 +128,23 @@ def ContarTentativasGlobais(Tabuleiros: list[dict]) -> int:
     if not Tabuleiros:
         return 0
     return max(len(T.get("tentativas", [])) for T in Tabuleiros)
+
+
+def TabuleirosParaCliente(
+    Tabuleiros: list[dict] | None,
+    RevelarSegredos: bool = False,
+) -> list[dict] | None:
+    """Remove palavras secretas da resposta HTTP enquanto a partida não encerrou."""
+    if not Tabuleiros:
+        return None
+    Saida = []
+    for Tab in Tabuleiros:
+        Item = {
+            "indice": Tab["indice"],
+            "venceu": Tab.get("venceu", False),
+            "tentativas": Tab.get("tentativas", []),
+        }
+        if RevelarSegredos:
+            Item["palavraComAcento"] = Tab.get("palavraComAcento")
+        Saida.append(Item)
+    return Saida

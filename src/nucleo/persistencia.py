@@ -146,6 +146,8 @@ def _AplicarMigracoesProgresso(C: sqlite3.Connection) -> None:
     }
     if "id_conta" not in ColunasPartida:
         C.execute("ALTER TABLE partidas_solo ADD COLUMN id_conta TEXT")
+    if "token_partida" not in ColunasPartida:
+        C.execute("ALTER TABLE partidas_solo ADD COLUMN token_partida TEXT")
 
     C.executescript(
         """
@@ -245,6 +247,15 @@ def _SerializarEstadoPartida(Partida) -> str:
     return json.dumps(Partida.Tentativas, ensure_ascii=False)
 
 
+def _AplicarMetadadosPartidaLinha(Partida, Linha) -> None:
+    Partida.NomeJogador = Linha["nome_jogador"] or "Jogador"
+    Chaves = Linha.keys() if hasattr(Linha, "keys") else []
+    if "id_conta" in Chaves:
+        Partida.IdConta = Linha["id_conta"]
+    if "token_partida" in Chaves:
+        Partida.TokenPartida = Linha["token_partida"]
+
+
 def _DesserializarEstadoPartida(Linha, ClassePartida):
     Bruto = json.loads(Linha["tentativas_json"])
     if isinstance(Bruto, dict) and Bruto.get("v") == 2:
@@ -262,8 +273,9 @@ def _DesserializarEstadoPartida(Linha, ClassePartida):
         Partida.Tabuleiros = Tab
         Partida.Dificuldade = Bruto.get("dificuldade", "normal")
         Partida.CodigoDesafio = Bruto.get("codigoDesafio")
+        _AplicarMetadadosPartidaLinha(Partida, Linha)
         return Partida
-    return ClassePartida(
+    Partida = ClassePartida(
         IdPartida=Linha["id_partida"],
         PalavraSecreta=Linha["palavra_secreta"],
         PalavraComAcento=Linha["palavra_com_acento"],
@@ -273,6 +285,8 @@ def _DesserializarEstadoPartida(Linha, ClassePartida):
         Encerrada=bool(Linha["encerrada"]),
         Venceu=bool(Linha["venceu"]),
     )
+    _AplicarMetadadosPartidaLinha(Partida, Linha)
+    return Partida
 
 
 def SalvarPartidaSolo(Partida) -> None:
@@ -285,14 +299,16 @@ def SalvarPartidaSolo(Partida) -> None:
             """
             INSERT INTO partidas_solo (
                 id_partida, palavra_secreta, palavra_com_acento, modo, data_dia,
-                tentativas_json, encerrada, venceu, nome_jogador, id_conta, atualizado_em
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                tentativas_json, encerrada, venceu, nome_jogador, id_conta,
+                token_partida, atualizado_em
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
             ON CONFLICT(id_partida) DO UPDATE SET
                 tentativas_json = excluded.tentativas_json,
                 encerrada = excluded.encerrada,
                 venceu = excluded.venceu,
                 nome_jogador = excluded.nome_jogador,
                 id_conta = COALESCE(excluded.id_conta, partidas_solo.id_conta),
+                token_partida = COALESCE(partidas_solo.token_partida, excluded.token_partida),
                 atualizado_em = datetime('now')
             """,
             (
@@ -306,6 +322,7 @@ def SalvarPartidaSolo(Partida) -> None:
                 int(Partida.Venceu),
                 getattr(Partida, "NomeJogador", None),
                 getattr(Partida, "IdConta", None),
+                getattr(Partida, "TokenPartida", None),
             ),
         )
 
@@ -896,6 +913,30 @@ def CarregarSalaSnapshot(CodigoSala: str) -> dict | None:
 def RemoverSala(CodigoSala: str) -> None:
     with Conexao() as C:
         C.execute("DELETE FROM salas WHERE codigo_sala = ?", (CodigoSala.upper(),))
+
+
+def ListarHistoricoDiariaPorConta(IdConta: str, Limite: int = 30) -> list[dict]:
+    with Conexao() as C:
+        Linhas = C.execute(
+            """
+            SELECT data_dia, venceu, tentativas_usadas, grade_texto, pontos
+            FROM diaria_jogadores
+            WHERE id_conta = ?
+            ORDER BY data_dia DESC
+            LIMIT ?
+            """,
+            (IdConta, Limite),
+        ).fetchall()
+    return [
+        {
+            "dataDia": L["data_dia"],
+            "venceu": bool(L["venceu"]),
+            "tentativasUsadas": L["tentativas_usadas"],
+            "gradeTexto": L.get("grade_texto"),
+            "pontos": L["pontos"],
+        }
+        for L in Linhas
+    ]
 
 
 def ListarHistoricoDiaria(Nick: str, Limite: int = 30) -> list[dict]:

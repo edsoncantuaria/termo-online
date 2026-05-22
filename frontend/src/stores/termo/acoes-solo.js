@@ -13,6 +13,7 @@ import {
   MontarPalavraChute,
   PalavraJaFoiTentada,
   ProximoIndiceVazio,
+  ValidarModoDificilClient,
 } from "../../utils/jogo.js";
 import {
   PersistirSessao,
@@ -118,11 +119,19 @@ export async function enviarChuteSolo(cacheDicionarioSet) {
     this.tratarChuteInvalido("Palavra não encontrada no dicionário.");
     return;
   }
+  if (this.dificuldade === "dificil") {
+    const { ok, msg } = ValidarModoDificilClient(palavra, tentativasAnteriores);
+    if (!ok) {
+      this.tratarChuteInvalido(msg);
+      return;
+    }
+  }
 
   this.carregandoChute = true;
   try {
     const D = await api.jogarChute({
       idPartida: this.idPartida,
+      tokenPartida: this.tokenPartida,
       palavra,
       nomeJogador: this.nickJogo,
     });
@@ -236,6 +245,7 @@ export async function iniciarModo(modo, opcoes = {}) {
       codigoDesafio,
     });
     this.idPartida = D.idPartida;
+    this.tokenPartida = D.tokenPartida || null;
     this.dataDia = D.dataDia;
     this.maxTentativas = D.maximoTentativas || 6;
     this.tabuleiros = D.tabuleiros || null;

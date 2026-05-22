@@ -67,6 +67,7 @@ export function MontarPayloadSessao(Estado) {
     dados.solo = {
       modo: Estado.modo,
       idPartida: Estado.idPartida,
+      tokenPartida: Estado.tokenPartida,
       dataDia: Estado.dataDia,
       tentativa: Estado.tentativa,
       letras: Estado.letras,

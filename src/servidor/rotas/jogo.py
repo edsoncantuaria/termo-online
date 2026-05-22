@@ -17,15 +17,17 @@ from nucleo.modos_solo import (
     DificuldadeDificil,
     MaximoTentativasModo,
     ModoDesafio,
+    TabuleirosParaCliente,
 )
 from nucleo.palavra_diaria import EscolherPalavraDoDia
 from nucleo.pontuacao import CalcularPontuacao, RegistrarPontuacao
-from servidor.dependencias_auth import ContaOpcional, ContaRegistrada
+from servidor.dependencias_auth import ContaObrigatoria, ContaOpcional, ContaRegistrada
 from servidor.partida_solo import (
     MontarRespostaPartida,
     NovaPartida,
     ObterPartida,
     SalvarPartida,
+    ValidarTokenPartida,
 )
 from servidor.rotas.schemas import (
     ChuteSoloRequest,
@@ -127,6 +129,8 @@ def RegistrarRotasJogo(Roteador: APIRouter) -> None:
         Partida = ObterPartida(Corpo.idPartida)
         if not Partida:
             raise HTTPException(status_code=404, detail="Partida não encontrada.")
+        if not ValidarTokenPartida(Partida, Corpo.tokenPartida):
+            raise HTTPException(status_code=403, detail="Token da partida inválido.")
         if Partida.Encerrada:
             raise HTTPException(status_code=400, detail="Partida já encerrada.")
         IdConta = Partida.IdConta
@@ -235,7 +239,10 @@ def RegistrarRotasJogo(Roteador: APIRouter) -> None:
             "venceu": Partida.Venceu,
             "pontos": Pontos,
             "tentativas": Partida.Tentativas,
-            "tabuleiros": Partida.Tabuleiros or None,
+            "tabuleiros": TabuleirosParaCliente(
+                Partida.Tabuleiros,
+                RevelarSegredos=Partida.Encerrada,
+            ),
         }
         if Partida.Encerrada:
             if Partida.Tabuleiros:
@@ -259,10 +266,19 @@ def RegistrarRotasJogo(Roteador: APIRouter) -> None:
         return MontarProgressoConta(Perfil["idConta"])
 
     @Roteador.get("/jogar/estado/{id_partida}")
-    def EstadoPartida(id_partida: str):
+    def EstadoPartida(
+        id_partida: str,
+        tokenPartida: str | None = None,
+        Perfil=Depends(ContaOpcional),
+    ):
         Partida = ObterPartida(id_partida)
         if not Partida:
             raise HTTPException(status_code=404, detail="Partida não encontrada.")
+        if not ValidarTokenPartida(Partida, tokenPartida):
+            raise HTTPException(status_code=403, detail="Token da partida inválido.")
+        if Partida.IdConta:
+            if not Perfil or Perfil.get("ehVisitante") or Perfil["idConta"] != Partida.IdConta:
+                raise HTTPException(status_code=403, detail="Partida de outra conta.")
         return MontarRespostaPartida(Partida)
 
     @Roteador.post("/diaria/grade")
@@ -287,6 +303,14 @@ def RegistrarRotasJogo(Roteador: APIRouter) -> None:
         return {"salvo": True}
 
     @Roteador.get("/diaria/historico")
-    def HistoricoDiaria(nick: str = "Jogador"):
-        NickNorm = nick.strip()[:24].lower() or "jogador"
-        return {"historico": persistencia.ListarHistoricoDiaria(NickNorm, 30)}
+    def HistoricoDiaria(Perfil=Depends(ContaObrigatoria)):
+        if Perfil.get("ehVisitante"):
+            raise HTTPException(
+                status_code=403,
+                detail="Crie uma conta para ver o histórico da palavra do dia.",
+            )
+        return {
+            "historico": persistencia.ListarHistoricoDiariaPorConta(
+                Perfil["idConta"], 30
+            )
+        }

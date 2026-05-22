@@ -1,10 +1,16 @@
 """Partidas solo em memória + persistência SQLite."""
 
+import secrets
 import uuid
 from dataclasses import dataclass, field
 
 from nucleo import persistencia
-from nucleo.modos_solo import ContarTentativasGlobais, MaximoTentativasModo, QuantidadePalavrasModo
+from nucleo.modos_solo import (
+    ContarTentativasGlobais,
+    MaximoTentativasModo,
+    QuantidadePalavrasModo,
+    TabuleirosParaCliente,
+)
 
 
 @dataclass
@@ -22,6 +28,7 @@ class PartidaSolo:
     Venceu: bool = False
     NomeJogador: str = "Jogador"
     IdConta: str | None = None
+    TokenPartida: str | None = None
 
 
 PartidasSolo: dict[str, PartidaSolo] = {}
@@ -58,9 +65,19 @@ def MontarRespostaPartida(Partida: PartidaSolo) -> dict:
         "encerrada": Partida.Encerrada,
         "venceu": Partida.Venceu,
         "tentativas": Partida.Tentativas,
-        "tabuleiros": Partida.Tabuleiros or None,
+        "tabuleiros": TabuleirosParaCliente(
+            Partida.Tabuleiros,
+            RevelarSegredos=Partida.Encerrada,
+        ),
         "quantidadePalavras": QuantidadePalavrasModo(Partida.Modo),
+        "tokenPartida": Partida.TokenPartida,
     }
+
+
+def ValidarTokenPartida(Partida: PartidaSolo, TokenEnviado: str | None) -> bool:
+    if not Partida.TokenPartida:
+        return True
+    return bool(TokenEnviado) and TokenEnviado == Partida.TokenPartida
 
 
 def NovaPartida(
@@ -76,8 +93,10 @@ def NovaPartida(
     IdConta: str | None = None,
 ) -> PartidaSolo:
     IdPartida = str(uuid.uuid4())
+    TokenPartida = secrets.token_urlsafe(16)
     Partida = PartidaSolo(
         IdPartida=IdPartida,
+        TokenPartida=TokenPartida,
         PalavraSecreta=PalavraSecreta,
         PalavraComAcento=PalavraComAcento,
         Modo=Modo,

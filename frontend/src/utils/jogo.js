@@ -62,6 +62,61 @@ export function PalavraDeTentativa(Tent) {
   return MontarPalavraChute(t.letras);
 }
 
+function _LetrasTentativaOuLinha(tent, linha) {
+  const fonte = linha || tent;
+  let letras = [...(fonte.letras || [])];
+  if (letras.length !== TAMANHO_PALAVRA && fonte.palavra) {
+    const p = fonte.palavra
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+    letras = [...p].slice(0, TAMANHO_PALAVRA);
+  }
+  while (letras.length < TAMANHO_PALAVRA) letras.push("");
+  return letras.map((c) =>
+    (c || "")
+      .toString()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .slice(0, 1)
+  );
+}
+
+function _ValidarVerdesDificil(letras, estados, letrasTent) {
+  for (let i = 0; i < TAMANHO_PALAVRA; i++) {
+    if (estados[i] === "correto" && letrasTent[i] && letras[i] !== letrasTent[i]) {
+      return {
+        ok: false,
+        msg: `A letra '${letrasTent[i].toUpperCase()}' deve ficar na posição ${i + 1}.`,
+      };
+    }
+  }
+  return { ok: true, msg: null };
+}
+
+/** Modo difícil (feedback no cliente; servidor revalida). */
+export function ValidarModoDificilClient(palavra, tentativasAnteriores) {
+  const letras = MontarPalavraChute([...palavra]).split("");
+  for (const tent of tentativasAnteriores || []) {
+    if (tent.linhas?.length) {
+      for (const linha of tent.linhas) {
+        if (linha.venceu || !linha.estados?.length) continue;
+        const letrasTent = _LetrasTentativaOuLinha(tent, linha);
+        const r = _ValidarVerdesDificil(letras, linha.estados, letrasTent);
+        if (!r.ok) return r;
+      }
+      continue;
+    }
+    const estados = tent.estados || [];
+    if (!estados.length) continue;
+    const letrasTent = _LetrasTentativaOuLinha(tent);
+    const r = _ValidarVerdesDificil(letras, estados, letrasTent);
+    if (!r.ok) return r;
+  }
+  return { ok: true, msg: null };
+}
+
 export function PalavraJaFoiTentada(palavra, tentativas) {
   const alvo = MontarPalavraChute(
     [...(palavra || "")].map((c) => c.toLowerCase())

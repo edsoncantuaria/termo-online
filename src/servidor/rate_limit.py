@@ -1,15 +1,13 @@
 """Limite de requisições por IP (anti-spam), com tetos por rota sensível."""
 
-import time
-from collections import defaultdict
-
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from nucleo.redis_estado import PermitirRequisicaoRateLimit
+
 JanelaSegundos = 60
 MaximoPorJanela = 120
-Contadores: dict[str, list[float]] = defaultdict(list)
 
 LimitesPorPrefixo: list[tuple[str, int]] = [
     ("/api/auth/registrar", 8),
@@ -17,6 +15,7 @@ LimitesPorPrefixo: list[tuple[str, int]] = [
     ("/api/auth/visitante", 20),
     ("/api/jogar/chute", 90),
     ("/api/solo/chute", 90),
+    ("/api/diaria/grade", 12),
 ]
 
 
@@ -44,14 +43,10 @@ class MiddlewareRateLimit(BaseHTTPMiddleware):
 
         Ip = _IpCliente(Requisicao)
         Chave = f"{Ip}:{Caminho.split('?')[0]}"
-        Agora = time.time()
-        Historico = Contadores[Chave]
-        Historico[:] = [T for T in Historico if Agora - T < JanelaSegundos]
         Limite = _LimiteParaCaminho(Caminho)
-        if len(Historico) >= Limite:
+        if not PermitirRequisicaoRateLimit(Chave, Limite, JanelaSegundos):
             return JSONResponse(
                 status_code=429,
                 content={"detail": "Muitas requisições. Aguarde um momento."},
             )
-        Historico.append(Agora)
         return await Chamada(Requisicao)

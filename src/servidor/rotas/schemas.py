@@ -29,6 +29,7 @@ class ChuteSoloRequest(BaseModel):
     idPartida: str
     palavra: str
     nomeJogador: str = Field(default="Jogador", max_length=24)
+    tokenPartida: str | None = Field(default=None, max_length=64)
 
 
 class CriarSalaRequest(BaseModel):

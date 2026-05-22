@@ -65,10 +65,13 @@ export async function CarregarStatsServidor(Nick, El) {
   }
 }
 
-export async function CarregarHistoricoDiaria(Nick, ListaEl) {
+export async function CarregarHistoricoDiaria(_Nick, ListaEl) {
   if (!ListaEl) return;
   try {
-    const R = await fetch(`/api/diaria/historico?nick=${encodeURIComponent(Nick)}`);
+    const { HeadersAuth } = await import("../utils/auth.js");
+    const R = await fetch("/api/diaria/historico", {
+      headers: HeadersAuth({}),
+    });
     const D = await R.json();
     const H = D.historico || [];
     if (!H.length) {

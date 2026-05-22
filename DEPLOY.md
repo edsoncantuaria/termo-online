@@ -30,7 +30,7 @@ Dados persistentes no volume `termo-data` (`data/termo.db`).
 | `PORT` | `8000` | Porta HTTP |
 | `TERM0_DATA` | `./data` | Diretório do SQLite |
 | `TERM0_LOG_LEVEL` | `INFO` | Nível de log (`DEBUG`, `WARNING`, …) |
-| `TERM0_REDIS_URL` | — | Reservado para estado distribuído (salas/fila); sem URL = memória |
+| `TERM0_REDIS_URL` | — | Redis para **rate limit** compartilhado entre workers; sem URL = memória |
 
 ## HTTPS e domínio
 
@@ -69,9 +69,11 @@ Salas da arena, fila ranqueada e matchmaking ficam **na memória do processo** P
 Se subir **mais de uma instância** atrás do load balancer:
 
 - Jogadores na mesma sala precisam cair no **mesmo worker** (sticky session por cookie/IP), **ou**
-- Migrar estado para **Redis** (filas, salas, WebSocket pub/sub).
+- Migrar **salas e fila ranqueada** para Redis (ou sticky session no load balancer).
 
-Sem isso, sala/fila podem “sumir” entre requisições. WebSocket exige proxy com upgrade (`/ws`, `/ws/lobby`).
+Com `TERM0_REDIS_URL`, o **rate limit** da API já é compartilhado entre instâncias. Salas/fila ainda ficam na memória de cada processo.
+
+Sem sticky session ou Redis para salas, partidas na arena podem “sumir” entre requisições. WebSocket exige proxy com upgrade (`/ws`, `/ws/lobby`).
 
 ## Fuso horário
 

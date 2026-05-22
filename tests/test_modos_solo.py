@@ -4,12 +4,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from nucleo.modos_solo import (
+    AvaliarChuteTabuleiros,
     CriarTabuleiros,
     GerarSeedDesafio,
     MaximoTentativasModo,
     ModoDueto,
     ModoQuarteto,
-    AvaliarChuteTabuleiros,
+    TabuleirosParaCliente,
 )
 
 
@@ -29,6 +30,15 @@ def test_desafio_mesmo_codigo():
     A = CriarTabuleiros("desafio", CodigoDesafio="ABC123")
     B = CriarTabuleiros("desafio", CodigoDesafio="ABC123")
     assert A[0]["palavraSecreta"] == B[0]["palavraSecreta"]
+
+
+def test_tabuleiros_cliente_oculta_secreto():
+    Tabs = CriarTabuleiros(ModoDueto)
+    Pub = TabuleirosParaCliente(Tabs, RevelarSegredos=False)
+    assert "palavraSecreta" not in Pub[0]
+    assert "palavraComAcento" not in Pub[0]
+    Rev = TabuleirosParaCliente(Tabs, RevelarSegredos=True)
+    assert Rev[0].get("palavraComAcento")
 
 
 def test_chute_multi():
