@@ -1,23 +1,14 @@
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed } from "vue";
 import { useTermoStore } from "../../stores/termo.js";
 import { InicialNick, CorAvatarNick, NickExibicao } from "../../utils/jogador.js";
+import { AvatarEfetivo } from "../../utils/avatares.js";
 import PerfilNivelAnel from "../ui/PerfilNivelAnel.vue";
+import CloudiveMarcaTopo from "@cloudive-brand/components/CloudiveMarcaTopo.vue";
+import { marcaCloudiveAtiva } from "../../utils/marca.js";
 
 const store = useTermoStore();
-const nomeTopo = ref("");
-
-watch(
-  () => store.conta,
-  () => {
-    nomeTopo.value = "";
-  }
-);
-
-function onNomeTopoInput(ev) {
-  nomeTopo.value = store.normalizarNickEntrada(ev.target.value);
-  store.definirNick(nomeTopo.value || "Jogador");
-}
+const cloudive = marcaCloudiveAtiva();
 
 const inicialAvatar = computed(() =>
   InicialNick(store.conta?.nick || store.nick)
@@ -25,6 +16,7 @@ const inicialAvatar = computed(() =>
 const corAvatar = computed(() =>
   CorAvatarNick(store.conta?.nick || store.nick)
 );
+const avatarId = computed(() => AvatarEfetivo(store.conta, store.nick));
 const mostrarCentro = computed(
   () => store.view !== "inicio" && store.tituloTopo !== "Termo"
 );
@@ -57,8 +49,11 @@ const mostrarCentro = computed(
       :class="{ 'topo-brand-click': store.view !== 'inicio' }"
       @click="store.view !== 'inicio' && store.confirmarVoltarInicio()"
     >
-      <span class="topo-logo-mark" aria-hidden="true">T</span>
-      <span class="topo-logo-text">Termo</span>
+      <CloudiveMarcaTopo v-if="cloudive" />
+      <template v-else>
+        <span class="topo-logo-mark" aria-hidden="true">T</span>
+        <span class="topo-logo-text">Termo</span>
+      </template>
     </button>
 
     <div v-if="mostrarCentro" class="topo-centro">
@@ -75,6 +70,7 @@ const mostrarCentro = computed(
           @click="store.abrirConta('entrada')"
         >
           <PerfilNivelAnel
+            :avatar-id="avatarId"
             :inicial="inicialAvatar"
             :cor-avatar="corAvatar"
             :progresso="store.conta.progresso"
@@ -105,18 +101,6 @@ const mostrarCentro = computed(
           Criar conta
         </button>
       </template>
-      <div v-else class="topo-nick">
-        <label for="topoNickInput">Nome</label>
-        <input
-          id="topoNickInput"
-          :value="nomeTopo"
-          type="text"
-          maxlength="20"
-          placeholder="Seu nome"
-          autocomplete="nickname"
-          @input="onNomeTopoInput"
-        />
-      </div>
       <button
         v-if="!store.conta"
         type="button"

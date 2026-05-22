@@ -115,9 +115,13 @@ export async function enviarChuteSolo(cacheDicionarioSet) {
     this.tratarChuteInvalido("Você já tentou essa palavra.");
     return;
   }
-  if (PalavraNoCache(palavra, cacheDicionarioSet) === false) {
+  const noCache = PalavraNoCache(palavra, cacheDicionarioSet);
+  if (noCache === false) {
     this.tratarChuteInvalido("Palavra não encontrada no dicionário.");
     return;
+  }
+  if (noCache === null && !cacheDicionarioSet) {
+    this.mostrarToast("Validando no servidor…", false);
   }
   if (this.dificuldade === "dificil") {
     const { ok, msg } = ValidarModoDificilClient(palavra, tentativasAnteriores);

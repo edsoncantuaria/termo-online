@@ -1,9 +1,11 @@
+import { UrlApi } from "../config/origem.js";
+
 const CHAVE_HASH = "termoDicionarioHash";
 const CHAVE_PALAVRAS = "termoDicionarioPalavras";
 
 export async function CarregarCacheDicionario() {
   try {
-    const R = await fetch("/api/dicionario/info");
+    const R = await fetch(UrlApi("/api/dicionario/info"));
     if (!R.ok) return null;
     const Info = await R.json();
     const HashLocal = localStorage.getItem(CHAVE_HASH);
@@ -22,7 +24,7 @@ export async function GarantirCacheDicionario() {
   if (cache instanceof Set) return cache;
   if (!cache?.precisaBaixar) return null;
   try {
-    const R = await fetch("/api/dicionario/palavras");
+    const R = await fetch(UrlApi("/api/dicionario/palavras"));
     if (!R.ok) return null;
     const D = await R.json();
     const conjunto = new Set(D.palavras || []);

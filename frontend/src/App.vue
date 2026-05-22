@@ -1,6 +1,8 @@
 <script setup>
-import { computed, onMounted, onUnmounted } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useTermoStore } from "./stores/termo.js";
+import { marcaCloudiveAtiva } from "./utils/marca.js";
+import CloudiveSplash from "@cloudive-brand/components/CloudiveSplash.vue";
 import AppTopo from "./components/layout/AppTopo.vue";
 import ViewInicio from "./components/views/ViewInicio.vue";
 import ViewArenaLobby from "./components/views/ViewArenaLobby.vue";
@@ -16,6 +18,20 @@ import AppToast from "./components/ui/AppToast.vue";
 import TutorialPrimeiraVisita from "./components/ui/TutorialPrimeiraVisita.vue";
 
 const store = useTermoStore();
+const cloudive = marcaCloudiveAtiva();
+const splashCloudive = ref(cloudive);
+/** App (e diálogo Entrar) só depois da splash Cloudive. */
+const appVisivel = ref(!cloudive);
+
+function onSplashCloudiveConcluido() {
+  splashCloudive.value = false;
+  appVisivel.value = true;
+  store.inicializar();
+}
+
+if (cloudive) {
+  document.documentElement.classList.add("app-cloudive");
+}
 
 const classesApp = computed(() => ({
   "app-desktop": true,
@@ -34,14 +50,21 @@ function onKeydown(e) {
 }
 
 function onEscape(e) {
-  if (e.key !== "Escape" || !store.dialogAberto) return;
+  if (e.key !== "Escape") return;
+  if (store.dialogAvatarAberto) {
+    store.fecharDialogAvatar();
+    return;
+  }
+  if (!store.dialogAberto) return;
   store.fecharDialogs();
 }
 
 onMounted(() => {
   document.addEventListener("keydown", onKeydown);
   document.addEventListener("keydown", onEscape);
-  store.inicializar();
+  if (!cloudive) {
+    store.inicializar();
+  }
 });
 
 onUnmounted(() => {
@@ -51,41 +74,48 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="aurora" aria-hidden="true" />
-  <div
-    v-if="store.bannerReconexao"
-    class="banner-reconexao"
-    role="status"
-    aria-live="polite"
-  >
-    Reconectando…
-  </div>
-
-  <div class="app" :class="classesApp">
-    <AppTopo />
-    <main class="principal">
-      <ViewInicio v-if="store.view === 'inicio'" />
-      <ViewArenaLobby v-else-if="store.view === 'arenaLobby'" />
-      <ViewJogo v-else-if="store.view === 'jogo'" />
-    </main>
-    <AppToast />
-  </div>
-
-  <DialogPerfil />
-  <DialogConta />
-  <DialogJogar />
-  <DialogCriarSala />
-  <DialogAjuda />
-  <DialogAviso />
-  <DialogResultado />
-  <TutorialPrimeiraVisita
-    v-if="store.mostrarTutorial"
-    @fechar="store.fecharTutorial()"
+  <CloudiveSplash
+    v-if="cloudive && splashCloudive"
+    @concluido="onSplashCloudiveConcluido"
   />
+  <template v-if="appVisivel">
+    <div class="aurora" aria-hidden="true" />
+    <div
+      v-if="store.bannerReconexao"
+      class="banner-reconexao"
+      role="status"
+      aria-live="polite"
+    >
+      Reconectando…
+    </div>
+
+    <div class="app" :class="classesApp">
+      <AppTopo />
+      <main class="principal">
+        <ViewInicio v-if="store.view === 'inicio'" />
+        <ViewArenaLobby v-else-if="store.view === 'arenaLobby'" />
+        <ViewJogo v-else-if="store.view === 'jogo'" />
+      </main>
+      <AppToast />
+    </div>
+
+    <DialogPerfil />
+    <DialogConta />
+    <DialogJogar />
+    <DialogCriarSala />
+    <DialogAjuda />
+    <DialogAviso />
+    <DialogResultado />
+    <TutorialPrimeiraVisita
+      v-if="store.mostrarTutorial"
+      @fechar="store.fecharTutorial()"
+    />
+  </template>
 </template>
 
 <style>
 @import "./assets/estilo.css";
 @import "./assets/polish.css";
 @import "./assets/tema-claro.css";
+@import "@cloudive-brand/theme/marca-cloudive-app.css";
 </style>

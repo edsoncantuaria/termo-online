@@ -1,4 +1,5 @@
 /** WebSocket e sync HTTP da arena / ranqueada. */
+import { UrlWebSocket } from "../../config/origem.js";
 import { api } from "../../services/api.js";
 import { TocarSom } from "../../lib/som.js";
 import { EhModoSalaOnline } from "../../utils/modos.js";
@@ -45,8 +46,10 @@ export function wsEnviar(tipo, dados = {}) {
 
 export function processarWsArena(store, M) {
   if (M.tipo === "chuteInvalido") {
+    store.carregandoChute = false;
     store.tratarChuteInvalido(M.mensagem);
   } else if (M.tipo === "erro") {
+    store.carregandoChute = false;
     store.mostrarToast(M.mensagem, true);
     TocarSom("erro");
     store.linhaShake = store.tentativa;
@@ -98,8 +101,9 @@ export function iniciarSyncArena(store) {
 export function conectarWsArena(store) {
   if (!store.codigoSala || !store.idJogador) return;
   store.pararLobbyWs();
-  const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  const url = `${proto}//${location.host}/ws/sala/${store.codigoSala}/${store.idJogador}`;
+  const url = UrlWebSocket(
+    `/ws/sala/${store.codigoSala}/${store.idJogador}`
+  );
   if (
     socketSala &&
     store.wsUrl === url &&

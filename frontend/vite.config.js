@@ -10,9 +10,9 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg", "sounds/*.ogg"],
       manifest: {
-        name: "Termo Online",
+        name: "Termo Online · Cloudive",
         short_name: "Termo",
-        description: "Termo em português — diária, dueto, quarteto e arena",
+        description: "Termo em português — um jogo Cloudive",
         theme_color: "#14111c",
         background_color: "#14111c",
         display: "standalone",
@@ -34,6 +34,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      "@cloudive-brand": fileURLToPath(
+        new URL("../cloudive/termo-online", import.meta.url)
+      ),
     },
   },
   build: {

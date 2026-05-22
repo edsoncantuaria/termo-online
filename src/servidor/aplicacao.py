@@ -1,8 +1,10 @@
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -39,6 +41,21 @@ def CriarAplicacao() -> FastAPI:
         lifespan=CicloVida,
     )
 
+    OrigensCors = [
+        O.strip()
+        for O in os.environ.get(
+            "TERM0_CORS_ORIGINS",
+            "https://termo.cloudive.com.br,http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000",
+        ).split(",")
+        if O.strip()
+    ]
+    Aplicacao.add_middleware(
+        CORSMiddleware,
+        allow_origins=OrigensCors,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     Aplicacao.add_middleware(MiddlewareMetricas)
     Aplicacao.add_middleware(MiddlewareRateLimit)
     Aplicacao.include_router(RoteadorSaude)
@@ -48,7 +65,9 @@ def CriarAplicacao() -> FastAPI:
     CaminhoEstatico = Path(__file__).resolve().parent.parent / "static"
     CaminhoDist = CaminhoEstatico / "dist"
 
-    if (CaminhoDist / "index.html").exists():
+    SomenteApi = os.environ.get("TERM0_API_ONLY", "").lower() in ("1", "true", "yes")
+
+    if not SomenteApi and (CaminhoDist / "index.html").exists():
 
         @Aplicacao.get("/")
         async def PaginaInicial():

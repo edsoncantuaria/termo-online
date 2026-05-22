@@ -1,0 +1,15 @@
+[Unit]
+Description=Termo Online frontend (Vue estático)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/termo-online
+Environment=PORT=8000
+ExecStart=/root/termo-online/.venv/bin/python /root/termo-online/src/servir_frontend.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

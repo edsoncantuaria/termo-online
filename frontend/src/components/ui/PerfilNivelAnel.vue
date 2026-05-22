@@ -1,13 +1,17 @@
 <script setup>
 import { computed } from "vue";
 import { EstiloNivelCss } from "../../utils/progresso.js";
+import AvatarIlustracao from "./AvatarIlustracao.vue";
 
 const props = defineProps({
+  avatarId: { type: String, default: "" },
   inicial: { type: String, default: "?" },
   corAvatar: { type: String, default: "#5fad62" },
   progresso: { type: Object, default: null },
   tamanho: { type: String, default: "medio" },
 });
+
+const usaIlustracao = computed(() => !!props.avatarId);
 
 const estiloAnel = computed(() => EstiloNivelCss(props.progresso?.estiloNivel));
 const nivel = computed(() => props.progresso?.nivel ?? 0);
@@ -24,9 +28,13 @@ const mostrarNivel = computed(
   >
     <span
       class="perfil-anel-avatar"
-      :style="{ background: corAvatar }"
+      :class="{ 'perfil-anel-avatar--ilustrado': usaIlustracao }"
+      :style="usaIlustracao ? undefined : { background: corAvatar }"
       aria-hidden="true"
-    >{{ inicial }}</span>
+    >
+      <AvatarIlustracao v-if="usaIlustracao" :avatar-id="avatarId" />
+      <template v-else>{{ inicial }}</template>
+    </span>
     <span
       v-if="mostrarNivel"
       class="perfil-anel-nivel"

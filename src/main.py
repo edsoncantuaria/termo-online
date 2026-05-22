@@ -15,12 +15,13 @@ Aplicacao = CriarAplicacao()
 
 def IniciarServidor() -> None:
     Porta = int(os.environ.get("PORT", "8000"))
+    Reload = os.environ.get("TERM0_RELOAD", "1").lower() in ("1", "true", "yes")
     uvicorn.run(
         "main:Aplicacao",
         host="0.0.0.0",
         port=Porta,
-        reload=True,
-        reload_dirs=[str(DiretorioSrc)],
+        reload=Reload,
+        reload_dirs=[str(DiretorioSrc)] if Reload else None,
     )
 
 

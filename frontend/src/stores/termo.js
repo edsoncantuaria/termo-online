@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import { UrlWebSocket } from "../config/origem.js";
 import { api } from "../services/api.js";
 import {
   TAMANHO_PALAVRA,
@@ -38,6 +39,11 @@ import {
   NickExibicao,
 } from "../utils/jogador.js";
 import { TextoXpGanho } from "../utils/progresso.js";
+import {
+  AvatarEfetivo,
+  AvatarValido,
+  SalvarAvatarLocal,
+} from "../utils/avatares.js";
 import { acoesRanqueada } from "./termo/acoes-ranqueada.js";
 import { acoesSolo } from "./termo/acoes-solo.js";
 import { acoesResultado } from "./termo/acoes-resultado.js";
@@ -166,6 +172,7 @@ export const useTermoStore = defineStore("termo", {
     toastVitoriaRodada: "",
 
     dialogAberto: null,
+    dialogAvatarAberto: false,
     dialogContaModo: "entrada",
     dialogContaForcarRegistro: false,
     dialogContaNickSugerido: "",
@@ -519,8 +526,13 @@ export const useTermoStore = defineStore("termo", {
     },
 
     tratarChuteInvalido(mensagem) {
-      this.letras = LetrasVazias();
-      this.indiceCursor = 0;
+      const online = EhModoSalaOnline(this.modo);
+      if (online) {
+        this.carregandoChute = false;
+      } else {
+        this.letras = LetrasVazias();
+        this.indiceCursor = 0;
+      }
       if (this.modo && !EhModoSalaOnline(this.modo) && this.idPartida) {
         this.persistir();
       }
@@ -637,6 +649,32 @@ export const useTermoStore = defineStore("termo", {
       if (conta?.nick) {
         this.nick = conta.nick;
         SalvarNickLocal(conta.nick);
+      }
+    },
+
+    avatarIdEfetivo() {
+      return AvatarEfetivo(this.conta, this.nick);
+    },
+
+    async salvarAvatar(avatarId) {
+      if (!AvatarValido(avatarId)) {
+        this.mostrarToast("Avatar inválido.", true);
+        return;
+      }
+      if (!this.conta) return;
+      if (this.conta.ehVisitante) {
+        SalvarAvatarLocal(avatarId);
+        this.conta = { ...this.conta, avatarId };
+        SalvarAuthLocal(this.token, this.conta);
+        this.mostrarToast("Avatar atualizado!", false, true);
+        return;
+      }
+      try {
+        const D = await api.authAtualizarAvatar(avatarId);
+        this.aplicarSessaoConta(D.conta, this.token);
+        this.mostrarToast("Avatar salvo no perfil!", false, true);
+      } catch (e) {
+        this.mostrarToast(e.message || "Não foi possível salvar o avatar.", true);
       }
     },
 
@@ -762,8 +800,7 @@ export const useTermoStore = defineStore("termo", {
 
     conectarLobbyWs() {
       if (this.view !== "inicio") return;
-      const proto = location.protocol === "https:" ? "wss:" : "ws:";
-      const url = `${proto}//${location.host}/ws/lobby`;
+      const url = UrlWebSocket("/ws/lobby");
       if (
         socketLobby &&
         (socketLobby.readyState === WebSocket.OPEN ||
@@ -821,10 +858,20 @@ export const useTermoStore = defineStore("termo", {
         this.pararFilaRanqueada();
       }
       this.dialogAberto = null;
+      this.dialogAvatarAberto = false;
       this.aviso.aoConfirmar = null;
       this.aviso.aoCancelar = null;
       this.dialogContaForcarRegistro = false;
       this.dialogContaNickSugerido = "";
+    },
+
+    abrirDialogAvatar() {
+      if (!this.conta) return;
+      this.dialogAvatarAberto = true;
+    },
+
+    fecharDialogAvatar() {
+      this.dialogAvatarAberto = false;
     },
 
     abrirDialog(nome) {
@@ -969,7 +1016,7 @@ export const useTermoStore = defineStore("termo", {
     },
 
     onTecla(k) {
-      if (this.encerrada) return;
+      if (this.encerrada || this.carregandoChute) return;
       this.letras = NormalizarLetrasProgresso(this.letras);
       if (k === "back") {
         if (this.letras[this.indiceCursor]) {
@@ -1011,6 +1058,7 @@ export const useTermoStore = defineStore("termo", {
         return;
       }
       if (EhModoSalaOnline(this.modo)) {
+        if (this.carregandoChute) return;
         const palavra = MontarPalavraChute(this.letras);
         const tentativasAnteriores = this.arenaTentativas;
         if (PalavraJaFoiTentada(palavra, tentativasAnteriores)) {
@@ -1023,14 +1071,13 @@ export const useTermoStore = defineStore("termo", {
         }
         const sock = acoesArena.obterSocketSala();
         if (sock?.readyState === WebSocket.OPEN) {
+          this.carregandoChute = true;
           sock.send(
             JSON.stringify({
               tipo: "chute",
               dados: { palavra },
             })
           );
-          this.letras = LetrasVazias();
-          this.indiceCursor = 0;
         }
         return;
       }
@@ -1330,6 +1377,11 @@ export const useTermoStore = defineStore("termo", {
         this.tentativa = total;
         this.arenaTentativasExibidas = total;
         this.encerrada = !!eu.finalizou;
+        if (linhaNova) {
+          this.carregandoChute = false;
+          this.letras = LetrasVazias();
+          this.indiceCursor = 0;
+        }
         if (linhaNova && total > 0) {
           const ultima = eu.tentativas[total - 1];
           if (ultima?.venceu) TocarSom("acerto");

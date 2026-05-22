@@ -7,10 +7,12 @@ import EstadoVazio from "../ui/EstadoVazio.vue";
 import PerfilNivelAnel from "../ui/PerfilNivelAnel.vue";
 import { InicialNick, CorAvatarNick } from "../../utils/jogador.js";
 import { BarrasHistorico7d } from "../../utils/progresso.js";
+import SeletorAvatares from "../ui/SeletorAvatares.vue";
 
 const store = useTermoStore();
 const dialogo = ref(null);
 const aberto = computed(() => store.dialogAberto === "perfil");
+const salvandoAvatar = ref(false);
 
 const totalRanqueadosFmt = computed(() =>
   (store.totalRanqueados ?? 0).toLocaleString("pt-BR")
@@ -18,6 +20,7 @@ const totalRanqueadosFmt = computed(() =>
 const progresso = computed(() => store.conta?.progresso);
 const inicialAvatar = computed(() => InicialNick(store.conta?.nick));
 const corAvatar = computed(() => CorAvatarNick(store.conta?.nick));
+const avatarId = computed(() => store.avatarIdEfetivo());
 const badgesDesbloqueadas = computed(() =>
   (progresso.value?.badges || []).filter((b) => b.desbloqueada)
 );
@@ -36,6 +39,16 @@ const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
   aberto,
   () => store.fecharDialogs()
 );
+
+async function onSalvarAvatar(id) {
+  salvandoAvatar.value = true;
+  try {
+    await store.salvarAvatar(id);
+    store.fecharDialogAvatar();
+  } finally {
+    salvandoAvatar.value = false;
+  }
+}
 </script>
 
 <template>
@@ -48,13 +61,31 @@ const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
   >
     <div class="perfil-cabecalho perfil-cabecalho--com-nivel">
       <div class="perfil-cabecalho-esq">
-        <PerfilNivelAnel
-          v-if="progresso"
-          :inicial="inicialAvatar"
-          :cor-avatar="corAvatar"
-          :progresso="progresso"
-          tamanho="grande"
-        />
+        <button
+          v-if="store.conta"
+          type="button"
+          class="perfil-avatar-editar"
+          aria-label="Alterar avatar"
+          title="Alterar avatar"
+          @click.stop="store.abrirDialogAvatar()"
+        >
+          <PerfilNivelAnel
+            v-if="progresso"
+            :avatar-id="avatarId"
+            :inicial="inicialAvatar"
+            :cor-avatar="corAvatar"
+            :progresso="progresso"
+            tamanho="grande"
+          />
+          <PerfilNivelAnel
+            v-else
+            :avatar-id="avatarId"
+            :inicial="inicialAvatar"
+            :cor-avatar="corAvatar"
+            tamanho="grande"
+          />
+          <span class="perfil-avatar-editar-icone" aria-hidden="true">✎</span>
+        </button>
         <div>
           <h2>Seu perfil</h2>
           <p class="dialog-sub">{{ store.nick }}</p>
@@ -261,5 +292,50 @@ const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
     <form method="dialog" class="dialog-scroll-rodape">
       <button type="submit" class="btn-modo btn-largo">Fechar</button>
     </form>
+
+    <div
+      v-if="store.dialogAvatarAberto"
+      class="perfil-avatar-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="perfilAvatarTitulo"
+      @click.self="store.fecharDialogAvatar()"
+    >
+      <div class="perfil-avatar-overlay-painel" @click.stop>
+        <header class="perfil-avatar-overlay-cabecalho">
+          <h2 id="perfilAvatarTitulo">Escolher avatar</h2>
+          <button
+            type="button"
+            class="btn-icone btn-fechar-dialog"
+            aria-label="Fechar"
+            @click="store.fecharDialogAvatar()"
+          >
+            ×
+          </button>
+        </header>
+        <p class="dialog-sub">
+          {{
+            store.conta?.ehVisitante
+              ? "Salvo neste navegador até você criar conta."
+              : "Sincronizado com sua conta."
+          }}
+        </p>
+        <p class="dialog-sub perfil-avatar-overlay-dica">
+          Todos no mesmo estilo ilustrado — toque para aplicar.
+        </p>
+        <SeletorAvatares
+          :model-value="avatarId"
+          :salvando="salvandoAvatar"
+          @salvar="onSalvarAvatar"
+        />
+        <button
+          type="button"
+          class="btn-modo btn-largo perfil-avatar-overlay-fechar"
+          @click="store.fecharDialogAvatar()"
+        >
+          Fechar
+        </button>
+      </div>
+    </div>
   </dialog>
 </template>

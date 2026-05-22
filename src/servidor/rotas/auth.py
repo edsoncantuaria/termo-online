@@ -1,16 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
+from nucleo.avatares import AVATARES
 from nucleo.contas import (
+    DefinirAvatarConta,
     EntrarComoVisitante,
     LoginConta,
     RegistrarConta,
 )
-from servidor.dependencias_auth import ContaOpcional
+from servidor.dependencias_auth import ContaOpcional, ContaRegistrada
 from servidor.rotas.schemas import (
     AuthLoginRequest,
     AuthRegistroRequest,
     AuthVisitanteRequest,
 )
+
+
+class AvatarRequest(BaseModel):
+    avatarId: str = Field(min_length=2, max_length=24)
 
 
 def RegistrarRotasAuth(Roteador: APIRouter) -> None:
@@ -43,3 +50,15 @@ def RegistrarRotasAuth(Roteador: APIRouter) -> None:
         if not Perfil:
             raise HTTPException(status_code=401, detail="Não autenticado.")
         return {"conta": Perfil}
+
+    @Roteador.get("/auth/avatares")
+    def ListarAvatares():
+        return {"avatares": list(AVATARES)}
+
+    @Roteador.patch("/auth/avatar")
+    def AtualizarAvatar(Corpo: AvatarRequest, Perfil=Depends(ContaRegistrada)):
+        try:
+            Conta = DefinirAvatarConta(Perfil["idConta"], Corpo.avatarId)
+        except ValueError as Erro:
+            raise HTTPException(status_code=400, detail=str(Erro)) from Erro
+        return {"conta": Conta}

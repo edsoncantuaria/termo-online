@@ -1407,6 +1407,178 @@ body::-webkit-scrollbar-corner,
   flex-shrink: 0;
 }
 
+.perfil-anel-avatar--ilustrado {
+  background: transparent;
+  overflow: hidden;
+}
+
+.avatar-ilustracao {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.seletor-avatares {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 420px) {
+  .seletor-avatares {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.seletor-avatares-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  background: color-mix(in srgb, var(--texto) 6%, transparent);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    transform 0.12s;
+}
+
+.seletor-avatares-item:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--verde) 12%, transparent);
+  transform: translateY(-1px);
+}
+
+.seletor-avatares-item--ativo {
+  border-color: var(--verde, #5fad62);
+  background: color-mix(in srgb, var(--verde) 18%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--verde) 40%, transparent);
+}
+
+.seletor-avatares-item:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.seletor-avatares-item .avatar-ilustracao {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+}
+
+.seletor-avatares-nome {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--texto-sec, #9d96ad);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.perfil-secao-avatar {
+  padding-bottom: 0.25rem;
+}
+
+.perfil-avatar-editar {
+  position: relative;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.perfil-avatar-editar:hover {
+  transform: scale(1.04);
+}
+
+.perfil-avatar-editar:focus-visible {
+  outline: 2px solid var(--verde, #5fad62);
+  outline-offset: 3px;
+}
+
+.perfil-avatar-editar-icone {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  background: var(--verde, #5fad62);
+  color: #0f1410;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1;
+  border: 2px solid var(--bg, #14111c);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.dialog-perfil {
+  position: relative;
+}
+
+.perfil-avatar-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  border-radius: inherit;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+.perfil-avatar-overlay-painel {
+  width: 100%;
+  max-width: 20rem;
+  max-height: 100%;
+  overflow: auto;
+  padding: 1rem;
+  border-radius: var(--raio-lg, 14px);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.perfil-avatar-overlay-cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.perfil-avatar-overlay-cabecalho h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--dourado);
+}
+
+.perfil-avatar-overlay-dica {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+}
+
+.perfil-avatar-overlay-fechar {
+  margin-top: 0.75rem;
+}
+
+.perfil-avatar-editar .perfil-anel,
+.perfil-avatar-editar .avatar-ilustracao {
+  pointer-events: none;
+}
+
 .perfil-anel--topo {
   --anel-avatar: 32px;
   --anel-espessura: 2px;

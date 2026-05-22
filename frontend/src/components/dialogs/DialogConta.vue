@@ -58,6 +58,7 @@ function normalizarNickVisitante() {
 
 const inicialAvatar = computed(() => InicialNick(store.conta?.nick));
 const corAvatar = computed(() => CorAvatarNick(store.conta?.nick));
+const avatarId = computed(() => store.avatarIdEfetivo());
 const nickExibicao = computed(() => NickExibicao(store.conta?.nick));
 const totalRanqueadosFmt = computed(() =>
   (store.totalRanqueados ?? 0).toLocaleString("pt-BR")
@@ -135,17 +136,19 @@ async function visitante() {
         </div>
         <PerfilNivelAnel
           v-if="store.conta.progresso"
+          :avatar-id="avatarId"
           :inicial="inicialAvatar"
           :cor-avatar="corAvatar"
           :progresso="store.conta.progresso"
           tamanho="grande"
         />
-        <span
+        <PerfilNivelAnel
           v-else
-          class="auth-avatar-grande"
-          :style="{ background: corAvatar }"
-          aria-hidden="true"
-        >{{ inicialAvatar }}</span>
+          :avatar-id="avatarId"
+          :inicial="inicialAvatar"
+          :cor-avatar="corAvatar"
+          tamanho="grande"
+        />
         <BtnFecharDialog />
       </header>
       <div class="auth-corpo auth-scroll">

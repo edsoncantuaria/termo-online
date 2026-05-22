@@ -37,7 +37,7 @@ def _FiltrarPorFeedback(Candidatos: list[str], Tentativas: list[dict]) -> list[s
 
     for I, (L, E) in enumerate(zip(Letras, Estados)):
         Ln = str(L).lower()
-        if E == "correta":
+        if E == "correto":
             Verdes[I] = Ln
         elif E == "presente":
             Amarelas.append(Ln)
@@ -58,7 +58,7 @@ def _FiltrarPorFeedback(Candidatos: list[str], Tentativas: list[dict]) -> list[s
         for Letra in Cinzas:
             if Letra not in Verdes.values() and Palavra.count(Letra) > 0:
                 if all(
-                    Estados[J] != "correta" or str(Letras[J]).lower() != Letra
+                    Estados[J] != "correto" or str(Letras[J]).lower() != Letra
                     for J in range(len(Letras))
                     if str(Letras[J]).lower() == Letra
                 ):

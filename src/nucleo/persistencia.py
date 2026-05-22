@@ -126,6 +126,8 @@ def _AplicarMigracoesContas(C: sqlite3.Connection) -> None:
         WHERE partidas_ranqueadas = 0 AND pontos_ranqueada = 1000
         """
     )
+    if "avatar_id" not in Colunas:
+        C.execute("ALTER TABLE contas ADD COLUMN avatar_id TEXT")
 
 
 def _AplicarMigracoesProgresso(C: sqlite3.Connection) -> None:
@@ -1013,6 +1015,14 @@ def AtualizarNickConta(IdConta: str, Nick: str) -> None:
         C.execute(
             "UPDATE contas SET nick = ? WHERE id = ?",
             (Nick.lower(), IdConta),
+        )
+
+
+def AtualizarAvatarConta(IdConta: str, AvatarId: str) -> None:
+    with Conexao() as C:
+        C.execute(
+            "UPDATE contas SET avatar_id = ? WHERE id = ?",
+            (AvatarId, IdConta),
         )
 
 

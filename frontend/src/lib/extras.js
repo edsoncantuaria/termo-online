@@ -1,4 +1,5 @@
 /** Preferências, salas públicas, stats e sons. */
+import { UrlApi } from "../config/origem.js";
 
 export function ObterPreferencias() {
   try {
@@ -30,7 +31,7 @@ export function AplicarTemaLegado(claro) {
 export async function CarregarSalasPublicas(ListaEl) {
   if (!ListaEl) return;
   try {
-    const R = await fetch("/api/salas/publicas");
+    const R = await fetch(UrlApi("/api/salas/publicas"));
     const D = await R.json();
     const Salas = D.salas || [];
     if (!Salas.length) {
@@ -54,7 +55,7 @@ export async function CarregarSalasPublicas(ListaEl) {
 
 export async function CarregarStatsServidor(Nick, El) {
   try {
-    const R = await fetch(`/api/stats?nick=${encodeURIComponent(Nick)}`);
+    const R = await fetch(UrlApi(`/api/stats?nick=${encodeURIComponent(Nick)}`));
     const D = await R.json();
     if (El.taxa) El.taxa.textContent = `${D.taxaVitoria || 0}%`;
     if (El.extra) {
@@ -69,7 +70,7 @@ export async function CarregarHistoricoDiaria(_Nick, ListaEl) {
   if (!ListaEl) return;
   try {
     const { HeadersAuth } = await import("../utils/auth.js");
-    const R = await fetch("/api/diaria/historico", {
+    const R = await fetch(UrlApi("/api/diaria/historico"), {
       headers: HeadersAuth({}),
     });
     const D = await R.json();
@@ -96,7 +97,7 @@ export async function CarregarHistoricoDiaria(_Nick, ListaEl) {
 export async function MontarFrasesChat(Container) {
   if (!Container) return;
   try {
-    const R = await fetch("/api/arena/frases-chat");
+    const R = await fetch(UrlApi("/api/arena/frases-chat"));
     const D = await R.json();
     Container.innerHTML = (D.frases || []).map(
       (F) => `<button type="button" class="btn-chat-frase" data-frase="${F}">${F}</button>`

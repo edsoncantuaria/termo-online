@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from . import persistencia
+from .logica_jogo import MaximoTentativas
+from .modos_solo import MaximoTentativasModo
 
 persistencia.InicializarBanco()
 
@@ -30,10 +32,12 @@ def CalcularPontuacao(
     Modo: str = "solo",
     VenceuVersus: bool = False,
 ) -> int:
-    if not Venceu:
-        return 50 if Modo in ("versus", "sala") and TentativasUsadas >= 6 else 0
+    MaxTent = MaximoTentativasModo(Modo) if Modo in ("dueto", "quarteto") else MaximoTentativas
 
-    TentativasRestantes = max(0, 6 - TentativasUsadas)
+    if not Venceu:
+        return 50 if Modo in ("versus", "sala") and TentativasUsadas >= MaxTent else 0
+
+    TentativasRestantes = max(0, MaxTent - TentativasUsadas)
     Pontos = PontuacaoBaseVitoria
     Pontos += TentativasRestantes * BonusPorTentativaSobrando
     Pontos -= (TentativasUsadas - 1) * PenalidadePorTentativa

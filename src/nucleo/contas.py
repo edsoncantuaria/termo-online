@@ -8,6 +8,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from . import persistencia
+from .avatares import AvatarValido, ResolverAvatarId
 from .ranqueada import EloDePontos, NomeEloExibicao, PONTOS_INICIAIS
 
 ITERACOES_SENHA = 120_000
@@ -131,6 +132,7 @@ def MontarPerfilConta(Conta: dict) -> dict:
     Perfil = {
         "idConta": Conta["id"],
         "nick": Conta["nick"],
+        "avatarId": ResolverAvatarId(Conta.get("avatar_id"), Conta["nick"]),
         "email": Conta.get("email") or "",
         "ehVisitante": bool(Conta.get("eh_visitante")),
         "pontosRanqueada": Pontos,
@@ -200,6 +202,16 @@ def EntrarComoVisitante(NickPreferido: str | None = None) -> tuple[dict, str]:
     Conta = persistencia.ObterContaPorId(IdConta)
     Token = persistencia.CriarSessao(IdConta, _AgoraUtc() + timedelta(days=7))
     return MontarPerfilConta(Conta), Token
+
+
+def DefinirAvatarConta(IdConta: str, AvatarId: str) -> dict:
+    if not AvatarValido(AvatarId):
+        raise ValueError("Escolha um avatar da lista.")
+    persistencia.AtualizarAvatarConta(IdConta, AvatarId)
+    Conta = persistencia.ObterContaPorId(IdConta)
+    if not Conta:
+        raise ValueError("Conta não encontrada.")
+    return MontarPerfilConta(Conta)
 
 
 def ResolverSessao(Token: str | None) -> dict | None:
