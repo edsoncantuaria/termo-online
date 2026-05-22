@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
 
 from . import persistencia
+from .tempo_brasil import DataHojeIsoBrasil
 
 # —— XP por ação (conta registrada) ——
 XP_DIARIA_TENTATIVA = 10
@@ -14,6 +14,8 @@ XP_DIARIA_CONCLUIR = 20
 XP_PRATICA_CHUTE = 4
 XP_PRATICA_VITORIA = 15
 XP_ARENA_RODADA = 14
+XP_ARENA_VITORIA_RODADA = 8
+XP_ARENA_CAMPEAO_SESSAO = 25
 XP_RANQUEADA_PARTIDA = 45
 XP_RANQUEADA_VITORIA_EXTRA = 20
 
@@ -82,6 +84,36 @@ BADGES: tuple[dict, ...] = (
         "nome": "Vitória ranqueada",
         "descricao": "Venceu um duelo ranqueado.",
         "icone": "🏆",
+    },
+    {
+        "id": "arena_estreia",
+        "nome": "Na arena",
+        "descricao": "Ganhou XP na primeira rodada da arena.",
+        "icone": "🎪",
+    },
+    {
+        "id": "arena_campeao",
+        "nome": "Campeão da sessão",
+        "descricao": "Venceu uma sessão na arena.",
+        "icone": "🥇",
+    },
+    {
+        "id": "nivel_100",
+        "nome": "Centenário",
+        "descricao": "Alcançou o nível 100.",
+        "icone": "💯",
+    },
+    {
+        "id": "diaria_streak_7",
+        "nome": "Semana firme",
+        "descricao": "Jogou a diária 7 dias seguidos.",
+        "icone": "🔥",
+    },
+    {
+        "id": "ranqueada_10",
+        "nome": "Veterano",
+        "descricao": "Concluiu 10 duelos ranqueados.",
+        "icone": "🛡",
     },
 )
 
@@ -169,6 +201,8 @@ def MontarProgressoConta(IdConta: str) -> dict:
     for Def in BADGES:
         if Def["id"] not in BadgesIds:
             Badges.append({**Def, "desbloqueada": False})
+    from .metas_semanais import MontarMetasSemanaisConta
+
     Estilo = EstiloNivel(Estado.Nivel)
     Hoje = persistencia.ObterXpGanhoDiario(IdConta)
     Mult = MultiplicadorXpGanho(Estado.Nivel)
@@ -186,6 +220,28 @@ def MontarProgressoConta(IdConta: str) -> dict:
         "xpCapDiario": CAP_XP_DIARIO,
         "xpRestanteHoje": max(0, CAP_XP_DIARIO - Hoje),
         "multiplicadorXpPct": round(100 * Mult),
+        "metasSemanais": MontarMetasSemanaisConta(IdConta),
+        "historico7d": MontarHistorico7Dias(IdConta),
+    }
+
+
+def MontarHistorico7Dias(IdConta: str) -> dict:
+    XpPorDia = {L["data"]: L["xp"] for L in persistencia.ListarXpPorDia(IdConta, 7)}
+    RpPorDia = {
+        L["data"]: L["deltaRp"] for L in persistencia.ListarDeltaRpPorDia(IdConta, 7)
+    }
+    Dias: list[str] = []
+    from datetime import timedelta
+
+    from .tempo_brasil import DataHojeBrasil
+
+    Hoje = DataHojeBrasil()
+    for I in range(6, -1, -1):
+        Dias.append((Hoje - timedelta(days=I)).isoformat())
+    return {
+        "dias": Dias,
+        "xp": [XpPorDia.get(D, 0) for D in Dias],
+        "deltaRp": [RpPorDia.get(D, 0) for D in Dias],
     }
 
 
@@ -195,7 +251,7 @@ def _ConcederXp(IdConta: str, QuantidadeBruta: int, Motivo: str) -> dict | None:
     Antes = persistencia.ObterXpConta(IdConta)
     NvAntes = CalcularEstadoNivel(Antes).Nivel
     Efetivo = XpBrutoParaEfetivo(NvAntes, QuantidadeBruta)
-    DataHoje = date.today().isoformat()
+    DataHoje = DataHojeIsoBrasil()
     GanhoHoje = persistencia.ObterXpGanhoDiario(IdConta, DataHoje)
     RestanteCap = max(0, CAP_XP_DIARIO - GanhoHoje)
     if RestanteCap <= 0:
@@ -238,6 +294,7 @@ def _AvaliarBadges(IdConta: str, NvDepois: int | None = None) -> list[dict]:
         ("nivel_10", NvDepois >= 10),
         ("nivel_25", NvDepois >= 25),
         ("nivel_50", NvDepois >= 50),
+        ("nivel_100", NvDepois >= 100),
     )
     for Bid, Ok in Regras:
         if Ok and persistencia.DesbloquearBadge(IdConta, Bid):
@@ -248,6 +305,11 @@ def _AvaliarBadges(IdConta: str, NvDepois: int | None = None) -> list[dict]:
     Vitorias = persistencia.ContarVitoriasRanqueadasConta(IdConta)
     if Vitorias >= 1 and persistencia.DesbloquearBadge(IdConta, "ranqueada_venceu"):
         Novas.append(_BADGES_POR_ID["ranqueada_venceu"])
+    if Partidas >= 10 and persistencia.DesbloquearBadge(IdConta, "ranqueada_10"):
+        Novas.append(_BADGES_POR_ID["ranqueada_10"])
+    if persistencia.ContarSequenciaDiariasConcluidas(IdConta) >= 7:
+        if persistencia.DesbloquearBadge(IdConta, "diaria_streak_7"):
+            Novas.append(_BADGES_POR_ID["diaria_streak_7"])
     return Novas
 
 
@@ -281,11 +343,15 @@ def RecompensaDiariaChute(
         if not persistencia.JaDesbloqueouBadge(IdConta, "primeiro_passo"):
             DesbloquearBadgeSe(IdConta, "primeiro_passo")
     if Encerrada and persistencia.MarcarDiariaXpConclusao(IdConta, DataDia):
+        from .metas_semanais import RegistrarProgressoMeta
+
         Extra = _ConcederXp(IdConta, XP_DIARIA_CONCLUIR, "diaria_concluir")
         if Venceu:
             DesbloquearBadgeSe(IdConta, "diaria_venceu")
         else:
             DesbloquearBadgeSe(IdConta, "diaria_persistente")
+        RegistrarProgressoMeta(IdConta, "diaria_conclusao")
+        _AvaliarBadges(IdConta)
         return Extra or Resultado
     return Resultado
 
@@ -300,7 +366,79 @@ def RecompensaPraticaChute(IdConta: str, Encerrada: bool, Venceu: bool) -> dict 
 
 
 def RecompensaRanqueada(IdConta: str, Venceu: bool) -> dict | None:
+    from .metas_semanais import RegistrarProgressoMeta
+
     Total = XP_RANQUEADA_PARTIDA
     if Venceu:
         Total += XP_RANQUEADA_VITORIA_EXTRA
-    return _ConcederXp(IdConta, Total, "ranqueada_partida")
+    Resultado = _ConcederXp(IdConta, Total, "ranqueada_partida")
+    if Resultado:
+        RegistrarProgressoMeta(IdConta, "ranqueada_partida")
+    return Resultado
+
+
+def RecompensaArenaRodada(
+    IdConta: str,
+    CodigoSala: str,
+    NumeroRodada: int,
+    VenceuRodada: bool,
+) -> dict | None:
+    from .metas_semanais import RegistrarProgressoMeta
+
+    if not persistencia.RegistrarXpArenaRodada(IdConta, CodigoSala, NumeroRodada):
+        return None
+    Total = XP_ARENA_RODADA
+    Motivo = "arena_rodada"
+    if VenceuRodada:
+        Total += XP_ARENA_VITORIA_RODADA
+        Motivo = "arena_vitoria_rodada"
+    Resultado = _ConcederXp(IdConta, Total, Motivo)
+    if Resultado:
+        DesbloquearBadgeSe(IdConta, "arena_estreia")
+        RegistrarProgressoMeta(IdConta, "arena_rodada")
+    return Resultado
+
+
+def RecompensaArenaCampeao(IdConta: str, CodigoSala: str) -> dict | None:
+    if not persistencia.RegistrarXpArenaSessao(IdConta, CodigoSala):
+        return None
+    Resultado = _ConcederXp(IdConta, XP_ARENA_CAMPEAO_SESSAO, "arena_campeao")
+    if Resultado:
+        DesbloquearBadgeSe(IdConta, "arena_campeao")
+    return Resultado
+
+
+def AplicarXpArenaRodadaSala(Sala) -> None:
+    """Concede XP de rodada aos humanos da sala (não ranqueada)."""
+    if Sala.Configuracao.Ranqueada or Sala.EstadoSala != "entre_rodadas":
+        return
+    Ultima = Sala.HistoricoRodadas[-1] if Sala.HistoricoRodadas else None
+    if not Ultima:
+        return
+    Numero = int(Ultima.get("rodada", Sala.RodadaAtual))
+    VencedorId = Ultima.get("vencedorRodadaId")
+    Vencedores = set(Ultima.get("vencedoresRodadaIds") or [])
+    if VencedorId:
+        Vencedores.add(VencedorId)
+    if not hasattr(Sala, "PendentesXpConta"):
+        Sala.PendentesXpConta = {}
+    for J in Sala.Jogadores.values():
+        if J.Espectador or J.EhBot or not J.IdConta:
+            continue
+        Venceu = J.IdJogador == VencedorId or J.IdJogador in Vencedores
+        R = RecompensaArenaRodada(J.IdConta, Sala.CodigoSala, Numero, Venceu)
+        if R:
+            Sala.PendentesXpConta[J.IdConta] = R
+
+
+def AplicarXpArenaCampeaoSala(Sala) -> None:
+    if Sala.Configuracao.Ranqueada or not Sala.VencedorId:
+        return
+    Vencedor = Sala.Jogadores.get(Sala.VencedorId)
+    if not Vencedor or not Vencedor.IdConta or Vencedor.EhBot:
+        return
+    if not hasattr(Sala, "PendentesXpConta"):
+        Sala.PendentesXpConta = {}
+    R = RecompensaArenaCampeao(Vencedor.IdConta, Sala.CodigoSala)
+    if R:
+        Sala.PendentesXpConta[Vencedor.IdConta] = R

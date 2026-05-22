@@ -108,10 +108,12 @@ def FaixaRpBusca(Pontos: int, SegundosEspera: float) -> tuple[int, int]:
 def ResumoJanelaCliente(Pontos: int, SegundosEspera: float) -> dict:
     J = JanelaRpPermitida(Pontos, SegundosEspera)
     MinRp, MaxRp = FaixaRpBusca(Pontos, SegundosEspera)
+    AberturaPct = min(100, int(100 * J / max(1, JANELA_RP_MAXIMA)))
     return {
         "janelaRp": J,
         "rpMinimo": MinRp,
         "rpMaximo": MaxRp,
         "elo": EloDePontos(Pontos),
         "segundosBusca": int(SegundosEspera),
+        "aberturaPct": AberturaPct,
     }

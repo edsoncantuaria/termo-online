@@ -117,6 +117,7 @@ class SalaJogo:
     CountdownFimEpoch: float | None = None
     UltimoVencedorRodadaId: str | None = None
     ResultadosRanqueada: list[dict] | None = None
+    PendentesXpConta: dict[str, dict] = field(default_factory=dict)
 
 
 class GerenciadorSalas:
@@ -642,6 +643,9 @@ class GerenciadorSalas:
             }
         )
         Sala.EstadoSala = "entre_rodadas"
+        from .progresso import AplicarXpArenaRodadaSala
+
+        AplicarXpArenaRodadaSala(Sala)
 
         if SessaoAtingiuLimite(
             Config.ModoSessao,
@@ -787,6 +791,7 @@ class GerenciadorSalas:
         )
         if Config.Ranqueada:
             from .bots_ranqueados import LiberarBotsDaSala
+            from .matchmaking import FilaGlobal
             from .ranqueada import ProcessarFimSalaRanqueada
 
             Resultados = ProcessarFimSalaRanqueada(Sala)
@@ -796,6 +801,7 @@ class GerenciadorSalas:
 
                 for R in Resultados:
                     RecompensaRanqueada(R.IdConta, R.Venceu)
+                FilaGlobal.RegistrarFimDueloRanqueado(Sala, Resultados)
                 Sala.ResultadosRanqueada = [
                     {
                         "idConta": R.IdConta,
@@ -809,6 +815,10 @@ class GerenciadorSalas:
                     }
                     for R in Resultados
                 ]
+        else:
+            from .progresso import AplicarXpArenaCampeaoSala
+
+            AplicarXpArenaCampeaoSala(Sala)
         self.PersistirSala(Sala)
         return None
 
@@ -905,6 +915,26 @@ class GerenciadorSalas:
         if Sala.PalavraSecreta and Sala.PalavraComAcento:
             return Sala.PalavraSecreta, Sala.PalavraComAcento
         return "", ""
+
+    @staticmethod
+    def _ProgressoEventoSala(Sala: SalaJogo, IdObservador: str) -> dict | None:
+        J = Sala.Jogadores.get(IdObservador)
+        if not J or not J.IdConta:
+            return None
+        Pendentes = getattr(Sala, "PendentesXpConta", None) or {}
+        Evento = Pendentes.pop(J.IdConta, None)
+        return Evento
+
+    @staticmethod
+    def _RevancheRanqueadaDisponivel(Sala: SalaJogo, IdObservador: str) -> dict | None:
+        if not Sala.Configuracao.Ranqueada or not Sala.PartidaEncerrada:
+            return None
+        J = Sala.Jogadores.get(IdObservador)
+        if not J or not J.IdConta:
+            return None
+        from .matchmaking import FilaGlobal
+
+        return FilaGlobal.InfoRevanche(J.IdConta)
 
     @staticmethod
     def IdJogadorPublico(Jogador: JogadorSala) -> str:
@@ -1035,6 +1065,8 @@ class GerenciadorSalas:
             "vencedoresRodadaIds": VencedoresRodadaIds,
             "vencedoresRodadaNomes": VencedoresRodadaNomes,
             "maxVerdesRodada": UltimaRodada.get("maxVerdes", 0),
+            "progressoEvento": self._ProgressoEventoSala(Sala, IdObservador),
+            "revancheRanqueada": self._RevancheRanqueadaDisponivel(Sala, IdObservador),
             "configuracao": {
                 "mesmaPalavra": Config.MesmaPalavra,
                 "verOutros": Config.VerOutros,

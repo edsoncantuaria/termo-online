@@ -40,6 +40,8 @@ class FilaMatchmaking:
     def __init__(self) -> None:
         self.Fila: dict[str, EntradaFila] = {}
         self.UltimoMatch: dict[str, dict] = {}
+        self.UltimoOponenteHumano: dict[str, dict] = {}
+        self.RevancheAlvo: dict[str, str] = {}
 
     def Processar(self, Gerenciador: GerenciadorSalas) -> None:
         self._TentarParearReais(Gerenciador)
@@ -156,6 +158,7 @@ class FilaMatchmaking:
 
     def Sair(self, IdConta: str) -> None:
         E = self.Fila.pop(IdConta, None)
+        self.RevancheAlvo.pop(IdConta, None)
         if E and E.BotReservadoId:
             LiberarReservaBot(E.BotReservadoId)
 
@@ -163,6 +166,7 @@ class FilaMatchmaking:
         ExigirPodeRanquear(Perfil)
         IdConta = Perfil["idConta"]
         self.Sair(IdConta)
+        self.RevancheAlvo.pop(IdConta, None)
         self.Fila[IdConta] = EntradaFila(
             IdConta=IdConta,
             Nick=Perfil["nick"],
@@ -171,11 +175,82 @@ class FilaMatchmaking:
         self.Processar(Gerenciador)
         return self.Status(IdConta, Gerenciador)
 
+    def RegistrarFimDueloRanqueado(self, Sala, Resultados) -> None:
+        PorConta = {
+            R.IdConta: R
+            for R in Resultados
+            if R.IdConta
+            and any(
+                J.IdConta == R.IdConta and not getattr(J, "EhBot", False)
+                for J in Sala.Jogadores.values()
+            )
+        }
+        Ids = list(PorConta.keys())
+        if len(Ids) != 2:
+            return
+        IdA, IdB = Ids[0], Ids[1]
+        Ra, Rb = PorConta[IdA], PorConta[IdB]
+        self.UltimoOponenteHumano[IdA] = {
+            "idConta": IdB,
+            "nick": Rb.Nick,
+            "pontos": Rb.PontosDepois,
+        }
+        self.UltimoOponenteHumano[IdB] = {
+            "idConta": IdA,
+            "nick": Ra.Nick,
+            "pontos": Ra.PontosDepois,
+        }
+
+    def InfoRevanche(self, IdConta: str) -> dict | None:
+        O = self.UltimoOponenteHumano.get(IdConta)
+        if not O:
+            return None
+        return {
+            "disponivel": True,
+            "oponenteNick": O["nick"],
+            "oponenteIdConta": O["idConta"],
+            "aguardandoOponente": self.RevancheAlvo.get(O["idConta"]) != IdConta,
+        }
+
+    def SolicitarRevanche(self, IdConta: str, Gerenciador: GerenciadorSalas) -> dict:
+        O = self.UltimoOponenteHumano.get(IdConta)
+        if not O:
+            return {"ok": False, "mensagem": "Nenhum duelo recente contra jogador real."}
+        self.RevancheAlvo[IdConta] = O["idConta"]
+        self.Processar(Gerenciador)
+        return {
+            "ok": True,
+            "mensagem": f"Procurando revanche com {O['nick']}…",
+            "oponenteNick": O["nick"],
+        }
+
+    def _TentarParearRevanche(self, Gerenciador: GerenciadorSalas) -> None:
+        Pares: list[tuple[EntradaFila, EntradaFila]] = []
+        for IdA, AlvoId in list(self.RevancheAlvo.items()):
+            if IdA not in self.Fila or AlvoId not in self.Fila:
+                continue
+            if self.RevancheAlvo.get(AlvoId) != IdA:
+                continue
+            Pares.append((self.Fila[IdA], self.Fila[AlvoId]))
+        for A, B in Pares:
+            if A.BotReservadoId:
+                LiberarReservaBot(A.BotReservadoId)
+            if B.BotReservadoId:
+                LiberarReservaBot(B.BotReservadoId)
+            self._CriarDuelo(Gerenciador, A, B)
+            self.Fila.pop(A.IdConta, None)
+            self.Fila.pop(B.IdConta, None)
+            self.RevancheAlvo.pop(A.IdConta, None)
+            self.RevancheAlvo.pop(B.IdConta, None)
+
     def _TentarParearReais(self, Gerenciador: GerenciadorSalas) -> None:
+        self._TentarParearRevanche(Gerenciador)
         if len(self.Fila) < 2:
             return
         Agora = time.time()
-        Entradas = list(self.Fila.values())
+        Entradas = [
+            E for E in self.Fila.values() if E.IdConta not in self.RevancheAlvo
+        ]
         Candidatos: list[tuple[int, EntradaFila, EntradaFila]] = []
 
         for i, A in enumerate(Entradas):

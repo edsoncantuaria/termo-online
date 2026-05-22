@@ -51,9 +51,22 @@ def RegistrarPontuacao(
     Modo: str,
     TentativasUsadas: int,
     Venceu: bool,
-) -> RegistroPontuacao:
+    *,
+    IdConta: str | None = None,
+) -> RegistroPontuacao | None:
+    """Ranking casual só para contas registradas (não visitante) e com pontos > 0."""
+    Nick = (NomeJogador or "").strip()[:24] or "Anônimo"
+    if IdConta:
+        Conta = persistencia.ObterContaPorId(IdConta)
+        if not Conta or Conta.get("eh_visitante"):
+            return None
+    elif persistencia.NickEhVisitante(Nick):
+        return None
+    if Pontos <= 0:
+        return None
+
     Registro = RegistroPontuacao(
-        NomeJogador=NomeJogador[:24] or "Anônimo",
+        NomeJogador=Nick,
         Pontos=Pontos,
         Modo=Modo,
         TentativasUsadas=TentativasUsadas,
@@ -71,4 +84,16 @@ def RegistrarPontuacao(
 
 
 def ObterRanking(Limite: int = 20) -> list[dict]:
-    return persistencia.ListarRanking(Limite)
+    persistencia.LimparRankingVisitantesEPontosZero()
+    Linhas = persistencia.ListarRanking(max(Limite * 4, 40))
+    Filtradas: list[dict] = []
+    for L in Linhas:
+        Nick = L.get("nome_jogador", "")
+        if persistencia.NickEhVisitante(Nick):
+            continue
+        if int(L.get("pontos", 0)) <= 0:
+            continue
+        Filtradas.append(L)
+        if len(Filtradas) >= Limite:
+            break
+    return Filtradas

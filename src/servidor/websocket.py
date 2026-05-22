@@ -112,8 +112,19 @@ async def BroadcastEstadoSala(Sala) -> None:
 def RegistrarRankingSessao(Sala) -> None:
     if getattr(Sala.Configuracao, "Ranqueada", False):
         return
+    from nucleo import persistencia
+
     for Jogador in Sala.Jogadores.values():
+        if getattr(Jogador, "Espectador", False) or getattr(Jogador, "EhBot", False):
+            continue
         if Jogador.PontosAcumulados <= 0:
+            continue
+        IdConta = getattr(Jogador, "IdConta", None)
+        if IdConta:
+            Conta = persistencia.ObterContaPorId(IdConta)
+            if not Conta or Conta.get("eh_visitante"):
+                continue
+        elif persistencia.NickEhVisitante(Jogador.NomeJogador):
             continue
         RegistrarPontuacao(
             Jogador.NomeJogador,
@@ -121,6 +132,7 @@ def RegistrarRankingSessao(Sala) -> None:
             "sala",
             max(1, Jogador.VitoriasRodada),
             Jogador.IdJogador == Sala.VencedorId,
+            IdConta=IdConta,
         )
 
 
@@ -179,7 +191,7 @@ async def ProcessarChuteSala(Sala, IdJogador: str, Palavra: str) -> None:
         await BroadcastEstadoSala(Sala)
         return
 
-    Valido, MensagemOuPalavra = ValidarPalavra(Palavra)
+    Valido, MensagemOuPalavra = ValidarPalavra(Palavra, Jogador.Tentativas)
     if not Valido:
         await EnviarParaJogador(
             Sala.CodigoSala,

@@ -105,7 +105,18 @@ const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
           </div>
           <div>
             <dt>Jogar → Ranqueado</dt>
-            <dd>Duelo 1v1 com matchmaking, pontos RP e elos (conta com e-mail).</dd>
+            <dd>
+              Duelo 1v1 com matchmaking, pontos RP e elos (conta com e-mail). Revanche
+              disponível após duelo contra outro jogador real.
+            </dd>
+          </div>
+          <div>
+            <dt>Nível e XP</dt>
+            <dd>
+              Conta registrada ganha XP na diária, prática, arena e ranqueada. No início sobe
+              rápido; em níveis altos o ganho efetivo cai (~15% do base). Teto de
+              <strong>2200 XP/dia</strong> (horário de Brasília). Metas semanais no perfil.
+            </dd>
           </div>
           <div>
             <dt>Jogar → Desafio</dt>

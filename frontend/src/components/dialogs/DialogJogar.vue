@@ -186,6 +186,21 @@ function buscarRanqueado() {
                 Busca: <strong>±{{ store.filaBusca.janelaRp }} RP</strong>
                 ({{ store.filaBusca.rpMinimo }}–{{ store.filaBusca.rpMaximo }})
               </p>
+              <div
+                v-if="store.filaBusca?.aberturaPct != null"
+                class="jogar-fila-progresso"
+                role="progressbar"
+                :aria-valuenow="store.filaBusca.aberturaPct"
+              >
+                <div
+                  class="jogar-fila-progresso-fill"
+                  :style="{ width: `${store.filaBusca.aberturaPct}%` }"
+                />
+              </div>
+              <p v-if="store.filaSegundos != null" class="jogar-fila-tempo">
+                Na fila há <strong>{{ store.filaSegundos }}s</strong>
+                — a janela de RP abre com o tempo
+              </p>
               <ul v-if="store.filaPreview.length" class="jogar-fila-lista">
                 <li
                   v-for="p in store.filaPreview"

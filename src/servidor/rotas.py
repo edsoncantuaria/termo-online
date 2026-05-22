@@ -273,6 +273,17 @@ def RegistrarRotas(Aplicacao) -> None:
 
         return MontarRankingCompleto(Perfil)
 
+    @Roteador.post("/ranqueada/revanche")
+    async def RanqueadaRevanche(Perfil=Depends(ContaRegistrada)):
+        FilaGlobal.Entrar(Perfil, GerenciadorVersus)
+        R = FilaGlobal.SolicitarRevanche(Perfil["idConta"], GerenciadorVersus)
+        Status = FilaGlobal.Status(Perfil["idConta"], GerenciadorVersus)
+        if Status.get("estado") == "encontrado" and Status.get("codigoSala"):
+            Sala = GerenciadorVersus.ObterSala(Status["codigoSala"])
+            if Sala:
+                await BroadcastEstadoSala(Sala)
+        return {**R, "fila": Status}
+
     @Roteador.post("/ranqueada/fila")
     async def RanqueadaEntrarFila(Perfil=Depends(ContaRegistrada)):
         Status = FilaGlobal.Entrar(Perfil, GerenciadorVersus)
@@ -399,7 +410,9 @@ def RegistrarRotas(Aplicacao) -> None:
             ):
                 raise HTTPException(status_code=400, detail="Palavra do dia já concluída.")
 
-        Valido, MensagemOuPalavra = ValidarPalavra(Corpo.palavra)
+        Valido, MensagemOuPalavra = ValidarPalavra(
+            Corpo.palavra, Partida.Tentativas
+        )
         if not Valido:
             return {"valido": False, "mensagem": MensagemOuPalavra}
 
@@ -445,6 +458,7 @@ def RegistrarRotas(Aplicacao) -> None:
                 ModoRank,
                 TentativasUsadas,
                 Partida.Venceu,
+                IdConta=IdConta if Perfil and not Perfil.get("ehVisitante") else None,
             )
             if Partida.Modo == ModoDiaria and Partida.DataDia:
                 persistencia.RegistrarDiaria(

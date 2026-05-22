@@ -161,7 +161,10 @@ def _MontarListaExibicao(
     return Resultado, MinhaPosicao
 
 
-def MontarRankingCompleto(Perfil: dict | None, LimiteTopo: int = TOP_EXIBIDO) -> dict:
+def MontarRankingCompleto(
+    Perfil: dict | None,
+    LimiteTopo: int = TOP_EXIBIDO,
+) -> dict:
     Entradas: list[dict] = []
 
     for Linha in persistencia.ListarContasRanqueamento():

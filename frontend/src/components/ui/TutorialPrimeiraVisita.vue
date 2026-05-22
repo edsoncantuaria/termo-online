@@ -30,6 +30,13 @@ const passos = [
     demo: ["ausente", "ausente", "ausente", "ausente", "ausente"],
     letras: ["X", "Y", "Z", "W", "Q"],
   },
+  {
+    titulo: "Conta e progresso",
+    texto:
+      "Com cadastro você ranqueia, ganha XP (anel no avatar) e metas semanais. Visitante joga, mas não acumula nível.",
+    demo: ["presente", "correto", "ausente", "ausente", "ausente"],
+    letras: ["T", "E", "R", "M", "O"],
+  },
 ];
 
 function avancar() {

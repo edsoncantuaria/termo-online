@@ -55,3 +55,18 @@ make run
 ```
 
 O banco SQLite em `data/termo.db` é preservado se o volume/diretório `data/` for mantido.
+
+## Escala horizontal (importante)
+
+Salas da arena, fila ranqueada e matchmaking ficam **na memória do processo** Python. Para um único servidor (`make run` ou um container), está ok.
+
+Se subir **mais de uma instância** atrás do load balancer:
+
+- Jogadores na mesma sala precisam cair no **mesmo worker** (sticky session por cookie/IP), **ou**
+- Migrar estado para **Redis** (filas, salas, WebSocket pub/sub).
+
+Sem isso, sala/fila podem “sumir” entre requisições. WebSocket exige proxy com upgrade (`/ws`, `/ws/lobby`).
+
+## Fuso horário
+
+Diária, cap de XP e metas semanais usam **America/Sao_Paulo (UTC−3)** no servidor (`nucleo/tempo_brasil.py`).

@@ -7,7 +7,7 @@ import GradeCompartilhar from "../ui/GradeCompartilhar.vue";
 import ConfeteAnimado from "../ui/ConfeteAnimado.vue";
 
 const store = useTermoStore();
-const r = store.resultado;
+const r = computed(() => store.resultado);
 const dialogo = ref(null);
 const aberto = computed(() => store.dialogAberto === "resultado");
 const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
@@ -17,16 +17,23 @@ const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
 );
 
 const iconeResultado = computed(() => {
-  if (r.venceu) return "🏆";
-  if (r.ehDiaria) return "🌙";
+  if (r.value.venceu) return "🏆";
+  if (r.value.ehDiaria) return "🌙";
   return "💭";
 });
 
 const classeDialogo = computed(() => ({
-  "resultado-diaria": r.confeteIntenso || r.ehDiaria,
-  "resultado-venceu": r.venceu,
-  "resultado-perdeu": r.venceu === false,
+  "resultado-diaria": r.value.confeteIntenso || r.value.ehDiaria,
+  "resultado-venceu": r.value.venceu,
+  "resultado-perdeu": r.value.venceu === false,
 }));
+
+const temConteudo = computed(
+  () =>
+    !!r.value.texto ||
+    r.value.mostrarGrade ||
+    !!r.value.pontos
+);
 </script>
 
 <template>
@@ -44,8 +51,8 @@ const classeDialogo = computed(() => ({
       <span class="resultado-icone" aria-hidden="true">{{ iconeResultado }}</span>
       <div class="dialog-cabecalho-texto">
         <p v-if="r.ehDiaria" class="resultado-kicker">Palavra do dia</p>
-        <h2>{{ r.titulo }}</h2>
-        <p class="dialog-sub resultado-subtitulo">{{ r.texto }}</p>
+        <h2>{{ r.titulo || "Resultado" }}</h2>
+        <p v-if="r.texto" class="dialog-sub resultado-subtitulo">{{ r.texto }}</p>
         <p v-if="r.pontos" class="resultado-pontos-chip">{{ r.pontos }}</p>
       </div>
       <BtnFecharDialog />
@@ -61,6 +68,9 @@ const classeDialogo = computed(() => ({
         :eh-diaria="r.ehDiaria"
         :data-formatada="r.dataFormatada"
       />
+      <p v-else-if="aberto && !temConteudo" class="resultado-grade-vazio">
+        Não foi possível carregar o resumo da partida.
+      </p>
 
       <div class="dialog-acoes resultado-acoes">
         <button
@@ -78,6 +88,14 @@ const classeDialogo = computed(() => ({
           @click="store.copiarTexto(r.gradeTexto, 'Resultado copiado!')"
         >
           Copiar emojis
+        </button>
+        <button
+          v-if="r.mostrarRevancheRanqueada"
+          type="button"
+          class="btn-modo btn-largo"
+          @click="store.solicitarRevancheRanqueada()"
+        >
+          Revanche com {{ r.revancheOponenteNick || "oponente" }}
         </button>
         <button
           v-if="r.mostrarRevanche"

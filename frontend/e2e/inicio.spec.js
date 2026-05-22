@@ -11,3 +11,10 @@ test("ajuda abre e mostra sons", async ({ page }) => {
   await page.getByRole("button", { name: "Ajuda" }).click();
   await expect(page.getByText("Sons do jogo")).toBeVisible();
 });
+
+test("ajuda menciona nível e XP", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Ajuda" }).click();
+  await page.getByRole("button", { name: "Modos" }).click();
+  await expect(page.getByText(/2200 XP\/dia/i)).toBeVisible();
+});

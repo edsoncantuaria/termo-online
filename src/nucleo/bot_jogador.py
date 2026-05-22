@@ -11,6 +11,15 @@ from .logica_jogo import AvaliarChute, MaximoTentativas, PalavraFoiAcertada
 
 _ULTIMO_CHUTE: dict[str, float] = {}
 _INTERVALO_MIN = 2.8
+_INTERVALO_MAX = 6.5
+
+
+def _IntervaloChuteBot(Jogador) -> float:
+    from .bots_ranqueados import PontosBotPorIdJogador
+
+    Pontos = PontosBotPorIdJogador(Jogador.IdJogador) or 1200
+    Fator = max(0.35, min(1.0, Pontos / 2200))
+    return _INTERVALO_MIN + (1.0 - Fator) * (_INTERVALO_MAX - _INTERVALO_MIN)
 
 
 def _FiltrarPorFeedback(Candidatos: list[str], Tentativas: list[dict]) -> list[str]:
@@ -74,16 +83,16 @@ def EscolherPalavraChute(Jogador, PalavraSecreta: str) -> str | None:
     if not Candidatos:
         return None
 
-    Pontos = PontosBotPorIdJogador(Jogador.IdJogador)
-    Skill = min(1.0, Pontos / 2600)
+    Pontos = PontosBotPorIdJogador(Jogador.IdJogador) or 1200
+    Skill = max(0.2, min(0.95, Pontos / 2600))
     Filtradas = _FiltrarPorFeedback(Candidatos, Jogador.Tentativas)
 
     TentativaNum = len(Jogador.Tentativas) + 1
-    ChanceAcerto = 0.04 + Skill * 0.22
+    ChanceAcerto = 0.03 + Skill * 0.24
     if TentativaNum >= 4:
-        ChanceAcerto += Skill * 0.15
+        ChanceAcerto += Skill * 0.14
     if TentativaNum >= 5:
-        ChanceAcerto += 0.12
+        ChanceAcerto += 0.1 + Skill * 0.05
 
     if random.random() < ChanceAcerto:
         return ObterPalavraComAcento(PalavraSecreta) or PalavraSecreta
@@ -108,7 +117,7 @@ def ProcessarBotsNasSalas(Gerenciador) -> list:
         for Bot in Bots:
             if Bot.Finalizou:
                 continue
-            if Agora - _ULTIMO_CHUTE.get(Bot.IdJogador, 0) < _INTERVALO_MIN:
+            if Agora - _ULTIMO_CHUTE.get(Bot.IdJogador, 0) < _IntervaloChuteBot(Bot):
                 continue
             PalavraSecreta, _ = Gerenciador.ObterPalavraJogador(Sala, Bot)
             if not PalavraSecreta:

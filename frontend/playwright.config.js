@@ -7,10 +7,26 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:5173",
     headless: true,
   },
-  webServer: {
-    command: "npm run dev -- --host 127.0.0.1 --port 5173",
-    url: "http://127.0.0.1:5173",
-    reuseExistingServer: true,
-    timeout: 120000,
-  },
+  webServer: process.env.CI
+    ? [
+        {
+          command:
+            "cd .. && PYTHONPATH=src ../.venv/bin/python -m uvicorn src.main:app --host 127.0.0.1 --port 8000",
+          url: "http://127.0.0.1:8000/api/ranqueada/elos",
+          reuseExistingServer: false,
+          timeout: 120000,
+        },
+        {
+          command: "npm run dev -- --host 127.0.0.1 --port 5173",
+          url: "http://127.0.0.1:5173",
+          reuseExistingServer: false,
+          timeout: 120000,
+        },
+      ]
+    : {
+        command: "npm run dev -- --host 127.0.0.1 --port 5173",
+        url: "http://127.0.0.1:5173",
+        reuseExistingServer: true,
+        timeout: 120000,
+      },
 });

@@ -21,7 +21,7 @@ Jogo de palavras em português — moderno e social. Conta opcional (visitante s
 - **Jogo:** sons (teclas, chute, vitória, chat, entrada na sala), shake na linha inválida, dica visual na linha atual
 - **UX:** tutorial na primeira visita, tema claro, PWA instalável, Open Graph
 - **Conta:** registro/login ou visitante; ranking ranqueado e fila só com conta real
-- **Perfil:** ranking ranqueado (elo), ranking casual da arena, estatísticas e diárias
+- **Perfil:** ranking ranqueado (elo), estatísticas, metas semanais e diárias
 - Persistência em **SQLite** (`data/termo.db`)
 - Retomar partida/sala via `localStorage` + servidor
 - Link direto: `http://localhost:8000/?sala=CODIGO` ou `/?desafio=CODIGO`
@@ -59,10 +59,16 @@ O modal de conta abre em **Entrar**; **Entrar como visitante** fica acima do log
 | Chute na prática | +4 |
 | Vencer na prática | +15 extra |
 | Duelo ranqueado | +45 (+20 se vencer) |
+| Rodada na arena | +14 (+8 se vencer a rodada) |
+| Campeão da sessão (arena) | +25 |
 
 **Curva de progressão:** sobe **rápido no início** (nível 1→2 custa ~50 XP; ganho 100% do base) e **fica mais difícil** depois (custo por nível sobe com marcos a cada 10/25; ganho efetivo cai até ~15% do base em níveis altos). **Teto diário alto:** até **2200 XP/dia** por conta (anti-farm; o restante volta no dia seguinte).
 
-**Diária séria:** uma partida por **conta + data**; tentativas e XP não repetem ao recarregar (`diaria_xp_tentativa` no servidor). Exige conta (não visitante).
+**Metas semanais:** 3 diárias na semana, 3 duelos ranqueados, 5 rodadas na arena — XP bônus automático ao concluir.
+
+**Diária séria:** uma partida por **conta + data** (dia em horário de Brasília); tentativas e XP não repetem ao recarregar. Exige conta (não visitante).
+
+**Revanche ranqueada:** após duelo PvP real, `POST /api/ranqueada/revanche` prioriza o mesmo oponente se os dois pedirem.
 
 **Duelo ranqueado:** vitória **+16 a +20** RP, derrota **-8 a -12**, conforme diferença de rating do oponente. Cálculo e persistência **somente no servidor** (`POST /api/pontuacao/registrar` retorna 403).
 

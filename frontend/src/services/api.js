@@ -22,7 +22,6 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
-  ranking: () => fetch("/api/ranking").then((r) => r.json()),
   stats: (nick) =>
     fetch(`/api/stats?nick=${encodeURIComponent(nick)}`).then((r) => r.json()),
   historicoDiaria: (nick) =>
@@ -96,6 +95,9 @@ export const api = {
   authEu: () => fetchAuth("/api/auth/eu").then(JsonOuErro),
 
   ranqueadaRanking: () => fetchAuth("/api/ranqueada/ranking").then(JsonOuErro),
+
+  ranqueadaRevanche: () =>
+    fetchAuth("/api/ranqueada/revanche", { method: "POST" }).then(JsonOuErro),
 
   ranqueadaElos: () => fetch("/api/ranqueada/elos").then((r) => r.json()),
 

@@ -23,6 +23,7 @@ import {
   NormalizarLetrasProgresso,
   LetrasPreenchidas,
   MontarPalavraChute,
+  PalavraJaFoiTentada,
   ProximoIndiceVazio,
   FormatarCronometro,
   ModoVitoriasArena,
@@ -36,6 +37,7 @@ import {
   NickExibicao,
 } from "../utils/jogador.js";
 import { TextoXpGanho } from "../utils/progresso.js";
+import { acoesRanqueada } from "./termo/acoes-ranqueada.js";
 import {
   ObterSessao,
   LimparSessao,
@@ -66,7 +68,6 @@ let intervaloTimer = null;
 let intervaloSyncArena = null;
 let timersChat = new Map();
 let timerToast = null;
-let timerFilaRanqueada = null;
 
 function ChaveMsgChat(M) {
   return `${M.quando}|${M.idJogador}|${M.texto}`;
@@ -140,7 +141,6 @@ export const useTermoStore = defineStore("termo", {
 
     statsLocais: ObterStats(),
     statsServidor: null,
-    ranking: [],
     salasPublicas: [],
     historicoDiaria: [],
 
@@ -701,114 +701,7 @@ export const useTermoStore = defineStore("termo", {
       this.abrirDialog("conta");
     },
 
-    pararFilaRanqueada() {
-      if (timerFilaRanqueada) {
-        clearInterval(timerFilaRanqueada);
-        timerFilaRanqueada = null;
-      }
-      this.filaRanqueada = false;
-      this.filaSegundos = null;
-      this.filaFase = null;
-      this.filaMensagem = "";
-      this.filaJogadoresNaFila = 0;
-      this.filaJogadoresOnline = 0;
-      this.filaPreview = [];
-      this.filaBusca = null;
-      api.ranqueadaSairFila().catch(() => {});
-    },
-
-    async entrarFilaRanqueada() {
-      if (!this.exigirContaRegistrada()) return;
-      if (this.modo === "arena" && this.codigoSala) {
-        this.mostrarToast("Saia da Arena antes de buscar ranqueado", true);
-        return;
-      }
-      this.pararFilaRanqueada();
-      this.filaRanqueada = true;
-      try {
-        const D = await api.ranqueadaEntrarFila();
-        if (D.estado === "encontrado") {
-          await this.entrarSalaRanqueada(D);
-          return;
-        }
-        timerFilaRanqueada = setInterval(() => this.pollFilaRanqueada(), 2000);
-        await this.pollFilaRanqueada();
-      } catch (e) {
-        this.filaRanqueada = false;
-        this.mostrarToast(e.message, true);
-      }
-    },
-
-    async pollFilaRanqueada() {
-      if (!this.filaRanqueada) return;
-      try {
-        const D = await api.ranqueadaStatusFila();
-        if (D.estado === "aguardando") {
-          this.filaSegundos = D.segundos ?? null;
-          this.filaFase = D.fase ?? null;
-          this.filaMensagem = D.mensagem ?? "";
-          this.filaJogadoresNaFila = D.jogadoresNaFila ?? 0;
-          this.filaJogadoresOnline =
-            D.jogadoresOnline ?? D.jogadoresNaFila ?? 0;
-          this.filaPreview = D.filaPreview ?? [];
-          this.filaBusca = D.busca ?? null;
-        }
-        if (D.estado === "encontrado") {
-          this.pararFilaRanqueada();
-          this.fecharDialogs();
-          await this.entrarSalaRanqueada(D);
-        }
-      } catch {
-        /* ok */
-      }
-    },
-
-    async entrarSalaRanqueada(D) {
-      try {
-        const R = await api.salaEstado(D.codigoSala, D.idJogador);
-        if (!R.ok) throw new Error("Sala não encontrada");
-        const estado = await R.json();
-        this.entrarNaSalaRanqueada(estado);
-        TocarSom("entrada");
-        this.atualizarArena(estado);
-      } catch (e) {
-        this.mostrarToast(e.message || "Erro ao entrar no duelo", true);
-      }
-    },
-
-    entrarNaSalaRanqueada(D) {
-      LimparSessao();
-      this.modo = "ranqueada";
-      this.configArena = D.configuracao;
-      this.codigoSala = D.codigoSala;
-      this.idJogador = D.idJogador;
-      this.souCriador = D.souCriador;
-      this.codigoEntrada = D.codigoSala;
-      SalvarCodigoSala(D.codigoSala);
-      this.dadosSala = D;
-      this.fecharDialogs();
-      if (D.estadoSala === "aguardando") {
-        this.irParaView("inicio");
-      }
-      this.conectarWs();
-      this.persistir();
-    },
-
-    async carregarRankingRanqueado() {
-      if (!this.conta?.podeRanqueada) {
-        this.rankingRanqueado = [];
-        return;
-      }
-      try {
-        const D = await api.ranqueadaRanking();
-        this.rankingRanqueado = D.ranking || [];
-        this.minhaPosicaoRanqueada = D.minhaPosicao ?? null;
-        this.totalRanqueados = D.totalRanqueados ?? 0;
-        if (D.eu) this.conta = D.eu;
-      } catch {
-        this.rankingRanqueado = [];
-      }
-    },
+    ...acoesRanqueada,
 
     revelarTentativaSolo(indice, tentativa, animar = false) {
       const t = { ...NormalizarTentativa(tentativa), animar: !!animar };
@@ -1240,6 +1133,13 @@ export const useTermoStore = defineStore("termo", {
         return;
       }
       const palavra = MontarPalavraChute(this.letras);
+      const tentativasAnteriores = EhModoSalaOnline(this.modo)
+        ? this.arenaTentativas
+        : this.tentativasHist;
+      if (PalavraJaFoiTentada(palavra, tentativasAnteriores)) {
+        this.tratarChuteInvalido("Você já tentou essa palavra.");
+        return;
+      }
 
       if (EhModoSalaOnline(this.modo)) {
         if (this.espectador) {
@@ -1310,7 +1210,8 @@ export const useTermoStore = defineStore("termo", {
               D.venceu,
               palavraFim,
               D.pontos,
-              D.modo
+              D.modo,
+              D.tentativasUsadas
             );
           }, DURACAO_FLIP_LINHA + 80);
         } else {
@@ -1321,10 +1222,12 @@ export const useTermoStore = defineStore("termo", {
       }
     },
 
-    mostrarResultadoSolo(venceu, palavra, pontos, modo) {
+    mostrarResultadoSolo(venceu, palavra, pontos, modo, tentativasUsadas) {
+      const tentativa =
+        tentativasUsadas ?? this.tentativa ?? this.tentativasHist.length;
       const gradeTexto = GerarTextoCompartilhar({
         modo,
-        tentativa: this.tentativa,
+        tentativa,
         maxTentativas: this.maxTentativas,
         tentativasHist: this.tentativasHist,
         dataDia: this.dataDia,
@@ -1334,7 +1237,7 @@ export const useTermoStore = defineStore("termo", {
       this.resultado = MontarResultadoUi({
         modo,
         venceu,
-        tentativa: this.tentativa,
+        tentativa,
         maxTentativas: this.maxTentativas,
         gradeTexto,
         pontos,
@@ -1365,7 +1268,6 @@ export const useTermoStore = defineStore("termo", {
         this.statsLocais = S;
       }
       this.atualizarStatsUI();
-      this.carregarRanking();
       if (modo === "pratica" || modo === "diaria") LimparSessao();
       this.abrirDialog("resultado");
     },
@@ -1843,6 +1745,10 @@ export const useTermoStore = defineStore("termo", {
         }
       }
 
+      if (D.progressoEvento) {
+        this.aplicarProgressoResposta(D.progressoEvento);
+      }
+
       this.persistir();
 
       if (D.partidaEncerrada) {
@@ -1906,6 +1812,10 @@ export const useTermoStore = defineStore("termo", {
         mostrarCopiar: true,
         mostrarCompartilhar: true,
         mostrarRevanche: !!(this.souCriador && this.codigoSala),
+        mostrarRevancheRanqueada: !!(
+          ehRanq && D.revancheRanqueada?.disponivel
+        ),
+        revancheOponenteNick: D.revancheRanqueada?.oponenteNick || "",
       };
       if (venci) {
         const S = ObterStats();
@@ -1929,7 +1839,6 @@ export const useTermoStore = defineStore("termo", {
         }).catch(() => {});
       }
       this.atualizarStatsUI();
-      this.carregarRanking();
       this.abrirDialog("resultado");
     },
 
@@ -2203,19 +2112,6 @@ export const useTermoStore = defineStore("termo", {
       return retomou;
     },
 
-    async carregarRanking() {
-      try {
-        const D = await api.ranking();
-        this.ranking = (D.ranking || []).map((item, i) => ({
-          posicao: i + 1,
-          nomeJogador: item.nomeJogador || item.nome_jogador || "?",
-          pontos: item.pontos ?? 0,
-        }));
-      } catch {
-        this.ranking = [];
-      }
-    },
-
     async carregarSalasPublicas() {
       try {
         const D = await api.salasPublicas();
@@ -2251,7 +2147,6 @@ export const useTermoStore = defineStore("termo", {
             })
             .catch(() => {}),
           this.carregarRankingRanqueado(),
-          this.carregarRanking(),
           api
             .stats(this.nickJogo)
             .then((d) => {

@@ -3,7 +3,7 @@ import sqlite3
 import uuid
 from contextlib import contextmanager
 from dataclasses import asdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import os
@@ -106,6 +106,7 @@ def InicializarBanco() -> None:
         )
         _AplicarMigracoesContas(C)
         _AplicarMigracoesProgresso(C)
+        LimparRankingVisitantesEPontosZero()
 
 
 def _AplicarMigracoesContas(C: sqlite3.Connection) -> None:
@@ -194,6 +195,35 @@ def _AplicarMigracoesProgresso(C: sqlite3.Connection) -> None:
             data_dia TEXT NOT NULL,
             quantidade INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (id_conta, data_dia)
+        );
+
+        CREATE TABLE IF NOT EXISTS arena_xp_rodada (
+            id_conta TEXT NOT NULL,
+            codigo_sala TEXT NOT NULL,
+            numero_rodada INTEGER NOT NULL,
+            PRIMARY KEY (id_conta, codigo_sala, numero_rodada)
+        );
+
+        CREATE TABLE IF NOT EXISTS arena_xp_sessao (
+            id_conta TEXT NOT NULL,
+            codigo_sala TEXT NOT NULL,
+            PRIMARY KEY (id_conta, codigo_sala)
+        );
+
+        CREATE TABLE IF NOT EXISTS meta_semanal_progresso (
+            id_conta TEXT NOT NULL,
+            semana_iso TEXT NOT NULL,
+            meta_id TEXT NOT NULL,
+            progresso INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (id_conta, semana_iso, meta_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS meta_semanal_recompensa (
+            id_conta TEXT NOT NULL,
+            semana_iso TEXT NOT NULL,
+            meta_id TEXT NOT NULL,
+            recompensado_em TEXT NOT NULL DEFAULT (datetime('now')),
+            PRIMARY KEY (id_conta, semana_iso, meta_id)
         );
         """
     )
@@ -288,6 +318,27 @@ def CarregarPartidaSolo(IdPartida: str, ClassePartida):
     if not Linha:
         return None
     return _DesserializarEstadoPartida(Linha, ClassePartida)
+
+
+def NickEhVisitante(Nick: str) -> bool:
+    NickNorm = (Nick or "").strip()[:24].lower()
+    if not NickNorm:
+        return False
+    Conta = ObterContaPorNick(NickNorm)
+    return bool(Conta and Conta.get("eh_visitante"))
+
+
+def LimparRankingVisitantesEPontosZero() -> None:
+    with Conexao() as C:
+        C.execute(
+            """
+            DELETE FROM ranking
+            WHERE pontos <= 0
+               OR LOWER(nome_jogador) IN (
+                    SELECT LOWER(nick) FROM contas WHERE eh_visitante = 1
+               )
+            """
+        )
 
 
 def InserirRanking(
@@ -539,7 +590,12 @@ def AdicionarXpConta(IdConta: str, Quantidade: int) -> int:
 
 
 def ObterXpGanhoDiario(IdConta: str, DataDia: str | None = None) -> int:
-    Data = DataDia or date.today().isoformat()
+    if DataDia is None:
+        from .tempo_brasil import DataHojeIsoBrasil
+
+        Data = DataHojeIsoBrasil()
+    else:
+        Data = DataDia
     with Conexao() as C:
         Linha = C.execute(
             "SELECT quantidade FROM xp_ganho_diario WHERE id_conta = ? AND data_dia = ?",
@@ -553,7 +609,12 @@ def RegistrarXpGanhoDiario(
 ) -> int:
     if Quantidade <= 0:
         return ObterXpGanhoDiario(IdConta, DataDia)
-    Data = DataDia or date.today().isoformat()
+    if DataDia is None:
+        from .tempo_brasil import DataHojeIsoBrasil
+
+        Data = DataHojeIsoBrasil()
+    else:
+        Data = DataDia
     with Conexao() as C:
         C.execute(
             """
@@ -569,6 +630,160 @@ def RegistrarXpGanhoDiario(
             (IdConta, Data),
         ).fetchone()
     return int(Linha["quantidade"]) if Linha else 0
+
+
+def RegistrarXpArenaRodada(
+    IdConta: str, CodigoSala: str, NumeroRodada: int
+) -> bool:
+    with Conexao() as C:
+        try:
+            C.execute(
+                """
+                INSERT INTO arena_xp_rodada (id_conta, codigo_sala, numero_rodada)
+                VALUES (?, ?, ?)
+                """,
+                (IdConta, CodigoSala, int(NumeroRodada)),
+            )
+            return True
+        except Exception:
+            return False
+
+
+def RegistrarXpArenaSessao(IdConta: str, CodigoSala: str) -> bool:
+    with Conexao() as C:
+        try:
+            C.execute(
+                "INSERT INTO arena_xp_sessao (id_conta, codigo_sala) VALUES (?, ?)",
+                (IdConta, CodigoSala),
+            )
+            return True
+        except Exception:
+            return False
+
+
+def IncrementarMetaSemanal(
+    IdConta: str, SemanaIso: str, MetaId: str, Quantidade: int, MetaMax: int
+) -> int | None:
+    with Conexao() as C:
+        Linha = C.execute(
+            """
+            SELECT progresso FROM meta_semanal_progresso
+            WHERE id_conta = ? AND semana_iso = ? AND meta_id = ?
+            """,
+            (IdConta, SemanaIso, MetaId),
+        ).fetchone()
+        Atual = int(Linha["progresso"]) if Linha else 0
+        if Atual >= MetaMax:
+            return None
+        Novo = min(MetaMax, Atual + Quantidade)
+        C.execute(
+            """
+            INSERT INTO meta_semanal_progresso (id_conta, semana_iso, meta_id, progresso)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(id_conta, semana_iso, meta_id) DO UPDATE SET progresso = ?
+            """,
+            (IdConta, SemanaIso, MetaId, Novo, Novo),
+        )
+    return Novo
+
+
+def ObterProgressoMetasSemana(IdConta: str, SemanaIso: str) -> dict[str, int]:
+    with Conexao() as C:
+        Linhas = C.execute(
+            """
+            SELECT meta_id, progresso FROM meta_semanal_progresso
+            WHERE id_conta = ? AND semana_iso = ?
+            """,
+            (IdConta, SemanaIso),
+        ).fetchall()
+    return {L["meta_id"]: int(L["progresso"]) for L in Linhas}
+
+
+def ListarMetasSemanaisRecompensadas(IdConta: str, SemanaIso: str) -> set[str]:
+    with Conexao() as C:
+        Linhas = C.execute(
+            """
+            SELECT meta_id FROM meta_semanal_recompensa
+            WHERE id_conta = ? AND semana_iso = ?
+            """,
+            (IdConta, SemanaIso),
+        ).fetchall()
+    return {L["meta_id"] for L in Linhas}
+
+
+def MarcarMetaSemanalRecompensada(IdConta: str, SemanaIso: str, MetaId: str) -> bool:
+    with Conexao() as C:
+        try:
+            C.execute(
+                """
+                INSERT INTO meta_semanal_recompensa (id_conta, semana_iso, meta_id)
+                VALUES (?, ?, ?)
+                """,
+                (IdConta, SemanaIso, MetaId),
+            )
+            return True
+        except Exception:
+            return False
+
+
+def ListarXpPorDia(IdConta: str, Dias: int = 7) -> list[dict]:
+    with Conexao() as C:
+        Linhas = C.execute(
+            """
+            SELECT date(data_hora) AS dia, SUM(quantidade) AS xp
+            FROM xp_log
+            WHERE id_conta = ? AND data_hora >= datetime('now', ?)
+            GROUP BY date(data_hora)
+            ORDER BY dia ASC
+            """,
+            (IdConta, f"-{int(Dias)} days"),
+        ).fetchall()
+    return [{"data": L["dia"], "xp": int(L["xp"])} for L in Linhas]
+
+
+def ListarDeltaRpPorDia(IdConta: str, Dias: int = 7) -> list[dict]:
+    with Conexao() as C:
+        Linhas = C.execute(
+            """
+            SELECT date(data_hora) AS dia, SUM(delta) AS delta
+            FROM historico_ranqueada
+            WHERE id_conta = ? AND data_hora >= datetime('now', ?)
+            GROUP BY date(data_hora)
+            ORDER BY dia ASC
+            """,
+            (IdConta, f"-{int(Dias)} days"),
+        ).fetchall()
+    return [{"data": L["dia"], "deltaRp": int(L["delta"])} for L in Linhas]
+
+
+def ContarSequenciaDiariasConcluidas(IdConta: str) -> int:
+    from .tempo_brasil import DataHojeBrasil
+
+    D = DataHojeBrasil()
+    Sequencia = 0
+    with Conexao() as C:
+        for I in range(365):
+            Dia = (D - timedelta(days=I)).isoformat()
+            Linha = C.execute(
+                """
+                SELECT 1 FROM diaria_xp_conclusao
+                WHERE id_conta = ? AND data_dia = ?
+                UNION
+                SELECT 1 FROM diaria_jogadores
+                WHERE id_conta = ? AND data_dia = ?
+                LIMIT 1
+                """,
+                (IdConta, Dia, IdConta, Dia),
+            ).fetchone()
+            if not Linha:
+                break
+            Sequencia += 1
+    return Sequencia
+
+
+def ContarRodadasArenaSemana(IdConta: str, SemanaIso: str) -> int:
+    """Aproximação via progresso de meta (evita scan pesado)."""
+    return ObterProgressoMetasSemana(IdConta, SemanaIso).get("arena_5", 0)
 
 
 def RegistrarLogXp(IdConta: str, Quantidade: int, Motivo: str) -> None:

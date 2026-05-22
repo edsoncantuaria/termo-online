@@ -6,6 +6,7 @@ import BtnFecharDialog from "./BtnFecharDialog.vue";
 import EstadoVazio from "../ui/EstadoVazio.vue";
 import PerfilNivelAnel from "../ui/PerfilNivelAnel.vue";
 import { InicialNick, CorAvatarNick } from "../../utils/jogador.js";
+import { BarrasHistorico7d } from "../../utils/progresso.js";
 
 const store = useTermoStore();
 const dialogo = ref(null);
@@ -20,6 +21,15 @@ const corAvatar = computed(() => CorAvatarNick(store.conta?.nick));
 const badgesDesbloqueadas = computed(() =>
   (progresso.value?.badges || []).filter((b) => b.desbloqueada)
 );
+const barrasHistorico = computed(() =>
+  BarrasHistorico7d(progresso.value?.historico7d)
+);
+const metasConcluidas = computed(
+  () => (progresso.value?.metasSemanais || []).filter((m) => m.concluida).length
+);
+const metasTotal = computed(() => progresso.value?.metasSemanais?.length ?? 0);
+const eloExibicao = computed(() => store.conta?.eloNome || "—");
+const pontosRp = computed(() => store.conta?.pontosRanqueada ?? 0);
 
 const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
   dialogo,
@@ -48,6 +58,19 @@ const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
         <div>
           <h2>Seu perfil</h2>
           <p class="dialog-sub">{{ store.nick }}</p>
+          <p
+            v-if="store.conta?.podeRanqueada"
+            class="perfil-cabecalho-ranqueado"
+          >
+            <span class="jogar-elo-pill">{{ eloExibicao }}</span>
+            <strong class="perfil-cabecalho-rp">{{ pontosRp }} RP</strong>
+            <span
+              v-if="store.minhaPosicaoRanqueada && store.totalRanqueados"
+              class="perfil-cabecalho-pos"
+            >
+              #{{ store.minhaPosicaoRanqueada }} / {{ totalRanqueadosFmt }}
+            </span>
+          </p>
           <p v-if="progresso" class="perfil-nivel-linha">
             Nível <strong>{{ progresso.nivel }}</strong>
             · {{ progresso.estiloNivel.faixaNome }}
@@ -72,20 +95,71 @@ const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
         Ganho hoje: {{ progresso.xpGanhoHoje }} / {{ progresso.xpCapDiario }} XP
         · Eficiência no nível {{ progresso.nivel }}: {{ progresso.multiplicadorXpPct }}%
       </p>
-      <h4 class="perfil-subtitulo">Badges ({{ badgesDesbloqueadas.length }}/{{ progresso.badgesTotal }})</h4>
-      <ul class="perfil-badges">
-        <li
-          v-for="b in progresso.badges"
-          :key="b.id"
-          :class="{ 'perfil-badge--ok': b.desbloqueada, 'perfil-badge--bloq': !b.desbloqueada }"
-        >
-          <span class="perfil-badge-icone" aria-hidden="true">{{ b.icone }}</span>
-          <span>
-            <strong>{{ b.nome }}</strong>
-            <span class="perfil-badge-desc">{{ b.descricao }}</span>
-          </span>
-        </li>
-      </ul>
+      <details v-if="barrasHistorico.length" class="perfil-colapsavel">
+        <summary class="perfil-colapsavel-resumo">Últimos 7 dias</summary>
+        <div class="perfil-colapsavel-corpo perfil-historico">
+          <div class="perfil-historico-barras" aria-hidden="true">
+            <div
+              v-for="b in barrasHistorico"
+              :key="b.dia"
+              class="perfil-historico-col"
+              :title="`${b.dia}: ${b.xp} XP, ${b.deltaRp >= 0 ? '+' : ''}${b.deltaRp} RP`"
+            >
+              <div class="perfil-hist-xp" :style="{ height: `${b.alturaXp}%` }" />
+              <div
+                class="perfil-hist-rp"
+                :class="{ 'perfil-hist-rp--neg': b.deltaRp < 0 }"
+                :style="{ height: `${b.alturaRp}%` }"
+              />
+              <span class="perfil-hist-label">{{ b.dia }}</span>
+            </div>
+          </div>
+          <p class="perfil-hist-legenda">
+            <span class="perfil-hist-leg-xp">XP</span>
+            <span class="perfil-hist-leg-rp">RP</span>
+          </p>
+        </div>
+      </details>
+      <details v-if="progresso.metasSemanais?.length" class="perfil-colapsavel">
+        <summary class="perfil-colapsavel-resumo">
+          Metas da semana ({{ metasConcluidas }}/{{ metasTotal }})
+        </summary>
+        <ul class="perfil-colapsavel-corpo perfil-metas-lista">
+          <li v-for="m in progresso.metasSemanais" :key="m.id">
+            <div class="perfil-meta-topo">
+              <strong>{{ m.nome }}</strong>
+              <span>{{ m.progresso }}/{{ m.meta }}</span>
+            </div>
+            <p class="perfil-meta-desc">{{ m.descricao }}</p>
+            <div class="perfil-meta-barra">
+              <div
+                class="perfil-meta-fill"
+                :style="{ width: `${Math.min(100, (100 * m.progresso) / m.meta)}%` }"
+              />
+            </div>
+            <span v-if="m.recompensada" class="perfil-meta-ok">Recompensada</span>
+            <span v-else-if="m.concluida" class="perfil-meta-ok">+{{ m.xpRecompensa }} XP</span>
+          </li>
+        </ul>
+      </details>
+      <details class="perfil-colapsavel">
+        <summary class="perfil-colapsavel-resumo">
+          Badges ({{ badgesDesbloqueadas.length }}/{{ progresso.badgesTotal }})
+        </summary>
+        <ul class="perfil-colapsavel-corpo perfil-badges">
+          <li
+            v-for="b in progresso.badges"
+            :key="b.id"
+            :class="{ 'perfil-badge--ok': b.desbloqueada, 'perfil-badge--bloq': !b.desbloqueada }"
+          >
+            <span class="perfil-badge-icone" aria-hidden="true">{{ b.icone }}</span>
+            <span>
+              <strong>{{ b.nome }}</strong>
+              <span class="perfil-badge-desc">{{ b.descricao }}</span>
+            </span>
+          </li>
+        </ul>
+      </details>
     </section>
 
     <section class="perfil-secao">
@@ -113,16 +187,6 @@ const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
 
     <section v-if="store.conta?.podeRanqueada" class="perfil-secao">
       <h3>Ranking ranqueado</h3>
-      <div
-        v-if="store.minhaPosicaoRanqueada && store.totalRanqueados"
-        class="perfil-rank-destaque"
-      >
-        <span class="perfil-rank-elo">{{ store.conta.eloNome }}</span>
-        <strong>{{ store.conta.pontosRanqueada }} RP</strong>
-        <span class="perfil-rank-pos">
-          #{{ store.minhaPosicaoRanqueada }} de {{ totalRanqueadosFmt }} jogadores
-        </span>
-      </div>
       <p class="dialog-sub">
         Elos: Madeira → Estrela · {{ totalRanqueadosFmt }} jogadores no ranking global
         (topo + sua posição).
@@ -162,23 +226,6 @@ const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
       <button type="button" class="btn-modo btn-largo" @click="store.abrirCriarConta()">
         Criar conta
       </button>
-    </section>
-
-    <section class="perfil-secao">
-      <h3>Ranking casual (arena)</h3>
-      <ol v-if="store.carregandoPerfil" class="lista-ranking lista-ranking-perfil lista-loading">
-        <li v-for="n in 5" :key="n" class="skeleton-linha" />
-      </ol>
-      <ol v-else class="lista-ranking lista-ranking-perfil">
-        <EstadoVazio
-          v-if="!store.ranking.length"
-          icone="🏆"
-          titulo="Sem dados no ranking"
-        />
-        <li v-for="(item, i) in store.ranking" :key="i">
-          {{ item.posicao }}. {{ item.nomeJogador }} — {{ item.pontos }} pts
-        </li>
-      </ol>
     </section>
 
     <section class="perfil-secao">

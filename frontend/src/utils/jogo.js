@@ -56,6 +56,21 @@ export function MontarPalavraChute(Letras) {
   return NormalizarLetrasProgresso(Letras).join("");
 }
 
+export function PalavraDeTentativa(Tent) {
+  const t = NormalizarTentativa(Tent);
+  return MontarPalavraChute(t.letras);
+}
+
+export function PalavraJaFoiTentada(palavra, tentativas) {
+  const alvo = MontarPalavraChute(
+    [...(palavra || "")].map((c) => c.toLowerCase())
+  );
+  if (!alvo || alvo.length !== TAMANHO_PALAVRA) return false;
+  return (tentativas || []).some(
+    (t) => PalavraDeTentativa(t) === alvo
+  );
+}
+
 export function ProximoIndiceVazio(Letras, Inicio = 0) {
   const L = NormalizarLetrasProgresso(Letras);
   for (let I = 0; I < TAMANHO_PALAVRA; I++) {

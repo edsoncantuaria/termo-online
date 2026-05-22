@@ -23,7 +23,27 @@ def EscolherPalavraAleatoria() -> tuple[str, str]:
     return PalavrasSemAcento[Indice], PalavrasComAcento[Indice]
 
 
-def ValidarPalavra(Palavra: str) -> tuple[bool, str | None]:
+def _PalavraDeTentativa(Tentativa: dict) -> str:
+    Palavra = Tentativa.get("palavra")
+    if Palavra:
+        return NormalizarPalavra(Palavra)
+    Letras = Tentativa.get("letras") or []
+    if Letras:
+        return NormalizarPalavra("".join(str(L) for L in Letras))
+    return ""
+
+
+def PalavraJaFoiTentada(Tentativas: list[dict], PalavraNormalizada: str) -> bool:
+    Alvo = NormalizarPalavra(PalavraNormalizada)
+    if not Alvo:
+        return False
+    return any(_PalavraDeTentativa(T) == Alvo for T in Tentativas)
+
+
+def ValidarPalavra(
+    Palavra: str,
+    TentativasAnteriores: list[dict] | None = None,
+) -> tuple[bool, str | None]:
     PalavraNormalizada = NormalizarPalavra(Palavra)
 
     if len(PalavraNormalizada) != TamanhoPalavra:
@@ -31,6 +51,9 @@ def ValidarPalavra(Palavra: str) -> tuple[bool, str | None]:
 
     if not PalavraExisteNoDicionario(PalavraNormalizada):
         return False, "Palavra não encontrada no dicionário."
+
+    if TentativasAnteriores and PalavraJaFoiTentada(TentativasAnteriores, PalavraNormalizada):
+        return False, "Você já tentou essa palavra."
 
     return True, PalavraNormalizada
 

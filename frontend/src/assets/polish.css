@@ -1210,6 +1210,21 @@ body::-webkit-scrollbar-corner,
   color: #d4c070;
 }
 
+.jogar-fila-progresso {
+  height: 6px;
+  margin: 0.5rem 0 0.35rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.jogar-fila-progresso-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #5fad62, #c9b458);
+  transition: width 0.4s ease;
+}
+
 .jogar-fila-stats {
   display: flex;
   flex-wrap: wrap;
@@ -1438,6 +1453,25 @@ body::-webkit-scrollbar-corner,
   gap: 0.85rem;
 }
 
+.perfil-cabecalho-ranqueado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+  margin: 0.35rem 0 0.15rem;
+}
+
+.perfil-cabecalho-rp {
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.perfil-cabecalho-pos {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
 .perfil-nivel-linha {
   margin: 0.25rem 0 0;
   font-size: 0.82rem;
@@ -1472,9 +1506,157 @@ body::-webkit-scrollbar-corner,
   opacity: 0.9;
 }
 
+.perfil-historico {
+  margin-bottom: 0;
+}
+
+.perfil-historico-barras {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+  height: 72px;
+  padding: 0.25rem 0;
+}
+
+.perfil-historico-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: 0;
+}
+
+.perfil-hist-xp,
+.perfil-hist-rp {
+  width: 42%;
+  min-height: 2px;
+  border-radius: 2px 2px 0 0;
+}
+
+.perfil-hist-xp {
+  background: #5fad62;
+}
+
+.perfil-hist-rp {
+  background: #c9b458;
+}
+
+.perfil-hist-rp--neg {
+  background: #c45c5c;
+}
+
+.perfil-hist-label {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
+
+.perfil-hist-legenda {
+  margin: 0.25rem 0 0;
+  font-size: 0.7rem;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.perfil-hist-leg-xp::before,
+.perfil-hist-leg-rp::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 0.25rem;
+  vertical-align: middle;
+}
+
+.perfil-hist-leg-xp::before {
+  background: #5fad62;
+}
+
+.perfil-hist-leg-rp::before {
+  background: #c9b458;
+}
+
+.perfil-metas-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.perfil-meta-topo {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+}
+
+.perfil-meta-desc {
+  margin: 0.15rem 0 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.perfil-meta-barra {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.perfil-meta-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.perfil-meta-ok {
+  font-size: 0.72rem;
+  color: var(--accent);
+}
+
 .perfil-subtitulo {
   margin: 0 0 0.5rem;
   font-size: 0.85rem;
+}
+
+.perfil-colapsavel {
+  margin-top: 0.5rem;
+  border-radius: var(--raio);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.perfil-colapsavel-resumo {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  user-select: none;
+}
+
+.perfil-colapsavel-resumo::-webkit-details-marker {
+  display: none;
+}
+
+.perfil-colapsavel-resumo::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 0.4rem;
+  font-size: 0.75rem;
+  opacity: 0.75;
+  transition: transform 0.2s ease;
+}
+
+.perfil-colapsavel[open] .perfil-colapsavel-resumo::before {
+  transform: rotate(90deg);
+}
+
+.perfil-colapsavel-corpo {
+  padding: 0.5rem 0.65rem 0.6rem;
+  border-top: 1px solid var(--border);
 }
 
 .perfil-badges {
