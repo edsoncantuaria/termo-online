@@ -1,0 +1,13 @@
+Sons do jogo — Interface Sounds por Kenney (www.kenney.nl)
+Licença: CC0 1.0 Universal — uso livre, sem atribuição obrigatória.
+Pacote original: https://opengameart.org/content/interface-sounds
+
+Arquivos usados (renomeados):
+  tecla.ogg   ← select_001.ogg
+  apagar.ogg  ← click_003.ogg
+  chute.ogg   ← drop_002.ogg
+  acerto.ogg  ← confirmation_002.ogg
+  vitoria.ogg ← maximize_003.ogg
+  erro.ogg    ← error_005.ogg
+  entrada.ogg ← open_002.ogg
+  chat.ogg    ← pluck_001.ogg

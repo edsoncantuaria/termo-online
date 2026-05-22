@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+data/
+.pytest_cache/
+*.db
+scripts/.cache_hunspell/
+frontend/node_modules/
+src/static/dist/
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**

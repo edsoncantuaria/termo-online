@@ -1,0 +1,300 @@
+"""Fila de matchmaking ranqueado (1v1) com bots após busca por jogador real."""
+
+import time
+from dataclasses import dataclass, field
+
+from .arena_rodadas import ModoVitorias
+from .bots_ranqueados import (
+    ContarBotsDisponiveis,
+    EscolherBotParaPontos,
+    LiberarReservaBot,
+    ListarBotsProximos,
+    MarcarBotEmPartida,
+    ObterBot,
+    ReservarBot,
+)
+from .contas import ExigirPodeRanquear
+from .gerenciador_salas import ConfiguracaoSala, GerenciadorSalas, JogadorSala
+from .matchmaking_competitivo import (
+    BUSCA_REAL_SEG,
+    ESPERA_BOT_SEG,
+    JanelaRpPermitida,
+    PodeParearRp,
+    ResumoJanelaCliente,
+    ScoreQualidadePar,
+    SegundosNaFila,
+)
+from .ranqueada import EloDePontos, NomeEloExibicao
+
+
+@dataclass
+class EntradaFila:
+    IdConta: str
+    Nick: str
+    Pontos: int
+    EntrouEm: float = field(default_factory=time.time)
+    BotReservadoId: str | None = None
+
+
+class FilaMatchmaking:
+    def __init__(self) -> None:
+        self.Fila: dict[str, EntradaFila] = {}
+        self.UltimoMatch: dict[str, dict] = {}
+
+    def Processar(self, Gerenciador: GerenciadorSalas) -> None:
+        self._TentarParearReais(Gerenciador)
+        Agora = time.time()
+        for IdConta in list(self.Fila.keys()):
+            E = self.Fila.get(IdConta)
+            if not E:
+                continue
+            Seg = Agora - E.EntrouEm
+            if Seg >= BUSCA_REAL_SEG and not E.BotReservadoId:
+                Bot = EscolherBotParaPontos(E.Pontos, Seg)
+                if Bot:
+                    ReservarBot(Bot.Id)
+                    E.BotReservadoId = Bot.Id
+            if Seg >= BUSCA_REAL_SEG + ESPERA_BOT_SEG and E.BotReservadoId:
+                Bot = ObterBot(E.BotReservadoId)
+                if Bot:
+                    self._CriarDueloComBot(Gerenciador, E, Bot)
+                    self.Fila.pop(IdConta, None)
+
+    def Status(self, IdConta: str, Gerenciador: GerenciadorSalas | None = None) -> dict:
+        if Gerenciador:
+            self.Processar(Gerenciador)
+        if IdConta in self.UltimoMatch:
+            M = self.UltimoMatch.pop(IdConta, None)
+            if M:
+                return {"estado": "encontrado", **M}
+        if IdConta not in self.Fila:
+            return {"estado": "idle"}
+
+        E = self.Fila[IdConta]
+        Seg = int(time.time() - E.EntrouEm)
+        ReaisNaFila = len(self.Fila)
+        Fase, Mensagem = self._FaseEMensagem(E, Seg)
+        Preview = self._MontarPreview(E)
+
+        FaseCliente = self._FaseCliente(Fase)
+        Agora = time.time()
+        Busca = ResumoJanelaCliente(E.Pontos, SegundosNaFila(E.EntrouEm, Agora))
+        return {
+            "estado": "aguardando",
+            "segundos": Seg,
+            "jogadoresNaFila": ReaisNaFila,
+            "jogadoresOnline": ReaisNaFila + ContarBotsDisponiveis(),
+            "fase": FaseCliente,
+            "mensagem": Mensagem,
+            "filaPreview": Preview,
+            "busca": Busca,
+        }
+
+    @staticmethod
+    def _FaseCliente(FaseInterna: str) -> str:
+        if FaseInterna in ("busca_real", "acordando_bot"):
+            return "busca"
+        if FaseInterna == "aguardando_real":
+            return "encontrando"
+        return "entrando"
+
+    def _FaseEMensagem(self, E: EntradaFila, Seg: int) -> tuple[str, str]:
+        if Seg < BUSCA_REAL_SEG:
+            J = JanelaRpPermitida(E.Pontos, Seg)
+            return (
+                "busca_real",
+                f"Procurando oponente entre {max(0, E.Pontos - J)} e {E.Pontos + J} RP…",
+            )
+        if Seg < BUSCA_REAL_SEG + ESPERA_BOT_SEG:
+            if E.BotReservadoId:
+                Bot = ObterBot(E.BotReservadoId)
+                Nome = Bot.Nick if Bot else "Um jogador"
+                Resto = BUSCA_REAL_SEG + ESPERA_BOT_SEG - Seg
+                return (
+                    "aguardando_real",
+                    f"{Nome} também está na fila — confirmando partida ({Resto}s)…",
+                )
+            return (
+                "acordando_bot",
+                "Ampliando busca entre jogadores online…",
+            )
+        return ("entrando", "Iniciando duelo…")
+
+    @staticmethod
+    def _ItemPreview(
+        Nick: str, Pontos: int, *, naFila: bool, destacado: bool = False
+    ) -> dict:
+        Elo = EloDePontos(Pontos)
+        return {
+            "nick": Nick,
+            "pontos": Pontos,
+            "elo": Elo,
+            "eloNome": NomeEloExibicao(Elo),
+            "naFila": naFila,
+            "destacado": destacado,
+        }
+
+    def _MontarPreview(self, Eu: EntradaFila) -> list[dict]:
+        Itens: list[dict] = []
+        if Eu.BotReservadoId:
+            Bot = ObterBot(Eu.BotReservadoId)
+            if Bot:
+                Itens.append(
+                    self._ItemPreview(Bot.Nick, Bot.Pontos, naFila=True, destacado=True)
+                )
+        for Outro in self.Fila.values():
+            if Outro.IdConta == Eu.IdConta:
+                continue
+            Itens.append(self._ItemPreview(Outro.Nick, Outro.Pontos, naFila=True))
+        Vistos = {I["nick"] for I in Itens}
+        for Bot in ListarBotsProximos(Eu.Pontos, 12):
+            if Bot.Nick in Vistos:
+                continue
+            Itens.append(self._ItemPreview(Bot.Nick, Bot.Pontos, naFila=True))
+            Vistos.add(Bot.Nick)
+        return Itens[:14]
+
+    def Sair(self, IdConta: str) -> None:
+        E = self.Fila.pop(IdConta, None)
+        if E and E.BotReservadoId:
+            LiberarReservaBot(E.BotReservadoId)
+
+    def Entrar(self, Perfil: dict, Gerenciador: GerenciadorSalas) -> dict:
+        ExigirPodeRanquear(Perfil)
+        IdConta = Perfil["idConta"]
+        self.Sair(IdConta)
+        self.Fila[IdConta] = EntradaFila(
+            IdConta=IdConta,
+            Nick=Perfil["nick"],
+            Pontos=int(Perfil["pontosRanqueada"]),
+        )
+        self.Processar(Gerenciador)
+        return self.Status(IdConta, Gerenciador)
+
+    def _TentarParearReais(self, Gerenciador: GerenciadorSalas) -> None:
+        if len(self.Fila) < 2:
+            return
+        Agora = time.time()
+        Entradas = list(self.Fila.values())
+        Candidatos: list[tuple[int, EntradaFila, EntradaFila]] = []
+
+        for i, A in enumerate(Entradas):
+            Sa = SegundosNaFila(A.EntrouEm, Agora)
+            for B in Entradas[i + 1 :]:
+                Sb = SegundosNaFila(B.EntrouEm, Agora)
+                if not PodeParearRp(A.Pontos, Sa, B.Pontos, Sb):
+                    continue
+                Candidatos.append(
+                    (ScoreQualidadePar(A.Pontos, Sa, B.Pontos, Sb), A, B)
+                )
+
+        Candidatos.sort(key=lambda T: T[0])
+        Usados: set[str] = set()
+
+        for _, A, Par in Candidatos:
+            if A.IdConta in Usados or Par.IdConta in Usados:
+                continue
+            Usados.add(A.IdConta)
+            Usados.add(Par.IdConta)
+            if A.BotReservadoId:
+                LiberarReservaBot(A.BotReservadoId)
+            if Par.BotReservadoId:
+                LiberarReservaBot(Par.BotReservadoId)
+            self._CriarDuelo(Gerenciador, A, Par)
+
+        for Id in Usados:
+            self.Fila.pop(Id, None)
+
+    def _CriarDuelo(
+        self,
+        Gerenciador: GerenciadorSalas,
+        A: EntradaFila,
+        B: EntradaFila,
+    ) -> None:
+        Config = self._ConfigRanqueada()
+        Sala, J1 = Gerenciador.CriarSala(A.Nick, Config, IdConta=A.IdConta)
+        J2, Erro = Gerenciador.EntrarSala(
+            Sala.CodigoSala,
+            B.Nick,
+            None,
+            False,
+            IdConta=B.IdConta,
+        )
+        if Erro or not J2:
+            return
+        Gerenciador.TentarInicioAutomatico(Sala)
+        Sala = Gerenciador.ObterSala(Sala.CodigoSala) or Sala
+        Gerenciador.PersistirSala(Sala)
+        self._RegistrarMatch(A, B, Sala, J1, J2, oponente_eh_bot=False)
+
+    def _CriarDueloComBot(
+        self,
+        Gerenciador: GerenciadorSalas,
+        A: EntradaFila,
+        Bot,
+    ) -> None:
+        Config = self._ConfigRanqueada()
+        Sala, J1 = Gerenciador.CriarSala(A.Nick, Config, IdConta=A.IdConta)
+        IdBotJogador = f"bot-{Bot.Id}"
+        J2 = JogadorSala(
+            IdJogador=IdBotJogador,
+            NomeJogador=Bot.Nick,
+            EhBot=True,
+            Conectado=True,
+        )
+        Sala.Jogadores[IdBotJogador] = J2
+        MarcarBotEmPartida(Bot.Id)
+        Gerenciador.TentarInicioAutomatico(Sala)
+        Sala = Gerenciador.ObterSala(Sala.CodigoSala) or Sala
+        Gerenciador.PersistirSala(Sala)
+        self._RegistrarMatch(
+            A,
+            None,
+            Sala,
+            J1,
+            J2,
+            oponente_eh_bot=True,
+            nick_bot=Bot.Nick,
+        )
+
+    def _ConfigRanqueada(self) -> ConfiguracaoSala:
+        return ConfiguracaoSala(
+            MesmaPalavra=True,
+            VerOutros=True,
+            MaximoJogadores=2,
+            Senha=None,
+            TempoLimiteSegundos=180,
+            ModoSessao=ModoVitorias,
+            MetaVitorias=1,
+            InicioAutoDois=True,
+            SalaPublica=False,
+            Ranqueada=True,
+        )
+
+    def _RegistrarMatch(
+        self,
+        A: EntradaFila,
+        B: EntradaFila | None,
+        Sala,
+        J1,
+        J2,
+        *,
+        oponente_eh_bot: bool,
+        nick_bot: str | None = None,
+    ) -> None:
+        if B:
+            for Entrada, Jogador in ((A, J1), (B, J2)):
+                self.UltimoMatch[Entrada.IdConta] = {
+                    "codigoSala": Sala.CodigoSala,
+                    "idJogador": Jogador.IdJogador,
+                    "nickOponente": B.Nick if Entrada.IdConta == A.IdConta else A.Nick,
+                }
+        else:
+            self.UltimoMatch[A.IdConta] = {
+                "codigoSala": Sala.CodigoSala,
+                "idJogador": J1.IdJogador,
+                "nickOponente": nick_bot or "Jogador",
+            }
+
+
+FilaGlobal = FilaMatchmaking()

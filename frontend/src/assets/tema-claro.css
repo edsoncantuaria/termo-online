@@ -1,0 +1,30 @@
+/* Tema claro — ativado com html.tema-claro */
+
+html.tema-claro {
+  --bg: #f0edf5;
+  --bg-elevated: #ffffff;
+  --bg-card: rgba(20, 17, 28, 0.04);
+  --border: rgba(20, 17, 28, 0.1);
+  --text: #1a1525;
+  --text-muted: #5c5568;
+  --verde-glow: rgba(95, 173, 98, 0.2);
+  --dourado-glow: rgba(201, 180, 88, 0.25);
+  --sombra: 0 12px 40px rgba(20, 17, 28, 0.12);
+  --scroll-trilho: rgba(20, 17, 28, 0.06);
+  --scroll-polegar: rgba(92, 85, 104, 0.35);
+  --scroll-polegar-hover: rgba(201, 180, 88, 0.55);
+}
+
+html.tema-claro .aurora {
+  opacity: 0.25;
+}
+
+html.tema-claro .tile.preenchida:not(.revelada) {
+  background: rgba(20, 17, 28, 0.06);
+  border-color: rgba(20, 17, 28, 0.15);
+}
+
+html.tema-claro .toast {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text);
+}

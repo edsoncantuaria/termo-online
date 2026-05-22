@@ -1,0 +1,40 @@
+---
+description: Convenções de código do Termo Online — português e CamelCase
+globs: src/**/*
+alwaysApply: true
+---
+
+# Termo Online — convenções de código
+
+## Idioma
+
+- **Variáveis**, parâmetros e atributos: nomes em **português**, estilo **CamelCase** (`PalavraSecreta`, `NumeroTentativas`).
+- **Funções** e **métodos**: nomes em **português**, estilo **CamelCase** (`AvaliarChute`, `CarregarDicionario`).
+- **Classes** e **Enums**: português em **PascalCase** (`GerenciadorSalas`, `EstadoLetra`).
+- **Arquivos** Python: snake_case em português (`logica_jogo.py`, `gerenciador_salas.py`).
+- Comentários e mensagens ao usuário: sempre em português (PT-BR).
+
+## Exemplos
+
+```python
+# ✅ Correto
+def AvaliarChute(PalavraSecreta: str, PalavraChute: str) -> list[EstadoLetra]:
+    LetrasSecretas = list(PalavraSecreta)
+    ...
+
+# ❌ Evitar
+def evaluate_guess(secret, guess):
+    ...
+```
+
+## Estrutura do projeto
+
+- `src/nucleo/` — regras do jogo, dicionário, pontuação, salas
+- `src/servidor/` — API REST, WebSocket, estado global
+- `src/static/` — interface web
+
+## Jogo
+
+- Palavras de 5 letras, até 6 tentativas
+- Cores: correto (verde), presente (amarelo), ausente (cinza)
+- Modos: **solo** (pontuação) e **versus** (sala + WebSocket)

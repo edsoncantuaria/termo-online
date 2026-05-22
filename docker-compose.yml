@@ -1,0 +1,11 @@
+services:
+  termo:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - termo-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  termo-data:

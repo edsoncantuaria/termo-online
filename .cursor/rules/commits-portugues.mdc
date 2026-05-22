@@ -1,0 +1,50 @@
+---
+description: Mensagens de commit em português (PT-BR)
+alwaysApply: true
+---
+
+# Commits em português
+
+Todas as mensagens de commit deste repositório devem estar em **português (PT-BR)**.
+
+## Formato
+
+- **Assunto**: uma linha, imperativo, até ~72 caracteres, sem ponto final.
+- **Corpo** (opcional): explica o *porquê*, não só o *o quê*; parágrafos curtos.
+- **Rodapé** (opcional): referências a issues (`Refs #12`), breaking changes.
+
+## Prefixos sugeridos
+
+| Prefixo | Uso |
+|---------|-----|
+| `Adiciona` | Nova funcionalidade ou arquivo |
+| `Corrige` | Correção de bug |
+| `Atualiza` | Melhoria em algo existente |
+| `Remove` | Código ou recurso removido |
+| `Refatora` | Mudança interna sem alterar comportamento |
+| `Documenta` | README, comentários, regras |
+| `Testa` | Testes novos ou ajustados |
+| `Configura` | CI, Docker, Makefile, dependências |
+
+## Exemplos
+
+```
+Adiciona modo versus com salas WebSocket
+```
+
+```
+Corrige contagem de letras presentes na palavra secreta
+
+A segunda ocorrência da mesma letra no chute não deve
+marcar como presente se a secreta só tem uma.
+```
+
+```
+Documenta regra de commits em português
+```
+
+## Evitar
+
+- Inglês no assunto ou corpo (`fix`, `add`, `update`, `WIP`).
+- Mensagens vagas: `ajustes`, `mudanças`, `fix stuff`.
+- Commits vazios ou só com emoji.
