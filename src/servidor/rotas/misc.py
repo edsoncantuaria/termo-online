@@ -26,6 +26,13 @@ def RegistrarRotasMisc(Roteador: APIRouter) -> None:
             "tamanhoPalavra": 5,
         }
 
+    @Roteador.get("/dicionario/palavras")
+    def ListaPalavrasDicionario():
+        from nucleo.dicionario import ObterDicionario
+
+        _, Palavras, _ = ObterDicionario()
+        return {"hash": ObterHashDicionario(), "palavras": Palavras}
+
     @Roteador.get("/metricas")
     def Metricas():
         return MontarSnapshotMetricas()

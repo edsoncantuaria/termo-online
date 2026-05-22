@@ -430,6 +430,21 @@ def ObterDiariaJogador(Nick: str, DataDia: str | None = None) -> dict | None:
     return dict(Linha) if Linha else None
 
 
+def AtualizarGradeDiariaConta(IdConta: str, DataDia: str, GradeTexto: str) -> bool:
+    """Atualiza só o texto compartilhável da diária já concluída pela conta."""
+    if not IdConta or not GradeTexto:
+        return False
+    with Conexao() as C:
+        Cursor = C.execute(
+            """
+            UPDATE diaria_jogadores SET grade_texto = ?
+            WHERE id_conta = ? AND data_dia = ?
+            """,
+            (GradeTexto[:4000], IdConta, DataDia),
+        )
+        return Cursor.rowcount > 0
+
+
 def RegistrarDiaria(
     Nick: str,
     DataDia: str,

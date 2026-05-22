@@ -17,6 +17,24 @@ export async function CarregarCacheDicionario() {
   }
 }
 
+export async function GarantirCacheDicionario() {
+  const cache = await CarregarCacheDicionario();
+  if (cache instanceof Set) return cache;
+  if (!cache?.precisaBaixar) return null;
+  try {
+    const R = await fetch("/api/dicionario/palavras");
+    if (!R.ok) return null;
+    const D = await R.json();
+    const conjunto = new Set(D.palavras || []);
+    if (conjunto.size > 0) {
+      SalvarCacheDicionario(D.hash, conjunto);
+    }
+    return conjunto.size > 0 ? conjunto : null;
+  } catch {
+    return null;
+  }
+}
+
 export function SalvarCacheDicionario(hash, palavras) {
   localStorage.setItem(CHAVE_HASH, hash);
   localStorage.setItem(CHAVE_PALAVRAS, JSON.stringify([...palavras]));

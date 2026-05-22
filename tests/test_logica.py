@@ -58,6 +58,34 @@ def test_secreta_satisfaz_feedback():
         assert SecretaSatisfazFeedback(Secreta, Chute, Estados)
 
 
+def test_modo_dificil_dueto_respeita_linhas():
+    Anteriores = [
+        {
+            "palavra": "terno",
+            "letras": list("TERNO"),
+            "linhas": [
+                {
+                    "indice": 0,
+                    "palavra": "terno",
+                    "letras": list("TERNO"),
+                    "estados": [E.value for E in AvaliarChute("termo", "terno")],
+                    "venceu": False,
+                },
+                {
+                    "indice": 1,
+                    "palavra": "terno",
+                    "letras": list("TERNO"),
+                    "estados": [E.value for E in AvaliarChute("carro", "terno")],
+                    "venceu": False,
+                },
+            ],
+        }
+    ]
+    Ok, Msg = ValidarModoDificil(Anteriores, "tordo")
+    assert not Ok
+    assert "posição" in (Msg or "").lower()
+
+
 def test_modo_dificil_exige_verdes():
     Anteriores = [
         {

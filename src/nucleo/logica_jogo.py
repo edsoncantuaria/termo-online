@@ -40,26 +40,59 @@ def PalavraJaFoiTentada(Tentativas: list[dict], PalavraNormalizada: str) -> bool
     return any(_PalavraDeTentativa(T) == Alvo for T in Tentativas)
 
 
+def _LetrasDeTentativaOuLinha(Tent: dict, Linha: dict | None = None) -> list[str]:
+    Fonte = Linha if Linha is not None else Tent
+    LetrasTent = list(NormalizarPalavra("".join(Fonte.get("letras") or [])))
+    if len(LetrasTent) != TamanhoPalavra and Fonte.get("palavra"):
+        LetrasTent = list(NormalizarPalavra(Fonte["palavra"]))
+    while len(LetrasTent) < TamanhoPalavra:
+        LetrasTent.append("")
+    return LetrasTent[:TamanhoPalavra]
+
+
+def _ValidarVerdesModoDificil(
+    Letras: list[str],
+    Estados: list,
+    LetrasTent: list[str],
+) -> tuple[bool, str | None]:
+    for I, Estado in enumerate(Estados[:TamanhoPalavra]):
+        if Estado == EstadoLetra.CORRETO.value and LetrasTent[I]:
+            if Letras[I] != LetrasTent[I]:
+                return (
+                    False,
+                    f"A letra '{LetrasTent[I].upper()}' deve ficar na posição {I + 1}.",
+                )
+    return True, None
+
+
 def ValidarModoDificil(
     TentativasAnteriores: list[dict],
     PalavraNormalizada: str,
 ) -> tuple[bool, str | None]:
-    """Modo difícil: letras verdes devem permanecer na mesma posição."""
+    """Modo difícil: letras verdes devem permanecer na mesma posição (solo e multi-tabuleiro)."""
     Letras = list(PalavraNormalizada)
     for Tent in TentativasAnteriores:
+        Linhas = Tent.get("linhas")
+        if Linhas:
+            for Linha in Linhas:
+                if Linha.get("venceu"):
+                    continue
+                Estados = Linha.get("estados") or []
+                if not Estados:
+                    continue
+                LetrasTent = _LetrasDeTentativaOuLinha(Tent, Linha)
+                Ok, Msg = _ValidarVerdesModoDificil(Letras, Estados, LetrasTent)
+                if not Ok:
+                    return Ok, Msg
+            continue
+
         Estados = Tent.get("estados") or []
-        LetrasTent = list(NormalizarPalavra("".join(Tent.get("letras") or [])))
-        if len(LetrasTent) != TamanhoPalavra and Tent.get("palavra"):
-            LetrasTent = list(NormalizarPalavra(Tent["palavra"]))
-        while len(LetrasTent) < TamanhoPalavra:
-            LetrasTent.append("")
-        for I, Estado in enumerate(Estados[:TamanhoPalavra]):
-            if Estado == EstadoLetra.CORRETO.value and LetrasTent[I]:
-                if Letras[I] != LetrasTent[I]:
-                    return (
-                        False,
-                        f"A letra '{LetrasTent[I].upper()}' deve ficar na posição {I + 1}.",
-                    )
+        if not Estados:
+            continue
+        LetrasTent = _LetrasDeTentativaOuLinha(Tent)
+        Ok, Msg = _ValidarVerdesModoDificil(Letras, Estados, LetrasTent)
+        if not Ok:
+            return Ok, Msg
     return True, None
 
 

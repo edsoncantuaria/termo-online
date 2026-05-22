@@ -231,7 +231,15 @@ async def ConectarWebSocketSala(Conexao: WebSocket, codigo_sala: str, id_jogador
     try:
         while True:
             Texto = await Conexao.receive_text()
-            Dados = json.loads(Texto)
+            try:
+                Dados = json.loads(Texto)
+            except json.JSONDecodeError:
+                await EnviarParaJogador(
+                    Sala.CodigoSala,
+                    id_jogador,
+                    {"tipo": "erro", "mensagem": "Mensagem inválida."},
+                )
+                continue
             Tipo = Dados.get("tipo")
             Payload = Dados.get("dados", {})
             SalaAtual = Gerenciador.ObterSala(Sala.CodigoSala)

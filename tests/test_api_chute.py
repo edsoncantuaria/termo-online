@@ -43,3 +43,26 @@ def test_dicionario_info(cliente):
     Corpo = D.json()
     assert Corpo["total"] > 1000
     assert len(Corpo["hash"]) == 16
+
+
+def test_dicionario_palavras(cliente):
+    D = cliente.get("/api/dicionario/palavras")
+    assert D.status_code == 200
+    Corpo = D.json()
+    assert len(Corpo["palavras"]) > 1000
+    assert "termo" in Corpo["palavras"]
+    assert len(Corpo["hash"]) == 16
+
+
+def test_diaria_grade_exige_conta(cliente):
+    R = cliente.post(
+        "/api/diaria/grade",
+        json={
+            "nick": "teste",
+            "gradeTexto": "Termo Diária\n\n🟩⬛⬛⬛⬛",
+            "venceu": True,
+            "tentativasUsadas": 1,
+            "pontos": 6,
+        },
+    )
+    assert R.status_code == 401

@@ -1,10 +1,9 @@
-/** Contagem até a próxima palavra do dia (meia-noite local). */
+/** Contagem até a próxima palavra do dia (meia-noite em Brasília). */
+
+import { MsAteProximaMeiaNoiteBrasil } from "./tempo-brasil.js";
 
 export function TextoProximaDiaria() {
-  const agora = new Date();
-  const proxima = new Date(agora);
-  proxima.setHours(24, 0, 0, 0);
-  const ms = proxima - agora;
+  const ms = MsAteProximaMeiaNoiteBrasil();
   if (ms <= 0) return "Nova palavra em breve";
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);

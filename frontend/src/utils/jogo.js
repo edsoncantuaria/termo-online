@@ -1,4 +1,5 @@
 import { TAMANHO_PALAVRA } from "./constantes.js";
+import { DataHojeIsoBrasil } from "./tempo-brasil.js";
 
 export function PrioridadeTeclado(a, b) {
   const ordem = { correto: 3, presente: 2, ausente: 1 };
@@ -191,8 +192,7 @@ export function GerarTextoCompartilhar({
     arena: "Termo Arena",
   };
   const titulo = titulos[modo] || "Termo";
-  const dataFmt =
-    dataDia || new Date().toISOString().slice(0, 10);
+  const dataFmt = dataDia || DataHojeIsoBrasil();
   const score = venceu ? `${tentativa}/${maxTentativas}` : "X";
   const extra = modo === "arena" && codigoSala ? ` Sala ${codigoSala}` : "";
   return `${titulo}${extra} ${dataFmt} ${score}\n\n${linhas.join("\n")}`;
@@ -210,9 +210,7 @@ export function MontarResultadoUi({
   mostrarRevanche = false,
 }) {
   const ehDiaria = modo === "diaria";
-  const dataFormatada = FormatarDataDiaria(
-    dataDia || new Date().toISOString().slice(0, 10)
-  );
+  const dataFormatada = FormatarDataDiaria(dataDia || null);
   let titulo = venceu ? "Incrível!" : "Quase lá";
   let texto = venceu
     ? `Você acertou em ${tentativa} tentativa${tentativa === 1 ? "" : "s"}.`
@@ -227,7 +225,13 @@ export function MontarResultadoUi({
       : `${dataFormatada} · volte amanhã para uma palavra nova.`;
   }
 
-  const pode = ehDiaria || modo === "pratica" || modo === "arena";
+  const pode =
+    ehDiaria ||
+    modo === "pratica" ||
+    modo === "arena" ||
+    modo === "dueto" ||
+    modo === "quarteto" ||
+    modo === "desafio";
 
   return {
     titulo,

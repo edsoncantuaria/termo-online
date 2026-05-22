@@ -1,4 +1,5 @@
 import { CHAVE_STATS } from "./constantes.js";
+import { DataHojeIsoBrasil } from "./tempo-brasil.js";
 
 export function ObterStats() {
   try {
@@ -14,5 +15,5 @@ export function SalvarStats(S) {
 
 export function DiariaJaJogadaLocal() {
   const s = ObterStats();
-  return s.ultimaDiaria === new Date().toISOString().slice(0, 10);
+  return s.ultimaDiaria === DataHojeIsoBrasil();
 }

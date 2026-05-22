@@ -266,16 +266,24 @@ def RegistrarRotasJogo(Roteador: APIRouter) -> None:
         return MontarRespostaPartida(Partida)
 
     @Roteador.post("/diaria/grade")
-    def SalvarGradeDiaria(Corpo: GradeDiariaRequest):
+    def SalvarGradeDiaria(Corpo: GradeDiariaRequest, Perfil=Depends(ContaRegistrada)):
         _, _, DataDia = EscolherPalavraDoDia()
-        persistencia.RegistrarDiaria(
-            Corpo.nick,
-            DataDia,
-            Corpo.venceu,
-            Corpo.tentativasUsadas,
-            Corpo.pontos,
-            Corpo.gradeTexto or None,
-        )
+        IdConta = Perfil["idConta"]
+        if not persistencia.JaJogouDiariaConta(IdConta, DataDia):
+            raise HTTPException(
+                status_code=400,
+                detail="Conclua a palavra do dia antes de salvar a grade.",
+            )
+        NickNorm = Corpo.nick.strip()[:24].lower() or "jogador"
+        NickConta = (Perfil.get("nick") or "").strip()[:24].lower()
+        if NickNorm != NickConta:
+            raise HTTPException(status_code=403, detail="Nick não corresponde à conta.")
+        if not Corpo.gradeTexto or not Corpo.gradeTexto.strip():
+            raise HTTPException(status_code=400, detail="Grade vazia.")
+        if not persistencia.AtualizarGradeDiariaConta(
+            IdConta, DataDia, Corpo.gradeTexto.strip()
+        ):
+            raise HTTPException(status_code=400, detail="Registro da diária não encontrado.")
         return {"salvo": True}
 
     @Roteador.get("/diaria/historico")

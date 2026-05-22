@@ -65,6 +65,7 @@ export function restaurarPartidaSolo(D, salvoSolo) {
 
   if (D.tabuleiros?.length > 1) {
     criarGradesMulti.call(this, D.tabuleiros.length);
+    this.tentativasHist = [...tentativas];
     this.teclado = { ...(salvoSolo?.teclado || {}) };
     tentativas.forEach((tent, idx) => {
       if (!tent.linhas) return;
@@ -136,6 +137,7 @@ export async function enviarChuteSolo(cacheDicionarioSet) {
     if (D.tentativa.linhas) {
       aplicarChuteMulti.call(this, D.tentativa.linhas, idx, true);
       this.tabuleiros = D.tabuleiros;
+      this.tentativasHist.push({ ...D.tentativa });
     } else {
       revelarTentativaSolo.call(this, idx, D.tentativa, true);
       this.teclado = RegistrarLetrasNoTeclado(D.tentativa, this.teclado);
@@ -215,8 +217,12 @@ export async function iniciarModo(modo, opcoes = {}) {
         }
         return;
       }
-    } catch {
-      /* segue */
+    } catch (e) {
+      this.mostrarToast(
+        e.message || "Não foi possível verificar a palavra do dia.",
+        true
+      );
+      return;
     }
   }
 

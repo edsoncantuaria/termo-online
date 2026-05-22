@@ -63,9 +63,10 @@ import {
   ObservarTemaSistema,
 } from "../lib/extras.js";
 import {
-  CarregarCacheDicionario,
+  GarantirCacheDicionario,
   PalavraNoCache,
 } from "../utils/dicionario-cache.js";
+import { DataHojeIsoBrasil } from "../utils/tempo-brasil.js";
 import * as acoesArena from "./termo/acoes-arena.js";
 import { TocarSom, prepararSons } from "../lib/som.js";
 import { AgendarFimAnimacao, DURACAO_FLIP_LINHA } from "../utils/animacao.js";
@@ -949,7 +950,7 @@ export const useTermoStore = defineStore("termo", {
       S.vitorias = (S.vitorias || 0) + (venceu ? 1 : 0);
       S.sequencia = venceu ? (S.sequencia || 0) + 1 : 0;
       if (modo === "diaria") {
-        S.ultimaDiaria = new Date().toISOString().slice(0, 10);
+        S.ultimaDiaria = this.dataDia || DataHojeIsoBrasil();
         S.diariaVenceu = venceu;
         S.ultimaTentativas = tentativas;
       }
@@ -1832,8 +1833,7 @@ export const useTermoStore = defineStore("termo", {
           AplicarTema(this.preferencias);
         }
       });
-      const cache = await CarregarCacheDicionario();
-      if (cache instanceof Set) cacheDicionarioSet = cache;
+      cacheDicionarioSet = await GarantirCacheDicionario();
       if (this.token) {
         try {
           const D = await api.authEu();

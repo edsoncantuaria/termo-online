@@ -15,6 +15,7 @@ O banco deve conter a tabela `words` com a coluna `word`. A pasta `dicionario/` 
 ## API
 
 - `GET /api/dicionario/info` — `hash` (cache do cliente) e `total`.
+- `GET /api/dicionario/palavras` — lista normalizada (sem acento) para cache offline no navegador.
 - Chutes validados sempre no servidor; o cache no navegador só antecipa feedback.
 
 ## Critérios ao regenerar

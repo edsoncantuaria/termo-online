@@ -17,11 +17,12 @@ export const api = {
   diariaInfo: (nick) =>
     fetchAuth(`/api/diaria/info?nick=${encodeURIComponent(nick)}`).then(JsonOuErro),
   diariaGrade: (body) =>
-    fetch("/api/diaria/grade", {
+    fetchAuth("/api/diaria/grade", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }),
+    }).then(JsonOuErro),
+  dicionarioPalavras: () => fetch("/api/dicionario/palavras").then(JsonOuErro),
   stats: (nick) =>
     fetch(`/api/stats?nick=${encodeURIComponent(nick)}`).then((r) => r.json()),
   historicoDiaria: (nick) =>
