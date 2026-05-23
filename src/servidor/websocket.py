@@ -154,48 +154,42 @@ def VerificarFimRodada(Sala) -> None:
         RegistrarRankingSessao(Sala)
 
 
-async def ProcessarChuteSala(Sala, IdJogador: str, Palavra: str) -> None:
+async def _AvisarJogadorSala(Sala, IdJogador: str, Tipo: str, Mensagem: str) -> None:
+    await EnviarParaJogador(
+        Sala.CodigoSala,
+        IdJogador,
+        {"tipo": Tipo, "mensagem": Mensagem},
+    )
+
+
+async def ProcessarChuteSala(Sala, IdJogador: str, Palavra: str) -> dict:
+    """Processa chute na arena/ranqueada. Retorno usado pelo fallback HTTP."""
     if Sala.EstadoSala != "jogando":
-        await EnviarParaJogador(
-            Sala.CodigoSala,
-            IdJogador,
-            {"tipo": "erro", "mensagem": "Nenhuma rodada em andamento."},
-        )
-        return
+        Msg = "Nenhuma rodada em andamento."
+        await _AvisarJogadorSala(Sala, IdJogador, "erro", Msg)
+        return {"valido": False, "mensagem": Msg}
 
     if Sala.PartidaEncerrada:
-        await EnviarParaJogador(
-            Sala.CodigoSala,
-            IdJogador,
-            {"tipo": "erro", "mensagem": "Sessão já encerrada."},
-        )
-        return
+        Msg = "Sessão já encerrada."
+        await _AvisarJogadorSala(Sala, IdJogador, "erro", Msg)
+        return {"valido": False, "mensagem": Msg}
 
     Jogador = Sala.Jogadores.get(IdJogador)
     if not Jogador:
-        return
+        return {"valido": False, "mensagem": "Jogador não encontrado na sala."}
 
     from nucleo.redis_estado import PermitirRequisicaoRateLimit
 
     ChaveRl = f"chute:{Jogador.IdConta or IdJogador}:{getattr(Sala, 'IdPartida', Sala.CodigoSala)}"
     if not PermitirRequisicaoRateLimit(ChaveRl, 40, 60):
-        await EnviarParaJogador(
-            Sala.CodigoSala,
-            IdJogador,
-            {
-                "tipo": "erro",
-                "mensagem": "Muitos chutes em pouco tempo — aguarde um instante.",
-            },
-        )
-        return
+        Msg = "Muitos chutes em pouco tempo — aguarde um instante."
+        await _AvisarJogadorSala(Sala, IdJogador, "erro", Msg)
+        return {"valido": False, "mensagem": Msg}
 
     if Jogador.Espectador:
-        await EnviarParaJogador(
-            Sala.CodigoSala,
-            IdJogador,
-            {"tipo": "erro", "mensagem": "Espectadores não podem chutar."},
-        )
-        return
+        Msg = "Espectadores não podem chutar."
+        await _AvisarJogadorSala(Sala, IdJogador, "erro", Msg)
+        return {"valido": False, "mensagem": Msg}
 
     if Jogador.Finalizou:
         Mensagem = (
@@ -203,31 +197,26 @@ async def ProcessarChuteSala(Sala, IdJogador: str, Palavra: str) -> None:
             if Jogador.TempoFimEpoch and not Jogador.Venceu
             else "Você já finalizou esta rodada."
         )
-        await EnviarParaJogador(
-            Sala.CodigoSala,
-            IdJogador,
-            {"tipo": "erro", "mensagem": Mensagem},
-        )
-        return
+        await _AvisarJogadorSala(Sala, IdJogador, "erro", Mensagem)
+        return {"valido": False, "mensagem": Mensagem}
 
     if Gerenciador.VerificarTempoEsgotado(Sala):
         VerificarFimRodada(Sala)
         await BroadcastEstadoSala(Sala)
-        return
+        Estado = Gerenciador.EstadoPublicoSala(Sala, IdJogador)
+        return {"valido": True, "estado": Estado, "tempoEsgotado": True}
 
     Valido, MensagemOuPalavra = ValidarPalavra(Palavra, Jogador.Tentativas)
     if not Valido:
-        await EnviarParaJogador(
-            Sala.CodigoSala,
-            IdJogador,
-            {"tipo": "chuteInvalido", "mensagem": MensagemOuPalavra},
-        )
-        return
+        await _AvisarJogadorSala(Sala, IdJogador, "chuteInvalido", MensagemOuPalavra)
+        return {"valido": False, "mensagem": MensagemOuPalavra}
 
     PalavraNormalizada = MensagemOuPalavra
     if Gerenciador.AplicarChuteJogador(Sala, IdJogador, PalavraNormalizada):
         VerificarFimRodada(Sala)
     await BroadcastEstadoSala(Sala)
+    Estado = Gerenciador.EstadoPublicoSala(Sala, IdJogador)
+    return {"valido": True, "estado": Estado}
 
 
 async def ConectarWebSocketSala(Conexao: WebSocket, codigo_sala: str, id_jogador: str) -> None:

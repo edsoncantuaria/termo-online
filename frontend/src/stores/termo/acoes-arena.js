@@ -22,12 +22,25 @@ export function cancelarTimeoutChuteOnline() {
 /** Libera o teclado se o servidor não responder ao chute (WS instável). */
 export function iniciarTimeoutChuteOnline(store, tentativasAntes) {
   cancelarTimeoutChuteOnline();
-  timerTimeoutChuteOnline = setTimeout(() => {
+  timerTimeoutChuteOnline = setTimeout(async () => {
     timerTimeoutChuteOnline = null;
     if (!store.carregandoChute) return;
     const eu = store.dadosSala?.jogadores?.find((j) => j.souEu);
     const total = eu?.tentativas?.length ?? store.arenaTentativas?.length ?? 0;
-    if (total > tentativasAntes) return;
+    if (total > tentativasAntes) {
+      store.carregandoChute = false;
+      return;
+    }
+    await sincronizarArenaHttp(store);
+    const totalDepois =
+      store.dadosSala?.jogadores?.find((j) => j.souEu)?.tentativas?.length ??
+      store.arenaTentativas?.length ??
+      0;
+    if (totalDepois > tentativasAntes) {
+      cancelarTimeoutChuteOnline();
+      store.carregandoChute = false;
+      return;
+    }
     store.carregandoChute = false;
     store.mostrarToast(
       "Sem resposta do servidor — tente o chute de novo.",
@@ -37,6 +50,33 @@ export function iniciarTimeoutChuteOnline(store, tentativasAntes) {
       store.conectarWs();
     }
   }, TIMEOUT_CHUTE_ONLINE_MS);
+}
+
+/** Envia chute pela API quando o WebSocket não está disponível. */
+export async function enviarChuteOnlineHttp(store, palavra, tentativasAntes) {
+  if (!store.codigoSala || !store.idJogador) return;
+  store.carregandoChute = true;
+  iniciarTimeoutChuteOnline(store, tentativasAntes);
+  try {
+    const R = await api.salaChute(store.codigoSala, {
+      idJogador: store.idJogador,
+      palavra,
+    });
+    cancelarTimeoutChuteOnline();
+    if (!R.valido) {
+      store.carregandoChute = false;
+      if (R.mensagem) store.tratarChuteInvalido(R.mensagem);
+      else store.mostrarToast("Chute inválido.", true);
+      return;
+    }
+    if (R.estado) store.atualizarArena(R.estado);
+    store.carregandoChute = false;
+    store.mostrarToast("");
+  } catch (e) {
+    cancelarTimeoutChuteOnline();
+    store.carregandoChute = false;
+    store.mostrarToast(e?.message || "Não foi possível enviar o chute.", true);
+  }
 }
 
 export function obterSocketSala() {

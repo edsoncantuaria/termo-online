@@ -8,12 +8,13 @@ from nucleo.sala_chat import FrasesChatPermitidas
 from servidor.dependencias_auth import ContaOpcional
 from servidor.estado_global import GerenciadorVersus
 from servidor.rotas.schemas import (
+    ChuteSalaRequest,
     CriarSalaRequest,
     EntrarSalaRequest,
     MontarRespostaSala,
     SairSalaRequest,
 )
-from servidor.websocket import BroadcastEstadoSala
+from servidor.websocket import BroadcastEstadoSala, ProcessarChuteSala
 
 
 def RegistrarRotasArena(Roteador: APIRouter) -> None:
@@ -103,6 +104,25 @@ def RegistrarRotasArena(Roteador: APIRouter) -> None:
         if not Sala or id_jogador not in Sala.Jogadores:
             raise HTTPException(status_code=404, detail="Sala não encontrada.")
         return GerenciadorVersus.EstadoPublicoSala(Sala, id_jogador)
+
+    @Roteador.post("/sala/{codigo_sala}/chute")
+    async def ChuteSalaHttp(codigo_sala: str, Corpo: ChuteSalaRequest):
+        """Fallback quando o WebSocket está instável."""
+        Codigo = codigo_sala.upper()
+        DonoOk, WorkerRemoto = VerificarWorkerDonoSala(Codigo)
+        if not DonoOk:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Esta sala está em outro processo da API. "
+                    "Mantenha um único termo-api na VM."
+                ),
+                headers={"X-Termo-Worker": WorkerRemoto or ""},
+            )
+        Sala = GerenciadorVersus.ObterSala(Codigo)
+        if not Sala or Corpo.idJogador not in Sala.Jogadores:
+            raise HTTPException(status_code=404, detail="Sala não encontrada.")
+        return await ProcessarChuteSala(Sala, Corpo.idJogador, Corpo.palavra)
 
     @Roteador.post("/sala/sair")
     async def SairSala(Corpo: SairSalaRequest):

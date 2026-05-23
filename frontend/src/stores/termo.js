@@ -80,6 +80,11 @@ import {
   SalvarNickLocal,
 } from "../utils/sessao.js";
 import {
+  CodigoConviteConflita,
+  DeveIgnorarSincronizacaoOutraAba,
+  SolicitarRetomarSessao,
+} from "../utils/sincronizacao-sessao.js";
+import {
   ObterStats,
   SalvarStats,
 } from "../utils/stats.js";
@@ -1558,13 +1563,15 @@ export const useTermoStore = defineStore("termo", {
           );
           return;
         }
-        this.mostrarToast(
-          "Sem conexão com o servidor. Tentando reconectar…",
-          true
-        );
         if (this.codigoSala && this.idJogador) {
           this.conectarWs();
+          return acoesArena.enviarChuteOnlineHttp(
+            this,
+            palavra,
+            tentativasAnteriores.length
+          );
         }
+        this.mostrarToast("Sem conexão com o servidor.", true);
         return;
       }
 
@@ -1931,6 +1938,33 @@ export const useTermoStore = defineStore("termo", {
 
     limparConviteSalaPendente() {
       this.conviteSalaCodigo = "";
+    },
+
+    async processarConviteAposBoot(retomou) {
+      const codigo = this.capturarConviteSalaDaUrl();
+      if (!codigo) return;
+      if (retomou && CodigoConviteConflita(this, codigo)) {
+        return new Promise((resolve) => {
+          this.mostrarConfirmacao({
+            titulo: "Sair da partida atual?",
+            mensagem: `Você retomou uma partida em andamento. Para entrar na sala ${codigo.toUpperCase()}, é preciso sair da partida atual.`,
+            dica: "Se cancelar, o link de convite será ignorado nesta visita.",
+            textoConfirmar: "Sair e entrar na sala",
+            textoCancelar: "Continuar jogando",
+            aoConfirmar: async () => {
+              await this.voltarInicio();
+              await this.processarConviteSala();
+              resolve();
+            },
+            aoCancelar: () => {
+              this.limparConviteSalaPendente();
+              this.limparQuerySala();
+              resolve();
+            },
+          });
+        });
+      }
+      await this.processarConviteSala();
     },
 
     async processarConviteSala() {
@@ -2654,6 +2688,10 @@ export const useTermoStore = defineStore("termo", {
     },
 
     async retomarSessao() {
+      return SolicitarRetomarSessao(() => this.retomarSessaoInterno());
+    },
+
+    async retomarSessaoInterno() {
       const salvo = ObterSessao();
       if (!salvo) return false;
       let retomou = false;
@@ -3030,7 +3068,7 @@ export const useTermoStore = defineStore("termo", {
       if (listenerSessaoOutraAba) return;
       listenerSessaoOutraAba = (e) => {
         if (e.key !== CHAVE_SESSAO || e.newValue == null) return;
-        if (!EhModoSalaOnline(this.modo) && this.view !== "jogo") return;
+        if (DeveIgnorarSincronizacaoOutraAba(this)) return;
         this.mostrarToast(
           "Outra aba atualizou sua sessão — sincronizando…",
           false
@@ -3039,7 +3077,7 @@ export const useTermoStore = defineStore("termo", {
       };
       window.addEventListener("storage", listenerSessaoOutraAba);
       RegistrarListenerSessaoOutrasAbas(() => {
-        if (!EhModoSalaOnline(this.modo) && this.view !== "jogo") return;
+        if (DeveIgnorarSincronizacaoOutraAba(this)) return;
         this.mostrarToast("Outra aba atualizou a partida — sincronizando…", false);
         this.retomarSessao().catch(() => {});
       });
@@ -3159,22 +3197,22 @@ export const useTermoStore = defineStore("termo", {
       if (!retomou) {
         this.irParaView("inicio");
         if (temConviteSala) {
-          await this.processarConviteSala();
+          await this.processarConviteAposBoot(false);
         } else if (!localStorage.getItem(CHAVE_TUTORIAL_VISTO)) {
           this.mostrarTutorial = true;
         } else if (!this.conta) {
           setTimeout(() => this.abrirConta("entrada"), 500);
         }
       } else if (temConviteSala) {
-        await this.processarConviteSala();
+        await this.processarConviteAposBoot(true);
       }
       const desafio = new URLSearchParams(location.search).get("desafio");
-      if (desafio && !retomou && !temConviteSala) {
+      if (desafio && !temConviteSala) {
         const cod = desafio.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
         if (cod.length === 6) {
           this.conviteSalaCodigo = cod;
-          await this.processarConviteSala();
-        } else {
+          await this.processarConviteAposBoot(retomou);
+        } else if (!retomou) {
           this.codigoDesafio = cod;
           this.abrirDialog("jogar");
         }

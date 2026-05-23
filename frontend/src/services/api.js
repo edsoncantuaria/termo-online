@@ -95,6 +95,12 @@ export const api = {
       ),
       { cache: "no-store" }
     ),
+  salaChute: (codigo, body) =>
+    fetchAuthJson(UrlApi(`/api/sala/${encodeURIComponent(codigo)}/chute`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
   partidaRetomar: (idPartida, tokenSessao, idJogador) => {
     const params = new URLSearchParams();
     if (tokenSessao) params.set("token", tokenSessao);

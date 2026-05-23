@@ -7,9 +7,9 @@ from nucleo.versao import ROTULO, VERSAO, InfoVersao, RotuloDeVersao
 
 
 def test_versao_atual():
-    assert VERSAO == "1.4.0"
-    assert ROTULO == "v1.4"
-    assert InfoVersao() == {"versao": "1.4.0", "rotulo": "v1.4"}
+    assert VERSAO == "1.5.0"
+    assert ROTULO == "v1.5"
+    assert InfoVersao() == {"versao": "1.5.0", "rotulo": "v1.5"}
 
 
 def test_rotulo_de_versao():

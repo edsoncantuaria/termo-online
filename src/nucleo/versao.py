@@ -10,7 +10,7 @@ Fonte única: ajuste aqui e espelhe em frontend/src/config/versao.js e
 frontend/index.html (meta termo-version e <title>).
 """
 
-VERSAO = "1.4.0"
+VERSAO = "1.5.0"
 
 
 def RotuloDeVersao(Numero: str) -> str:

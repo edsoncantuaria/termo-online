@@ -60,6 +60,11 @@ class SairSalaRequest(BaseModel):
     idJogador: str
 
 
+class ChuteSalaRequest(BaseModel):
+    idJogador: str = Field(min_length=8, max_length=64)
+    palavra: str = Field(min_length=5, max_length=5)
+
+
 class DesistirPartidaRequest(BaseModel):
     idJogador: str
     tokenSessao: str = Field(min_length=8, max_length=64)

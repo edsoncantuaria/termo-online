@@ -1,4 +1,4 @@
-# Termo Online · v1.4
+# Termo Online · v1.5
 
 Jogo de palavras em português — moderno e social. Conta opcional (visitante sem cadastro). Primeira versão de produção.
 

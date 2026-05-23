@@ -11,6 +11,7 @@ import {
   MesclarJogoAtivoComRetomar,
 } from "../../utils/jogo-ativo.js";
 import { ObterSessao, LimparSessao, PersistirSessao } from "../../utils/sessao.js";
+import { SerializarCarregarJogoAtivo } from "../../utils/sincronizacao-sessao.js";
 import { PartidaOnlineEmAndamento } from "../../utils/jogo.js";
 import { entrarNaSalaRanqueada } from "./acoes-ranqueada.js";
 
@@ -89,7 +90,11 @@ async function sincronizarJogoAtivoLocalComApi(Local) {
   }
 }
 
-export async function carregarJogoAtivo() {
+export function carregarJogoAtivo() {
+  return SerializarCarregarJogoAtivo(() => carregarJogoAtivoInterno.call(this));
+}
+
+async function carregarJogoAtivoInterno() {
   if (this.conta?.idConta && !this.conta?.ehVisitante) {
     try {
       const D = await api.contaJogoAtivo();
