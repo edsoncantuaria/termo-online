@@ -9,6 +9,8 @@ const ehOnline = computed(
   () => j.value?.tipo === "arena" || j.value?.tipo === "ranqueada"
 );
 
+const resultadoPendente = computed(() => !!j.value?.resultadoPendente);
+
 const badgeClasse = computed(() => {
   if (!j.value) return "";
   if (ehOnline.value && j.value.pausada) return "hero-jogo-ativo-badge--pausa";
@@ -34,10 +36,15 @@ const nivelUrgencia = computed(() => {
 });
 
 const classesHero = computed(() => ({
-  "hero-jogo-ativo--pulso": ehOnline.value && j.value?.pausada,
-  "hero-jogo-ativo--critico": ehOnline.value && nivelUrgencia.value >= 2,
+  "hero-jogo-ativo--pulso":
+    ehOnline.value && j.value?.pausada && !resultadoPendente.value,
+  "hero-jogo-ativo--critico":
+    ehOnline.value && nivelUrgencia.value >= 2 && !resultadoPendente.value,
   "hero-jogo-ativo--alerta":
-    ehOnline.value && j.value?.pausada && nivelUrgencia.value === 1,
+    ehOnline.value &&
+    j.value?.pausada &&
+    nivelUrgencia.value === 1 &&
+    !resultadoPendente.value,
 }));
 
 const mostrarContagemPausa = computed(
@@ -166,12 +173,17 @@ function formatarRelogio(Seg) {
         {{
           store.carregandoJogoAtivo
             ? "Conectando…"
-            : ehOnline
-              ? "Reconectar agora"
-              : "Continuar partida"
+            : resultadoPendente
+              ? j.voltarParaLobby
+                ? "Voltar à sala"
+                : "Ver resultado"
+              : ehOnline
+                ? "Reconectar agora"
+                : "Continuar partida"
         }}
       </button>
       <button
+        v-if="!resultadoPendente"
         type="button"
         class="btn-modo btn-modo-sec btn-largo hero-btn-abandonar"
         :disabled="store.carregandoJogoAtivo"

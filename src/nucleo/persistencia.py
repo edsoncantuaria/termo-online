@@ -288,6 +288,19 @@ def _AplicarMigracoesPartida(C: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_eventos_partida_id
         ON eventos_partida (id_partida, data_hora);
+
+        CREATE TABLE IF NOT EXISTS jogadores_partida (
+            id_partida TEXT NOT NULL,
+            id_jogador TEXT NOT NULL,
+            id_conta TEXT,
+            token_sessao TEXT NOT NULL,
+            codigo_sala TEXT NOT NULL,
+            atualizado_em TEXT NOT NULL DEFAULT (datetime('now')),
+            PRIMARY KEY (id_partida, id_jogador)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_jogadores_partida_conta
+        ON jogadores_partida (id_conta, id_partida);
         """
     )
     ColunasHist = {
@@ -295,19 +308,101 @@ def _AplicarMigracoesPartida(C: sqlite3.Connection) -> None:
     }
     if "id_partida" not in ColunasHist:
         C.execute("ALTER TABLE historico_ranqueada ADD COLUMN id_partida TEXT")
+    ColunasPs = {
+        Linha[1] for Linha in C.execute("PRAGMA table_info(partidas_sala)").fetchall()
+    }
+    if "encerrada" not in ColunasPs:
+        C.execute(
+            "ALTER TABLE partidas_sala ADD COLUMN encerrada INTEGER NOT NULL DEFAULT 0"
+        )
+    if "encerrada_em" not in ColunasPs:
+        C.execute("ALTER TABLE partidas_sala ADD COLUMN encerrada_em TEXT")
 
 
 def RegistrarPartidaSala(IdPartida: str, CodigoSala: str) -> None:
     Codigo = CodigoSala.upper()
     with Conexao() as C:
         C.execute(
-            "DELETE FROM partidas_sala WHERE codigo_sala = ? OR id_partida = ?",
-            (Codigo, IdPartida),
-        )
-        C.execute(
-            "INSERT INTO partidas_sala (id_partida, codigo_sala) VALUES (?, ?)",
+            """
+            INSERT INTO partidas_sala (id_partida, codigo_sala, encerrada, encerrada_em)
+            VALUES (?, ?, 0, NULL)
+            ON CONFLICT(codigo_sala) DO UPDATE SET
+                id_partida = excluded.id_partida,
+                encerrada = 0,
+                encerrada_em = NULL
+            """,
             (IdPartida, Codigo),
         )
+
+
+def MarcarPartidaSalaEncerrada(IdPartida: str) -> None:
+    with Conexao() as C:
+        C.execute(
+            """
+            UPDATE partidas_sala
+            SET encerrada = 1, encerrada_em = datetime('now')
+            WHERE id_partida = ?
+            """,
+            (IdPartida,),
+        )
+
+
+def SalvarVinculoJogadorPartida(
+    IdPartida: str,
+    IdJogador: str,
+    TokenSessao: str,
+    CodigoSala: str,
+    IdConta: str | None = None,
+) -> None:
+    with Conexao() as C:
+        C.execute(
+            """
+            INSERT INTO jogadores_partida (
+                id_partida, id_jogador, id_conta, token_sessao, codigo_sala, atualizado_em
+            ) VALUES (?, ?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(id_partida, id_jogador) DO UPDATE SET
+                id_conta = COALESCE(excluded.id_conta, jogadores_partida.id_conta),
+                token_sessao = excluded.token_sessao,
+                codigo_sala = excluded.codigo_sala,
+                atualizado_em = datetime('now')
+            """,
+            (
+                IdPartida,
+                IdJogador,
+                IdConta,
+                TokenSessao,
+                CodigoSala.upper(),
+            ),
+        )
+
+
+def ObterVinculoJogadorPartida(
+    IdPartida: str,
+    IdJogador: str | None = None,
+    IdConta: str | None = None,
+) -> dict | None:
+    with Conexao() as C:
+        if IdJogador:
+            Linha = C.execute(
+                """
+                SELECT * FROM jogadores_partida
+                WHERE id_partida = ? AND id_jogador = ?
+                """,
+                (IdPartida, IdJogador),
+            ).fetchone()
+        elif IdConta:
+            Linha = C.execute(
+                """
+                SELECT * FROM jogadores_partida
+                WHERE id_partida = ? AND id_conta = ?
+                ORDER BY atualizado_em DESC
+                LIMIT 1
+                """,
+                (IdPartida, IdConta),
+            ).fetchone()
+        else:
+            return None
+    return dict(Linha) if Linha else None
 
 
 def ObterCodigoSalaPorIdPartida(IdPartida: str) -> str | None:
@@ -1171,8 +1266,40 @@ def CarregarSalaSnapshot(CodigoSala: str) -> dict | None:
 
 
 def RemoverSala(CodigoSala: str) -> None:
+    Codigo = CodigoSala.upper()
     with Conexao() as C:
-        C.execute("DELETE FROM salas WHERE codigo_sala = ?", (CodigoSala.upper(),))
+        C.execute("DELETE FROM salas WHERE codigo_sala = ?", (Codigo,))
+        Linha = C.execute(
+            "SELECT id_partida FROM partidas_sala WHERE codigo_sala = ?",
+            (Codigo,),
+        ).fetchone()
+        if Linha:
+            IdPartida = Linha["id_partida"]
+            C.execute("DELETE FROM jogadores_partida WHERE id_partida = ?", (IdPartida,))
+            C.execute("DELETE FROM partidas_sala WHERE codigo_sala = ?", (Codigo,))
+
+
+def LimparSnapshotsEncerradosAntigos(Horas: int = 48) -> int:
+    """Remove snapshots de partidas encerradas há mais de N horas."""
+    with Conexao() as C:
+        Linhas = C.execute(
+            """
+            SELECT codigo_sala, id_partida FROM partidas_sala
+            WHERE encerrada = 1
+              AND encerrada_em IS NOT NULL
+              AND encerrada_em < datetime('now', ?)
+            """,
+            (f"-{int(Horas)} hours",),
+        ).fetchall()
+        Removidas = 0
+        for L in Linhas:
+            Codigo = L["codigo_sala"]
+            IdPartida = L["id_partida"]
+            C.execute("DELETE FROM salas WHERE codigo_sala = ?", (Codigo,))
+            C.execute("DELETE FROM jogadores_partida WHERE id_partida = ?", (IdPartida,))
+            C.execute("DELETE FROM partidas_sala WHERE id_partida = ?", (IdPartida,))
+            Removidas += 1
+    return Removidas
 
 
 def ListarHistoricoDiariaPorConta(IdConta: str, Limite: int = 30) -> list[dict]:

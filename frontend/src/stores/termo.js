@@ -44,7 +44,10 @@ import {
   ChipsConfigLobby,
   NickExibicao,
 } from "../utils/jogador.js";
-import { CalcularInstigacaoSerie } from "../utils/instigacao-serie.js";
+import {
+  CalcularInstigacaoSerie,
+  ChaveInstigacaoSerie,
+} from "../utils/instigacao-serie.js";
 import { TextoXpGanho } from "../utils/progresso.js";
 import {
   AvatarEfetivo,
@@ -174,6 +177,7 @@ export const useTermoStore = defineStore("termo", {
     totalRanqueados: 0,
     rankingRanqueado: [],
     bannerReconexao: false,
+    ultimaPartidaResultadoExibida: null,
     wsConectado: false,
     lobbyWsConectado: false,
     lobbyWsReconectando: false,
@@ -225,6 +229,7 @@ export const useTermoStore = defineStore("termo", {
     cronometroVisivel: false,
     countdownSegundos: null,
     toastVitoriaRodada: "",
+    ultimaInstigacaoSerieChave: null,
 
     dialogAberto: null,
     dialogAvatarAberto: false,
@@ -273,10 +278,10 @@ export const useTermoStore = defineStore("termo", {
 
     formCriarSala: {
       maxJogadores: 4,
-      mesmaPalavra: true,
+      mesmaPalavra: false,
       verOutros: true,
-      modoSessao: "pontos",
-      metaVitorias: 5,
+      modoSessao: "vitorias",
+      metaVitorias: 3,
       inicioAutoDois: false,
       tempoLimite: 180,
       senha: "",
@@ -393,10 +398,17 @@ export const useTermoStore = defineStore("termo", {
     },
     outrosNaRodada: (s) => {
       const j = s.dadosSala?.jogadores || [];
+      if (s.espectador) return j.filter((x) => !x.espectador);
       return j.filter((x) => !x.souEu);
     },
     tituloOutros: (s) => {
       const n = s.outrosNaRodada.length;
+      if (s.espectador) {
+        if (!n) return "Assistindo";
+        return n === 1
+          ? "Assistindo · 1 jogador"
+          : `Assistindo · ${n} jogadores`;
+      }
       if (!n) return "Na rodada";
       return n === 1
         ? "Na rodada · 1 jogador"
@@ -412,6 +424,18 @@ export const useTermoStore = defineStore("termo", {
     badgeEstadoJogo: (s) => {
       const D = s.dadosSala;
       if (!D || !EhModoSalaOnline(s.modo)) return null;
+      if (s.espectador) {
+        if (D.partidaEncerrada) {
+          return { tipo: "aguardo", texto: "Partida encerrada" };
+        }
+        if (D.estadoSala === "jogando") {
+          return { tipo: "prep", texto: "Assistindo a rodada" };
+        }
+        if (D.estadoSala === "entre_rodadas") {
+          return { tipo: "pausa", texto: "Rodada encerrada — assistindo" };
+        }
+        return { tipo: "prep", texto: "Modo espectador" };
+      }
       if (D.estadoSala === "pausada" || D.pausada) {
         const seg = D.segundosPausaRestantes;
         const txt =
@@ -439,29 +463,7 @@ export const useTermoStore = defineStore("termo", {
       }
       return null;
     },
-    balaoInstigacaoSerie: (s) => {
-      if (!s.porVitoriasArena || s.espectador || !s.dadosSala?.placar?.length) {
-        return null;
-      }
-      const D = s.dadosSala;
-      if (D.partidaEncerrada) return null;
-      const Estado = D.estadoSala;
-      if (
-        Estado !== "jogando" &&
-        Estado !== "countdown" &&
-        Estado !== "entre_rodadas"
-      ) {
-        return null;
-      }
-      const Eu = D.placar.find((j) => j.idJogador === s.idJogador);
-      const Opp = D.placar.find((j) => j.idJogador !== s.idJogador);
-      if (!Eu || !Opp) return null;
-      return CalcularInstigacaoSerie({
-        vitoriasEu: Eu.vitoriasRodada || 0,
-        vitoriasOpp: Opp.vitoriasRodada || 0,
-        meta: s.metaVitoriasArena,
-      });
-    },
+    balaoInstigacaoSerie: () => null,
     palavraReveladaArena: (s) => {
       const D = s.dadosSala;
       if (!D?.palavraRevelada || D.estadoSala !== "entre_rodadas") return "";
@@ -1869,6 +1871,45 @@ export const useTermoStore = defineStore("termo", {
       acoesArena.wsEnviar(tipo, dados);
     },
 
+    AplicarToastInstigacaoSerie(D) {
+      if (!this.porVitoriasArena || this.espectador || !D?.placar?.length) {
+        this.ultimaInstigacaoSerieChave = null;
+        return;
+      }
+      if (D.partidaEncerrada) {
+        this.ultimaInstigacaoSerieChave = null;
+        return;
+      }
+      const Estado = D.estadoSala;
+      if (
+        Estado !== "jogando" &&
+        Estado !== "countdown" &&
+        Estado !== "entre_rodadas"
+      ) {
+        return;
+      }
+      const Eu = D.placar.find((j) => j.idJogador === this.idJogador);
+      const Opp = D.placar.find((j) => j.idJogador !== this.idJogador);
+      if (!Eu || !Opp) return;
+      const Inst = CalcularInstigacaoSerie({
+        vitoriasEu: Eu.vitoriasRodada || 0,
+        vitoriasOpp: Opp.vitoriasRodada || 0,
+        meta: this.metaVitoriasArena,
+      });
+      const Chave = ChaveInstigacaoSerie(
+        Inst,
+        Eu.vitoriasRodada || 0,
+        Opp.vitoriasRodada || 0
+      );
+      if (!Chave) {
+        this.ultimaInstigacaoSerieChave = null;
+        return;
+      }
+      if (Chave === this.ultimaInstigacaoSerieChave) return;
+      this.ultimaInstigacaoSerieChave = Chave;
+      this.mostrarToast(Inst.texto, false, true);
+    },
+
     atualizarArena(D) {
       const eu = D.jogadores?.find((j) => j.souEu);
       if (
@@ -1887,6 +1928,7 @@ export const useTermoStore = defineStore("termo", {
       this.dadosSala = D;
       this.espectador = !!eu?.espectador;
       this.souCriador = D.souCriador ?? this.souCriador;
+      this.AplicarToastInstigacaoSerie(D);
 
       const labelJogo =
         this.modo === "ranqueada" ? "Ranqueado" : "Arena";
@@ -1903,10 +1945,13 @@ export const useTermoStore = defineStore("termo", {
         (D.estadoSala === "jogando" ||
           D.estadoSala === "entre_rodadas" ||
           D.estadoSala === "countdown") &&
-        this.view !== "jogo" &&
-        !this.espectador
+        this.view !== "jogo"
       ) {
-        this.iniciarTelaJogo(labelJogo);
+        if (this.espectador) {
+          this.irParaView("jogo");
+        } else {
+          this.iniciarTelaJogo(labelJogo);
+        }
       } else if (
         (this.view === "jogo" || this.espectador) &&
         EhModoSalaOnline(this.modo)
@@ -2084,22 +2129,42 @@ export const useTermoStore = defineStore("termo", {
       if (D.partidaEncerrada) {
         this.pararCronometro();
         this.encerrada = true;
-        acoesArena.fecharSocketSala();
-        this.irParaView("inicio");
-        LimparSessao();
-        if (D.partidaCancelada) {
-          this.mostrarToast("Partida encerrada — nada foi registrado.");
+        const ehArena = this.modo === "arena";
+        const IdPartida = D.idPartida || this.idPartida;
+
+        if (ehArena && !D.partidaCancelada) {
+          this.irParaView("arenaLobby");
+          this.persistir();
+          if (IdPartida && this.ultimaPartidaResultadoExibida !== IdPartida) {
+            this.ultimaPartidaResultadoExibida = IdPartida;
+            const campeao = D.placar?.[0];
+            const venci = D.vencedorId === this.idJogador;
+            setTimeout(() => this.mostrarResultadoArena(D, venci, campeao), 300);
+          }
         } else {
-          const campeao = D.placar?.[0];
-          const venci = D.vencedorId === this.idJogador;
-          setTimeout(() => this.mostrarResultadoArena(D, venci, campeao), 300);
+          acoesArena.fecharSocketSala();
+          this.irParaView("inicio");
+          LimparSessao();
+          if (D.partidaCancelada) {
+            this.mostrarToast("Partida encerrada — nada foi registrado.");
+          } else {
+            const campeao = D.placar?.[0];
+            const venci = D.vencedorId === this.idJogador;
+            setTimeout(() => this.mostrarResultadoArena(D, venci, campeao), 300);
+          }
+          if (this.modo === "ranqueada") {
+            this.modo = null;
+            this.codigoSala = null;
+            this.idJogador = null;
+            this.dadosSala = null;
+          }
         }
-        if (this.modo === "ranqueada") {
-          this.modo = null;
-          this.codigoSala = null;
-          this.idJogador = null;
-          this.dadosSala = null;
-        }
+      } else if (
+        this.modo === "arena" &&
+        D.estadoSala === "aguardando" &&
+        !D.partidaEncerrada
+      ) {
+        this.ultimaPartidaResultadoExibida = null;
       }
     },
 
@@ -2336,7 +2401,20 @@ export const useTermoStore = defineStore("termo", {
             }
             D = await R.json();
           }
-          if (D.partidaEncerrada) return { ok: false, invalida: true };
+          if (D.partidaEncerrada) {
+            this.modo = modo;
+            this.codigoSala = S.codigoSala;
+            this.idJogador = S.idJogador;
+            this.aplicarCredenciaisPartida({ ...S, ...D });
+            this.dadosSala = D;
+            if (modo === "arena") {
+              this.fecharDialogs();
+              this.conectarWs();
+              this.irParaView("arenaLobby");
+            }
+            this.atualizarArena(D);
+            return { ok: true, invalida: false };
+          }
           this.modo = modo;
           this.codigoSala = S.codigoSala;
           this.idJogador = S.idJogador;
@@ -2561,6 +2639,9 @@ export const useTermoStore = defineStore("termo", {
       if (this.modo === "pratica") this.iniciarModo("pratica");
       else if (EhModoSalaOnline(this.modo) && this.codigoSala) {
         this.encerrada = false;
+        if (this.modo === "arena") {
+          this.irParaView("arenaLobby");
+        }
         this.conectarWs();
       } else this.voltarInicio();
     },

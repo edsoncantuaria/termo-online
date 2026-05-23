@@ -31,6 +31,15 @@ export function TextoStatusLobby(D) {
     D.jogadores?.filter((j) => j.conectado !== false).length ??
     0;
   const max = D.configuracao?.maximoJogadores || 8;
+  if (D.partidaEncerrada || D.estadoSala === "encerrada") {
+    if (D.podeRevanche && D.souCriador) {
+      return "Sessão encerrada — inicie a revanche quando todos estiverem online";
+    }
+    if (D.podeRevanche) {
+      return "Sessão encerrada — aguardando o host iniciar a revanche";
+    }
+    return "Sessão encerrada — você pode sair ou aguardar o host";
+  }
   if (D.estadoSala === "jogando") return "Partida em andamento…";
   const prontos = D.prontosOnline ?? 0;
   const totalProntidao = D.totalProntidao ?? online;

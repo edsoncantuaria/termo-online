@@ -26,8 +26,7 @@ def SincronizarSessoesContaDaSala(Gerenciador: GerenciadorSalas, Sala: SalaJogo)
         if not EmAndamento:
             persistencia.LimparSessaoJogoConta(J.IdConta)
             continue
-        partida_sessao.GarantirIdPartidaSala(Sala)
-        partida_sessao.GarantirTokenJogador(J)
+        partida_sessao.RegistrarVinculoJogadorPartida(Sala, J)
         persistencia.SalvarSessaoJogoConta(
             IdConta=J.IdConta,
             Tipo=Tipo,
@@ -156,20 +155,62 @@ def MontarJogoAtivoParaConta(
 
     Tipo = Linha["tipo"]
     if Tipo in ("arena", "ranqueada"):
+        from .sala_persistencia import CarregarSalaDoBanco
+
         Gerenciador.RestaurarSalasAtivas()
         Codigo = (Linha.get("codigo_sala") or "").upper()
-        Sala = Gerenciador.ObterSala(Codigo) if Codigo else None
+        IdPartida = Linha.get("id_partida")
         IdJogador = Linha.get("id_jogador")
-        if (
-            not Sala
-            or not IdJogador
-            or IdJogador not in Sala.Jogadores
-            or Sala.PartidaEncerrada
-        ):
+        Sala = None
+        if Codigo:
+            Sala = Gerenciador.ObterSala(Codigo) or CarregarSalaDoBanco(Gerenciador, Codigo)
+        if not Sala and IdPartida:
+            Sala = partida_sessao.ObterSalaPorIdPartida(Gerenciador, IdPartida)
+        if not Sala or not IdJogador or IdJogador not in Sala.Jogadores:
+            Vinculo = (
+                persistencia.ObterVinculoJogadorPartida(
+                    IdPartida, IdJogador=IdJogador, IdConta=IdConta
+                )
+                if IdPartida
+                else None
+            )
+            if Vinculo and Vinculo.get("codigo_sala"):
+                Sala = CarregarSalaDoBanco(Gerenciador, Vinculo["codigo_sala"])
+                IdJogador = Vinculo.get("id_jogador") or IdJogador
+        if not Sala or not IdJogador or IdJogador not in Sala.Jogadores:
             persistencia.LimparSessaoJogoConta(IdConta)
             return None
         J = Sala.Jogadores[IdJogador]
-        if J.Espectador or not partida_sessao.PartidaEmAndamento(Sala):
+        if J.Espectador:
+            persistencia.LimparSessaoJogoConta(IdConta)
+            return None
+        if Sala.PartidaEncerrada:
+            partida_sessao.GarantirTokenJogador(J)
+            return {
+                "ativo": True,
+                "tipo": Tipo,
+                "titulo": _TituloTipo(Tipo),
+                "codigoSala": Sala.CodigoSala,
+                "idPartida": Sala.IdPartida,
+                "idJogador": IdJogador,
+                "tokenSessao": J.TokenSessao or Linha.get("token_sessao"),
+                "estadoSala": Sala.EstadoSala,
+                "partidaEncerrada": True,
+                "resultadoPendente": True,
+                "voltarParaLobby": Tipo == "arena",
+                "pausada": False,
+                "segundosPausaRestantes": None,
+                "segundosAteAbandono": None,
+                "tempoLimiteSegundos": Sala.Configuracao.TempoLimiteSegundos or 0,
+                "emTempoDeJogo": False,
+                "textoEstado": (
+                    "Sessão encerrada — volte à sala para revanche ou resultado"
+                    if Tipo == "arena"
+                    else "Partida encerrada — toque em Reconectar para ver o resultado"
+                ),
+                "souCriador": Sala.CriadorId == IdJogador,
+            }
+        if not partida_sessao.PartidaEmAndamento(Sala):
             persistencia.LimparSessaoJogoConta(IdConta)
             return None
         Pausa = partida_sessao.CamposPausaPublicos(Sala, IdJogador)

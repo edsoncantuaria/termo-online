@@ -55,10 +55,18 @@ export function MontarPayloadSessao(Estado) {
       ...credenciaisOnline,
       view: Estado.view === "jogo" ? "jogo" : "inicio",
     };
-  } else if (Estado.modo === "arena" && sessaoOnlineAtiva) {
+  } else if (
+    Estado.modo === "arena" &&
+    Estado.codigoSala &&
+    Estado.idJogador
+  ) {
     dados.arena = {
       ...credenciaisOnline,
-      view: Estado.view === "jogo" ? "jogo" : "arenaLobby",
+      view:
+        Estado.view === "jogo" && sessaoOnlineAtiva
+          ? "jogo"
+          : "arenaLobby",
+      partidaEncerrada: !!Estado.dadosSala?.partidaEncerrada,
     };
   }
   if (

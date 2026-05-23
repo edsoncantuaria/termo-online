@@ -10,11 +10,11 @@ Fonte única: ajuste aqui e espelhe em frontend/src/config/versao.js e
 frontend/index.html (meta termo-version e <title>).
 """
 
-VERSAO = "1.1.0"
+VERSAO = "1.2.0"
 
 
 def RotuloDeVersao(Numero: str) -> str:
-    """Release minor/major: v1.1. Bugfix (patch > 0): v1.1.1."""
+    """Release minor/major: v1.2. Bugfix (patch > 0): v1.2.1."""
     Partes = Numero.strip().split(".")
     if len(Partes) >= 3:
         try:

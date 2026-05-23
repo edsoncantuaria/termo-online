@@ -16,16 +16,20 @@ describe("MontarPayloadSessao", () => {
     expect(payload?.arena?.view).toBe("jogo");
   });
 
-  it("não persiste arena após partida encerrada", () => {
+  it("persiste arena no lobby após sessão encerrada", () => {
     const payload = MontarPayloadSessao({
       modo: "arena",
       codigoSala: "ABC123",
       idJogador: "j1",
+      idPartida: "uuid-arena",
+      tokenSessao: "tok",
       encerrada: true,
-      dadosSala: { partidaEncerrada: true },
-      view: "jogo",
+      dadosSala: { partidaEncerrada: true, estadoSala: "encerrada" },
+      view: "arenaLobby",
     });
-    expect(payload).toBeNull();
+    expect(payload?.arena?.codigoSala).toBe("ABC123");
+    expect(payload?.arena?.view).toBe("arenaLobby");
+    expect(payload?.arena?.partidaEncerrada).toBe(true);
   });
 
   it("persiste idPartida e tokenSessao na arena", () => {

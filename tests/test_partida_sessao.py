@@ -72,6 +72,23 @@ def test_retomar_rejeita_token_invalido(Gerenciador):
     assert Erro
 
 
+def test_retomar_partida_encerrada_retorna_estado(Gerenciador):
+    G, Sala, J1, _J2 = Gerenciador
+    _Dados, ErroDes, StatusDes = DesistirPartida(
+        G, Sala.IdPartida, J1.IdJogador, J1.TokenSessao
+    )
+    assert StatusDes == 200 and ErroDes is None
+    Sala = G.ObterSala(Sala.CodigoSala)
+    assert Sala.PartidaEncerrada
+    Dados, Erro, Status = RetomarPartida(
+        G, Sala.IdPartida, J1.TokenSessao, J1.IdJogador
+    )
+    assert Status == 200
+    assert Erro is None
+    assert Dados["partidaEncerrada"] is True
+    assert Dados["podeRetomar"] is False
+
+
 def test_pausa_ranqueada_ao_desconectar(Gerenciador):
     G, Sala, J1, J2 = Gerenciador
     G.MarcarConexao(Sala, J1.IdJogador, False)

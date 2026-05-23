@@ -41,6 +41,7 @@ MaximoCaracteresSenha = 8
 TempoLimiteMinimoSegundos = 60
 TempoLimiteMaximoSegundos = 900
 TempoInativoSegundos = 300
+TempoInativoArenaLobbySegundos = 120
 MaximoEspectadores = 6
 SegundosCountdown = 3
 _NotificarLobbySalas = None
@@ -58,14 +59,14 @@ def _DispararNotificacaoLobby() -> None:
 
 @dataclass
 class ConfiguracaoSala:
-    MesmaPalavra: bool = True
+    MesmaPalavra: bool = False
     VerOutros: bool = True
     MaximoJogadores: int = 4
     Senha: str | None = None
     TempoLimiteSegundos: int = 0
     NumeroRodadas: int = 0
-    ModoSessao: str = ModoPontos
-    MetaVitorias: int = 5
+    ModoSessao: str = ModoVitorias
+    MetaVitorias: int = 3
     InicioAutoDois: bool = False
     SalaPublica: bool = True
     Ranqueada: bool = False
@@ -187,24 +188,45 @@ class GerenciadorSalas:
         Sala.CriadorId = Novo
         return True
 
-    def LimparJogadoresInativos(self, Sala: SalaJogo) -> bool:
-        if Sala.EstadoSala == "pausada":
-            return False
+    def RegistrarAtividade(self, Sala: SalaJogo, IdJogador: str) -> None:
+        Jogador = Sala.Jogadores.get(IdJogador)
+        if Jogador:
+            Jogador.UltimaAtividade = time.time()
+
+    def LimparJogadoresInativos(
+        self, Sala: SalaJogo
+    ) -> tuple[bool, list[tuple[str, str]]]:
+        """Remove inativos; retorna (mudou, [(idJogador, motivo), ...])."""
+        if Sala.EstadoSala == "pausada" or Sala.PartidaEncerrada:
+            return False, []
         Agora = time.time()
-        Removidos = [
-            Id
-            for Id, J in Sala.Jogadores.items()
-            if not J.Conectado
-            and not J.AusenteContinua
-            and Agora - J.UltimaAtividade > TempoInativoSegundos
-        ]
-        for Id in Removidos:
+        LobbyArena = (
+            Sala.EstadoSala == "aguardando"
+            and not Sala.Configuracao.Ranqueada
+        )
+        Expulsos: list[tuple[str, str]] = []
+        for Id, J in list(Sala.Jogadores.items()):
+            if J.AusenteContinua:
+                continue
+            InativoLobby = (
+                LobbyArena
+                and Agora - J.UltimaAtividade > TempoInativoArenaLobbySegundos
+            )
+            InativoDesconectado = (
+                not J.Conectado
+                and Agora - J.UltimaAtividade > TempoInativoSegundos
+            )
+            if InativoLobby:
+                Expulsos.append((Id, "inatividade"))
+            elif InativoDesconectado:
+                Expulsos.append((Id, "desconexao"))
+        for Id, _ in Expulsos:
             self.RemoverJogador(Sala.CodigoSala, Id, Persistir=False)
-        if Removidos:
+        if Expulsos:
             self.TransferirHostSePreciso(Sala)
             self.PersistirSala(Sala)
-            return True
-        return False
+            return True, Expulsos
+        return False, []
 
     def GerarCodigoSala(self) -> str:
         while True:
@@ -520,7 +542,7 @@ class GerenciadorSalas:
             return "Apenas quem criou a sala pode iniciar."
         if Sala.EstadoSala != "aguardando":
             return "Partida já iniciada."
-        self.LimparJogadoresInativos(Sala)
+        self.LimparJogadoresInativos(Sala)[0]
         if self.JogadoresAtivosConectados(Sala) < MinimoJogadoresSala:
             return f"É preciso pelo menos {MinimoJogadoresSala} jogadores conectados."
         Prontos, Total = self.ContagemProntidao(Sala)
@@ -1169,6 +1191,7 @@ class GerenciadorSalas:
             else None
         )
         Eu = Sala.Jogadores.get(IdObservador)
+        ObservadorEspectador = bool(Eu and Eu.Espectador)
         RespostaBase = {
             "idPartida": Sala.IdPartida,
             "codigoSala": Sala.CodigoSala,
@@ -1263,7 +1286,9 @@ class GerenciadorSalas:
                     Sala,
                     J,
                     IdObservador,
-                    VerOutros or J.IdJogador == IdObservador,
+                    ObservadorEspectador
+                    or VerOutros
+                    or J.IdJogador == IdObservador,
                 )
                 for J in Sala.Jogadores.values()
             ],

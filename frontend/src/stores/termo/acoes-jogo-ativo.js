@@ -9,7 +9,7 @@ import {
 import { JogoAtivoDeSessaoLocal } from "../../utils/jogo-ativo.js";
 import { ObterSessao, LimparSessao, PersistirSessao } from "../../utils/sessao.js";
 import { DiariaJaJogadaLocal } from "../../utils/stats.js";
-import { entrarSalaRanqueada } from "./acoes-ranqueada.js";
+import { entrarNaSalaRanqueada } from "./acoes-ranqueada.js";
 
 let intervaloJogoAtivoHome = null;
 let tickJogoAtivoHome = 0;
@@ -169,9 +169,7 @@ export async function reconectarJogoAtivo() {
 
   this.carregandoJogoAtivo = true;
   try {
-    if (J.tipo === "ranqueada") {
-      await entrarSalaRanqueada.call(this, J);
-    } else if (J.tipo === "arena") {
+    if (J.tipo === "ranqueada" || J.tipo === "arena") {
       let estado;
       if (J.idPartida && (J.tokenSessao || this.conta?.idConta)) {
         estado = await api.partidaRetomar(
@@ -184,8 +182,19 @@ export async function reconectarJogoAtivo() {
         if (!R.ok) throw new Error("Não foi possível retomar a sala.");
         estado = await R.json();
       }
-      if (estado.partidaEncerrada) throw new Error("Partida já encerrada.");
-      this.entrarNaSala(estado);
+      if (J.tipo === "ranqueada") {
+        entrarNaSalaRanqueada.call(this, estado, J);
+      } else if (J.tipo === "arena") {
+        this.entrarNaSala(estado);
+        if (estado.partidaEncerrada) {
+          this.conectarWs();
+          this.irParaView("arenaLobby");
+        }
+        this.atualizarArena(estado);
+      } else {
+        this.entrarNaSala(estado);
+        this.atualizarArena(estado);
+      }
     } else if (J.tipo === "solo") {
       if (J.modoSolo === "diaria" && DiariaJaJogadaLocal()) {
         throw new Error("Palavra do dia já concluída neste aparelho.");

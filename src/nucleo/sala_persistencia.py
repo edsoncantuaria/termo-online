@@ -67,6 +67,7 @@ def ExportarSnapshot(Sala: SalaJogo) -> dict:
                 "tokenSessao": getattr(J, "TokenSessao", None),
                 "ausenteContinua": getattr(J, "AusenteContinua", False),
                 "desconexaoInicioEpoch": getattr(J, "DesconexaoInicioEpoch", None),
+                "ehBot": getattr(J, "EhBot", False),
             }
             for J in Sala.Jogadores.values()
         ],
@@ -153,11 +154,21 @@ def RestaurarSalasAtivas(Gerenciador) -> None:
     for Codigo in persistencia.ListarSalasAtivas():
         if Codigo in Gerenciador.Salas:
             continue
-        Dados = persistencia.CarregarSalaSnapshot(Codigo)
-        if Dados:
-            Sala = ImportarSnapshot(Dados)
-            if Sala:
-                Gerenciador.Salas[Codigo] = Sala
+        CarregarSalaDoBanco(Gerenciador, Codigo)
+
+
+def CarregarSalaDoBanco(Gerenciador, CodigoSala: str) -> SalaJogo | None:
+    """Carrega snapshot do SQLite (ativa ou encerrada) para memória."""
+    Codigo = CodigoSala.upper()
+    if Codigo in Gerenciador.Salas:
+        return Gerenciador.Salas[Codigo]
+    Dados = persistencia.CarregarSalaSnapshot(Codigo)
+    if not Dados:
+        return None
+    Sala = ImportarSnapshot(Dados)
+    if Sala:
+        Gerenciador.Salas[Codigo] = Sala
+    return Sala
 
 
 def PersistirSala(Gerenciador, Sala: SalaJogo | None) -> None:
@@ -166,15 +177,21 @@ def PersistirSala(Gerenciador, Sala: SalaJogo | None) -> None:
     if not Sala:
         return
     if Sala.PartidaEncerrada or not Sala.Jogadores:
-        from . import sessao_jogo_conta
+        from . import partida_sessao, sessao_jogo_conta
 
+        partida_sessao.GarantirIdPartidaSala(Sala)
         for J in list(Sala.Jogadores.values()):
+            if not J.Espectador:
+                partida_sessao.GarantirTokenJogador(J)
+                partida_sessao.RegistrarVinculoJogadorPartida(Sala, J)
             sessao_jogo_conta.LimparSessaoContaJogador(J.IdConta)
-        persistencia.RemoverSala(Sala.CodigoSala)
+        persistencia.SalvarSalaSnapshot(Sala.CodigoSala, ExportarSnapshot(Sala))
+        persistencia.MarcarPartidaSalaEncerrada(Sala.IdPartida)
         _DispararNotificacaoLobby()
         return
     persistencia.SalvarSalaSnapshot(Sala.CodigoSala, ExportarSnapshot(Sala))
-    from . import sessao_jogo_conta
+    from . import partida_sessao, sessao_jogo_conta
 
+    partida_sessao.SincronizarVinculosJogadoresSala(Sala)
     sessao_jogo_conta.SincronizarSessoesContaDaSala(Gerenciador, Sala)
     _DispararNotificacaoLobby()

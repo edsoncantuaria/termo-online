@@ -445,6 +445,26 @@ html {
   flex-shrink: 0;
 }
 
+.legenda-mini--online {
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.legenda-mini--online .tile.demo {
+  width: 34px;
+  height: 34px;
+  font-size: 0.82rem;
+  border-radius: 8px;
+}
+
+.tile.preto,
+.tile.demo.preto {
+  background: #1a1520;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
 .painel-extras {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -544,6 +564,10 @@ html {
 
 .inicio-hero-compacto .legenda-mini {
   margin: 0 auto;
+}
+
+.inicio-hero-compacto .legenda-mini--online {
+  max-width: 100%;
 }
 
 .modo-card-principal {
@@ -1245,6 +1269,7 @@ body:has(.app.modo-jogo) {
 .app.modo-jogo .jogo-acoes-partida,
 .app.modo-jogo .faixa-estado,
 .app.modo-jogo .card-aguardo,
+.app.modo-jogo .card-espectador,
 .app.modo-jogo .dica-celulas,
 .app.modo-jogo .vitoria-rodada-toast {
   flex-shrink: 0;
@@ -2243,6 +2268,34 @@ body.modo-daltonico .tile.ausente::after {
   .modo-card-principal {
     min-height: auto;
   }
+
+  .layout-inicio {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.btn-instalar-pwa {
+  align-self: center;
+  margin: 0.25rem auto 0;
+  padding: 0.35rem 0.65rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+  opacity: 0.72;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-instalar-pwa:hover,
+.btn-instalar-pwa:focus-visible {
+  opacity: 1;
+  color: var(--text);
+  outline: none;
 }
 
 @media (max-width: 960px) {
@@ -2338,7 +2391,9 @@ body.modo-daltonico .tile.ausente::after {
   }
   .principal { padding: 0.75rem 0.5rem 1rem; }
   .app.modo-jogo .principal {
-    padding: 0.25rem 0.35rem 0;
+    padding: 0.2rem 0.35rem 0;
+    flex: 1 1 auto;
+    min-height: 0;
   }
   .jogo-principal { max-width: 100%; }
   .teclado-linha-meio {

@@ -3092,6 +3092,66 @@ html.tema-claro .lobby-rodape {
   line-height: 1.4;
 }
 
+.lobby-placar-final {
+  margin: 0 1.35rem 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--raio-md);
+  border: 1px solid var(--border);
+  background: rgba(106, 170, 100, 0.08);
+}
+
+.lobby-placar-final h3 {
+  margin: 0 0 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dourado);
+}
+
+.lobby-placar-final-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.lobby-placar-final-lista li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: var(--raio);
+}
+
+.lobby-placar-campeao {
+  background: rgba(106, 170, 100, 0.12);
+  font-weight: 700;
+}
+
+.lobby-placar-pos {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 1.6rem;
+}
+
+.lobby-placar-nome {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lobby-placar-pontos {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
 .btn-lobby-sair {
   align-self: center;
   padding: 0.35rem 0.5rem;

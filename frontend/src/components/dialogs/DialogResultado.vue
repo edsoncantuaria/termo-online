@@ -140,7 +140,13 @@ const deltaPositivo = computed(
           class="btn-modo btn-modo-sec btn-largo"
           @click="store.jogarDeNovo()"
         >
-          {{ r.ehDiaria ? "Voltar ao início" : "Continuar" }}
+          {{
+            r.ehArena
+              ? "Voltar à sala"
+              : r.ehDiaria
+                ? "Voltar ao início"
+                : "Continuar"
+          }}
         </button>
       </div>
     </div>

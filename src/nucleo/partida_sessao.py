@@ -23,6 +23,28 @@ def GerarTokenSessao() -> str:
     return secrets.token_urlsafe(16)
 
 
+def IdPartidaValido(IdPartida: str | None) -> bool:
+    if not IdPartida or not str(IdPartida).strip():
+        return False
+    try:
+        uuid.UUID(str(IdPartida).strip())
+        return True
+    except (ValueError, AttributeError, TypeError):
+        return False
+
+
+def RegistrarVinculoJogadorPartida(Sala: SalaJogo, Jogador: JogadorSala) -> None:
+    GarantirIdPartidaSala(Sala)
+    GarantirTokenJogador(Jogador)
+    persistencia.SalvarVinculoJogadorPartida(
+        Sala.IdPartida,
+        Jogador.IdJogador,
+        Jogador.TokenSessao or "",
+        Sala.CodigoSala,
+        Jogador.IdConta,
+    )
+
+
 def JogadorSemPontuacaoNaSessao(Jogador: JogadorSala) -> bool:
     """Sem chutes e sem pontos/vitórias na sessão — saída não conta no histórico nem em XP."""
     return (
@@ -86,24 +108,40 @@ def ValidarAcessoJogador(
         return True, None
     if ValidarTokenJogador(Jogador, Token):
         return True, None
+    GarantirIdPartidaSala(Sala)
+    Vinculo = persistencia.ObterVinculoJogadorPartida(
+        Sala.IdPartida, IdJogador=IdJogador, IdConta=IdConta
+    )
+    if Vinculo and Token and secrets.compare_digest(
+        str(Vinculo["token_sessao"]), str(Token).strip()
+    ):
+        if not getattr(Jogador, "TokenSessao", None):
+            Jogador.TokenSessao = Vinculo["token_sessao"]
+        return True, None
     return False, "Token de sessão inválido."
 
 
 def ObterSalaPorIdPartida(Gerenciador: GerenciadorSalas, IdPartida: str) -> SalaJogo | None:
+    if not IdPartidaValido(IdPartida):
+        return None
     for Sala in Gerenciador.Salas.values():
         if getattr(Sala, "IdPartida", None) == IdPartida:
             return Sala
     Codigo = persistencia.ObterCodigoSalaPorIdPartida(IdPartida)
     if Codigo:
-        Sala = Gerenciador.ObterSala(Codigo)
-        if Sala:
+        from .sala_persistencia import CarregarSalaDoBanco
+
+        Sala = CarregarSalaDoBanco(Gerenciador, Codigo)
+        if Sala and getattr(Sala, "IdPartida", None) == IdPartida:
             return Sala
     Gerenciador.RestaurarSalasAtivas()
     for Sala in Gerenciador.Salas.values():
         if getattr(Sala, "IdPartida", None) == IdPartida:
             return Sala
     if Codigo:
-        return Gerenciador.ObterSala(Codigo)
+        from .sala_persistencia import CarregarSalaDoBanco
+
+        return CarregarSalaDoBanco(Gerenciador, Codigo)
     return None
 
 
@@ -116,6 +154,15 @@ def GarantirIdPartidaSala(Sala: SalaJogo) -> None:
 def GarantirTokenJogador(Jogador: JogadorSala) -> None:
     if not getattr(Jogador, "TokenSessao", None):
         Jogador.TokenSessao = GerarTokenSessao()
+
+
+def SincronizarVinculosJogadoresSala(Sala: SalaJogo) -> None:
+    if getattr(Sala, "PartidaEncerrada", False):
+        return
+    for J in Sala.Jogadores.values():
+        if J.Espectador:
+            continue
+        RegistrarVinculoJogadorPartida(Sala, J)
 
 
 def SegundosAteAbandonoJogador(Jogador: JogadorSala | None) -> int | None:
@@ -438,12 +485,12 @@ def RetomarPartida(
     IdJogador: str | None = None,
     IdConta: str | None = None,
 ) -> tuple[dict | None, str | None, int]:
+    if not IdPartidaValido(IdPartida):
+        return None, "Identificador de partida inválido.", 400
     Gerenciador.RestaurarSalasAtivas()
     Sala = ObterSalaPorIdPartida(Gerenciador, IdPartida)
     if not Sala:
         return None, "Partida não encontrada.", 404
-    if Sala.PartidaEncerrada:
-        return None, "Partida já encerrada.", 410
 
     Jogador = None
     if IdJogador and IdJogador in Sala.Jogadores:
@@ -458,6 +505,11 @@ def RetomarPartida(
                 IdJogador = J.IdJogador
                 break
         if not Jogador:
+            Vinculo = persistencia.ObterVinculoJogadorPartida(IdPartida, IdConta=IdConta)
+            if Vinculo:
+                IdJogador = Vinculo["id_jogador"]
+                Jogador = Sala.Jogadores.get(IdJogador)
+        if not Jogador:
             return None, "Conta não participa desta partida.", 403
     else:
         return None, "Informe idJogador e token ou faça login na conta.", 400
@@ -471,7 +523,10 @@ def RetomarPartida(
         Sala.CodigoSala,
     )
     Gerenciador.PersistirSala(Sala)
-    return MontarRetomarPartida(Gerenciador, Sala, IdJogador), None, 200
+    Estado = MontarRetomarPartida(Gerenciador, Sala, IdJogador)
+    if Sala.PartidaEncerrada:
+        Estado["podeRetomar"] = False
+    return Estado, None, 200
 
 
 def DesistirPartida(
@@ -480,6 +535,8 @@ def DesistirPartida(
     IdJogador: str,
     Token: str | None,
 ) -> tuple[dict | None, str | None, int]:
+    if not IdPartidaValido(IdPartida):
+        return None, "Identificador de partida inválido.", 400
     Gerenciador.RestaurarSalasAtivas()
     Sala = ObterSalaPorIdPartida(Gerenciador, IdPartida)
     if not Sala:

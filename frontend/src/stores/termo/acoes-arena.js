@@ -6,6 +6,7 @@ import { EhModoSalaOnline } from "../../utils/modos.js";
 
 let socketSala = null;
 let intervaloSyncArena = null;
+let intervaloPingArena = null;
 
 export function obterSocketSala() {
   return socketSala;
@@ -36,6 +37,29 @@ export function pararSyncArena() {
     clearInterval(intervaloSyncArena);
     intervaloSyncArena = null;
   }
+  pararPingArena();
+}
+
+export function pararPingArena() {
+  if (intervaloPingArena) {
+    clearInterval(intervaloPingArena);
+    intervaloPingArena = null;
+  }
+}
+
+/** Mantém UltimaAtividade no lobby (evita expulsão aos 2 min). */
+export function iniciarPingArena(store) {
+  pararPingArena();
+  if (!store.codigoSala || store.modo !== "arena") return;
+  intervaloPingArena = setInterval(() => {
+    if (
+      store.view === "arenaLobby" &&
+      store.dadosSala?.estadoSala === "aguardando" &&
+      !store.dadosSala?.partidaEncerrada
+    ) {
+      wsEnviar("ativo");
+    }
+  }, 45_000);
 }
 
 export function wsEnviar(tipo, dados = {}) {
@@ -79,6 +103,15 @@ export async function sincronizarArenaHttp(store) {
       return;
     }
     const D = await R.json();
+    if (
+      store.modo === "arena" &&
+      D.partidaEncerrada &&
+      D.estadoSala === "encerrada"
+    ) {
+      store.dadosSala = D;
+      store.atualizarArena(D);
+      return;
+    }
     if (D.estadoSala === "aguardando") {
       store.dadosSala = D;
       if (store.view !== "jogo") {
@@ -96,6 +129,7 @@ export function iniciarSyncArena(store) {
   pararSyncArena();
   sincronizarArenaHttp(store);
   intervaloSyncArena = setInterval(() => sincronizarArenaHttp(store), 2500);
+  iniciarPingArena(store);
 }
 
 export function conectarWsArena(store) {

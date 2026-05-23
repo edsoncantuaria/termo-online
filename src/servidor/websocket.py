@@ -246,7 +246,20 @@ async def ConectarWebSocketSala(Conexao: WebSocket, codigo_sala: str, id_jogador
         await Conexao.close()
         return
 
-    Gerenciador.LimparJogadoresInativos(Sala)
+    _, ExpulsosConexao = Gerenciador.LimparJogadoresInativos(Sala)
+    for IdExpulso, Motivo in ExpulsosConexao:
+        if IdExpulso == id_jogador:
+            LiberarConexaoWsSala()
+            if Motivo == "inatividade":
+                Msg = (
+                    "Você foi expulso da arena por inatividade "
+                    "(2 minutos sem interação na sala de espera)."
+                )
+            else:
+                Msg = "Você foi removido da sala por desconexão prolongada."
+            await Conexao.send_json({"tipo": "expulso", "mensagem": Msg})
+            await Conexao.close()
+            return
     Gerenciador.MarcarConexao(Sala, id_jogador, True)
     RegistrarConexao(Sala.CodigoSala, id_jogador, Conexao)
     await Conexao.send_json(
@@ -277,6 +290,12 @@ async def ConectarWebSocketSala(Conexao: WebSocket, codigo_sala: str, id_jogador
             if not SalaAtual:
                 break
             Sala = SalaAtual
+
+            if Tipo in ("ativo", "ping"):
+                Gerenciador.RegistrarAtividade(Sala, id_jogador)
+                continue
+            if Tipo != "sair":
+                Gerenciador.RegistrarAtividade(Sala, id_jogador)
 
             if Tipo == "chute":
                 await ProcessarChuteSala(Sala, id_jogador, Payload.get("palavra", ""))

@@ -31,3 +31,9 @@ export function CalcularInstigacaoSerie({ vitoriasEu, vitoriasOpp, meta }) {
   }
   return null;
 }
+
+/** Chave estável para não repetir o mesmo toast na rodada. */
+export function ChaveInstigacaoSerie(inst, vitoriasEu, vitoriasOpp) {
+  if (!inst) return null;
+  return `${inst.tipo}:${vitoriasEu}:${vitoriasOpp}`;
+}

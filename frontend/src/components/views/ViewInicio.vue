@@ -3,6 +3,7 @@ import { computed } from "vue";
 import { useTermoStore } from "../../stores/termo.js";
 import PainelHomeExtras from "../home/PainelHomeExtras.vue";
 import HeroJogoAtivo from "../home/HeroJogoAtivo.vue";
+import BtnInstalarPwa from "../home/BtnInstalarPwa.vue";
 
 const store = useTermoStore();
 
@@ -16,10 +17,13 @@ const diariaBloqueada = computed(
     <div class="layout-inicio">
       <div class="inicio-hero inicio-hero-compacto">
         <h1 class="hero-titulo">Descubra a palavra. <span>Em português.</span></h1>
-        <div class="legenda-mini">
-          <span class="tile demo correto">T</span>
-          <span class="tile demo presente">E</span>
-          <span class="tile demo ausente">X</span>
+        <div class="legenda-mini legenda-mini--online" aria-hidden="true">
+          <span class="tile demo correto">O</span>
+          <span class="tile demo presente">N</span>
+          <span class="tile demo correto">L</span>
+          <span class="tile demo preto">I</span>
+          <span class="tile demo presente">N</span>
+          <span class="tile demo correto">E</span>
         </div>
       </div>
 
@@ -146,6 +150,8 @@ const diariaBloqueada = computed(
       </div>
 
       <PainelHomeExtras />
+
+      <BtnInstalarPwa />
     </div>
   </section>
 </template>

@@ -1,5 +1,7 @@
 import asyncio
+import time
 
+from nucleo import persistencia
 from nucleo.bot_jogador import ProcessarBotsNasSalas
 from nucleo.matchmaking import FilaGlobal
 from nucleo.partida_sessao import (
@@ -7,12 +9,23 @@ from nucleo.partida_sessao import (
     VerificarPausasExpiradas,
 )
 from servidor.estado_global import GerenciadorVersus as Gerenciador
-from servidor.websocket import BroadcastEstadoSala, VerificarFimRodada
+from servidor.websocket import (
+    BroadcastEstadoSala,
+    EnviarParaJogador,
+    VerificarFimRodada,
+)
+
+_UltimaLimpezaSnapshots = 0.0
 
 
 async def TarefaManutencaoSalas() -> None:
+    global _UltimaLimpezaSnapshots
     while True:
         await asyncio.sleep(2)
+        Agora = time.time()
+        if Agora - _UltimaLimpezaSnapshots >= 600:
+            persistencia.LimparSnapshotsEncerradosAntigos(48)
+            _UltimaLimpezaSnapshots = Agora
         FilaGlobal.Processar(Gerenciador)
         for Sala in VerificarPausasExpiradas(Gerenciador):
             VerificarFimRodada(Sala)
@@ -28,8 +41,22 @@ async def TarefaManutencaoSalas() -> None:
                 continue
 
             Mudou = False
-            if Gerenciador.LimparJogadoresInativos(Sala):
+            MudouInativos, Expulsos = Gerenciador.LimparJogadoresInativos(Sala)
+            if MudouInativos:
                 Mudou = True
+                for IdJogador, Motivo in Expulsos:
+                    if Motivo == "inatividade":
+                        Texto = (
+                            "Você foi expulso da arena por inatividade "
+                            "(2 minutos sem interação na sala de espera)."
+                        )
+                    else:
+                        Texto = "Você foi removido da sala por desconexão prolongada."
+                    await EnviarParaJogador(
+                        Sala.CodigoSala,
+                        IdJogador,
+                        {"tipo": "expulso", "mensagem": Texto},
+                    )
 
             if Sala.EstadoSala == "countdown":
                 if Gerenciador.PromoverCountdown(Sala):

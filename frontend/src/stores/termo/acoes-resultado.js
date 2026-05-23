@@ -116,7 +116,12 @@ export function mostrarResultadoArena(D, venci, campeao) {
     mostrarGrade: !ehRanq,
     mostrarCopiar: !ehRanq,
     mostrarCompartilhar: !ehRanq,
-    mostrarRevanche: !!(this.souCriador && this.codigoSala),
+    mostrarRevanche: !!(
+      !ehRanq &&
+      this.codigoSala &&
+      (D.podeRevanche ?? (this.souCriador && D.partidaEncerrada))
+    ),
+    ehArena: !ehRanq,
     mostrarRevancheRanqueada: !!(ehRanq && D.revancheRanqueada?.disponivel),
     revancheOponenteNick: D.revancheRanqueada?.oponenteNick || "",
   };

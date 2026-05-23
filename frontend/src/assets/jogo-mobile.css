@@ -1,103 +1,90 @@
 /**
- * Arena / ranqueada no celular: grade + teclado em foco; placar/chat em painel.
+ * Celular: grade + chutes sempre visíveis; teclado fixo e utilizável na base da tela.
+ * Arena/ranqueada: placar e chat no painel inferior (nav).
  */
 
 @media (max-width: 720px) {
   .app.modo-jogo {
+    --teclado-mobile-h: 10.75rem;
+    --jogo-chrome-h: 3.75rem;
     --tile: clamp(
-      30px,
-      calc((100dvh - var(--topo-h) - 11rem) / 6.8),
-      50px
+      24px,
+      calc(
+        (
+            100dvh - var(--topo-h) - var(--teclado-mobile-h) -
+              var(--jogo-chrome-h) - env(safe-area-inset-bottom, 0px)
+          ) / 6.15
+      ),
+      46px
     );
   }
 
   .app.modo-jogo .principal {
     padding-left: 0.35rem;
     padding-right: 0.35rem;
+    padding-bottom: 0;
   }
 
-  .app.modo-jogo-arena,
-  .app.modo-jogo-ranqueada {
-    --topo-h: 52px;
-    --jogo-nav-h: 3.15rem;
-    --tile: clamp(
-      30px,
-      calc((100dvh - var(--topo-h) - var(--jogo-nav-h) - 11.5rem) / 6.8),
-      48px
-    );
+  .app.modo-jogo .view-jogo.view-ativa {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
   }
 
-  .app.modo-jogo-arena .topo-centro .topo-pagina-sub,
-  .app.modo-jogo-ranqueada .topo-centro .topo-pagina-sub {
-    display: none;
-  }
-
-  .app.modo-jogo-arena .topo-centro .topo-pagina-titulo,
-  .app.modo-jogo-ranqueada .topo-centro .topo-pagina-titulo {
-    font-size: 0.88rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 42vw;
-  }
-
-  .app.modo-jogo-arena .topo-versao,
-  .app.modo-jogo-ranqueada .topo-versao {
-    display: none;
-  }
-
-  .layout-jogo--mobile {
+  .app.modo-jogo .layout-jogo {
     flex: 1 1 auto;
     flex-direction: column;
     align-items: stretch;
     max-width: 100%;
     min-height: 0;
     overflow: hidden;
-    position: relative;
   }
 
-  .layout-jogo--mobile .jogo-principal {
+  .app.modo-jogo .jogo-principal {
     flex: 1 1 auto;
     min-height: 0;
+    max-height: 100%;
     width: 100%;
     max-width: 100%;
-    padding-bottom: calc(var(--jogo-nav-h) + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-top: 0.1rem;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     justify-content: flex-start;
   }
 
-  .layout-jogo--mobile .faixa-estado--ativo,
-  .layout-jogo--mobile .faixa-estado--prep,
-  .layout-jogo--mobile .faixa-estado--aguardo {
+  .app.modo-jogo .jogo-meta,
+  .app.modo-jogo .oponente-resumo-mobile,
+  .app.modo-jogo .faixa-estado,
+  .app.modo-jogo .vitoria-rodada-toast,
+  .app.modo-jogo .card-aguardo,
+  .app.modo-jogo .card-pausa-partida,
+  .app.modo-jogo .jogo-acoes-partida {
+    flex-shrink: 0;
+  }
+
+  .app.modo-jogo .faixa-estado--ativo,
+  .app.modo-jogo .faixa-estado--prep,
+  .app.modo-jogo .faixa-estado--aguardo {
     display: none;
   }
 
-  .layout-jogo--mobile .vitoria-rodada-toast {
-    font-size: 0.78rem;
-    padding: 0.45rem 0.65rem;
-    margin-bottom: 0.35rem;
-  }
-
-  .layout-jogo--mobile .faixa-estado--pausa,
-  .layout-jogo--mobile .faixa-estado--ok {
+  .app.modo-jogo .faixa-estado--pausa,
+  .app.modo-jogo .faixa-estado--ok {
     display: inline-flex;
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.3rem;
     font-size: 0.72rem;
     padding: 0.35rem 0.65rem;
   }
 
-  .layout-jogo--mobile .balao-instigacao-serie {
-    margin: 0 0 0.4rem;
-    padding: 0.45rem 0.75rem;
-    font-size: 0.8rem;
-  }
-
-  .layout-jogo--mobile .jogo-meta {
-    margin-bottom: 0.35rem;
+  .app.modo-jogo .jogo-meta {
+    margin-bottom: 0.3rem;
     gap: 0.35rem;
     max-width: 100%;
   }
 
-  .layout-jogo--mobile .modo-pill {
+  .app.modo-jogo .modo-pill {
     font-size: 0.62rem;
     padding: 0.28rem 0.5rem;
     max-width: 58%;
@@ -106,38 +93,139 @@
     white-space: nowrap;
   }
 
-  .layout-jogo--mobile .timer-arena {
+  .app.modo-jogo .timer-arena {
     font-size: 0.95rem;
     padding: 0.2rem 0.45rem;
   }
 
-  .layout-jogo--mobile .dica-celulas {
+  .app.modo-jogo .dica-celulas {
     display: none;
   }
 
-  .layout-jogo--mobile .jogo-acoes-partida {
+  .app.modo-jogo .jogo-acoes-partida {
     display: none;
   }
 
-  .layout-jogo--mobile .grade-wrap {
+  .app.modo-jogo .grade-wrap {
     flex: 1 1 auto;
-    min-height: 4.5rem;
-    margin-bottom: 0.1rem;
+    min-height: 0;
+    width: 100%;
+    max-width: 100%;
+    margin-bottom: 0.12rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  .layout-jogo--mobile .teclado {
+  .app.modo-jogo .teclado {
+    flex: 0 0 auto;
     flex-shrink: 0;
-    margin-top: 0;
-    padding-bottom: calc(0.2rem + env(safe-area-inset-bottom, 0px));
+    width: 100%;
+    max-width: 100%;
+    margin-top: auto;
+    padding-top: 0.15rem;
+    padding-bottom: max(0.2rem, env(safe-area-inset-bottom, 0px));
+    position: relative;
+    z-index: 5;
+    background: linear-gradient(
+      180deg,
+      transparent 0,
+      var(--bg) 12%,
+      var(--bg) 100%
+    );
+    touch-action: manipulation;
   }
 
-  .layout-jogo--mobile .teclado .tecla {
-    min-height: 2.35rem;
+  .app.modo-jogo .teclado .tecla {
+    min-height: 2.2rem;
     font-size: 0.72rem;
+    touch-action: manipulation;
   }
 
-  .layout-jogo--mobile .teclado .tecla.grande {
-    min-height: 2.35rem;
+  .app.modo-jogo .teclado .tecla.grande {
+    min-height: 2.2rem;
+  }
+
+  .app.modo-jogo .vitoria-rodada-toast {
+    font-size: 0.78rem;
+    padding: 0.4rem 0.6rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .app.modo-jogo .card-aguardo {
+    margin-bottom: 0.25rem;
+    padding: 0.5rem 0.65rem;
+    font-size: 0.8rem;
+  }
+
+  .app.modo-jogo-multi {
+    --jogo-chrome-h: 3.25rem;
+  }
+
+  .app.modo-jogo-multi .grade-wrap--multi {
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 0.15rem 0;
+  }
+
+  .app.modo-jogo-multi .grades-multi {
+    --tile-multi: clamp(22px, 11vw, 40px);
+    --gap-letra-multi: 5px;
+    --gap-linha-multi: 5px;
+    gap: 0.85rem 1rem;
+  }
+
+  .app.modo-jogo-multi .grades-multi--dueto {
+    gap: 0.75rem;
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .app.modo-jogo-arena,
+  .app.modo-jogo-ranqueada {
+    --topo-h: 52px;
+    --jogo-nav-h: 3.15rem;
+    --jogo-chrome-h: 5.25rem;
+    --tile: clamp(
+      22px,
+      calc(
+        (
+            100dvh - var(--topo-h) - var(--jogo-nav-h) - var(--teclado-mobile-h) -
+              var(--jogo-chrome-h) - env(safe-area-inset-bottom, 0px)
+          ) / 6.15
+      ),
+      42px
+    );
+  }
+
+  .app.modo-jogo-arena .jogo-principal,
+  .app.modo-jogo-ranqueada .jogo-principal {
+    padding-bottom: calc(
+      var(--jogo-nav-h) + env(safe-area-inset-bottom, 0px)
+    );
+  }
+
+  .app.modo-jogo-arena .teclado,
+  .app.modo-jogo-ranqueada .teclado {
+    padding-bottom: 0.15rem;
+  }
+
+  .app.modo-jogo-arena .topo-centro,
+  .app.modo-jogo-ranqueada .topo-centro {
+    display: none;
+  }
+
+  .app.modo-jogo-arena .topo-versao,
+  .app.modo-jogo-ranqueada .topo-versao {
+    display: none;
+  }
+
+  .layout-jogo--mobile {
+    position: relative;
   }
 
   .oponente-resumo-mobile {
@@ -146,8 +234,8 @@
     gap: 0.5rem;
     width: 100%;
     max-width: 100%;
-    margin: 0 0 0.4rem;
-    padding: 0.5rem 0.65rem;
+    margin: 0 0 0.28rem;
+    padding: 0.42rem 0.6rem;
     border-radius: var(--raio-md);
     border: 1px solid rgba(255, 255, 255, 0.14);
     background: rgba(255, 255, 255, 0.08);

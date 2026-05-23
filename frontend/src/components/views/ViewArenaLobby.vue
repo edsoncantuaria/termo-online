@@ -21,6 +21,20 @@ const contagemProntos = computed(() => {
 const ehHost = computed(
   () => !!(store.dadosSala?.souCriador ?? store.souCriador)
 );
+
+const sessaoEncerrada = computed(
+  () =>
+    !!(
+      store.dadosSala?.partidaEncerrada ||
+      store.dadosSala?.estadoSala === "encerrada"
+    )
+);
+
+const podeRevanche = computed(
+  () => !!(store.dadosSala?.podeRevanche && ehHost.value)
+);
+
+const placarFinal = computed(() => store.dadosSala?.placar || []);
 </script>
 
 <template>
@@ -104,6 +118,31 @@ const ehHost = computed(
         </button>
       </section>
 
+      <section
+        v-if="sessaoEncerrada && placarFinal.length"
+        class="lobby-placar-final"
+        aria-label="Resultado da sessão"
+      >
+        <h3>Última sessão</h3>
+        <ol class="lobby-placar-final-lista">
+          <li
+            v-for="(j, i) in placarFinal"
+            :key="j.idJogador || j.nomeJogador"
+            :class="{ 'lobby-placar-campeao': i === 0 }"
+          >
+            <span class="lobby-placar-pos">{{ i + 1 }}º</span>
+            <span class="lobby-placar-nome">{{ j.nomeJogador }}</span>
+            <span class="lobby-placar-pontos">
+              {{
+                j.vitoriasRodada != null && store.dadosSala?.metaVitorias
+                  ? `${j.vitoriasRodada}/${store.dadosSala.metaVitorias} vit.`
+                  : `${j.pontosAcumulados ?? j.pontos ?? 0} pts`
+              }}
+            </span>
+          </li>
+        </ol>
+      </section>
+
       <section class="lobby-jogadores" aria-label="Jogadores na sala">
         <div class="lobby-jogadores-cabecalho">
           <h3>Jogadores</h3>
@@ -125,34 +164,50 @@ const ehHost = computed(
       </section>
 
       <footer class="lobby-rodape">
-        <button
-          type="button"
-          class="btn-modo btn-modo-sec btn-largo"
-          :class="{ 'btn-pronto-ativo': store.euProntoLobby }"
-          @click="store.alternarProntoLobby()"
-        >
-          {{ store.euProntoLobby ? "Pronto ✓" : "Marcar pronto" }}
-        </button>
+        <template v-if="sessaoEncerrada">
+          <button
+            v-if="podeRevanche"
+            type="button"
+            class="btn-modo btn-largo lobby-btn-iniciar"
+            @click="store.wsEnviar('revanche')"
+          >
+            Nova partida (revanche)
+          </button>
+          <p v-if="podeRevanche" class="lobby-rodape-dica">
+            Zera placar e volta ao lobby — todos precisam estar conectados.
+          </p>
+          <p v-else class="lobby-rodape-dica">
+            Aguarde o host iniciar uma nova partida na sala.
+          </p>
+        </template>
 
-        <button
-          v-if="store.dadosSala?.souCriador ?? store.souCriador"
-          type="button"
-          class="btn-modo btn-largo lobby-btn-iniciar"
-          :disabled="!store.podeIniciarArena"
-          @click="store.wsEnviar('iniciar')"
-        >
-          Iniciar partida
-        </button>
+        <template v-else>
+          <button
+            type="button"
+            class="btn-modo btn-modo-sec btn-largo"
+            :class="{ 'btn-pronto-ativo': store.euProntoLobby }"
+            @click="store.alternarProntoLobby()"
+          >
+            {{ store.euProntoLobby ? "Pronto ✓" : "Marcar pronto" }}
+          </button>
 
-        <p
-          v-if="(store.dadosSala?.souCriador ?? store.souCriador) && !store.podeIniciarArena"
-          class="lobby-rodape-dica"
-        >
-          {{ store.motivoNaoIniciarArena || "Aguarde todos marcarem pronto." }}
-        </p>
-        <p v-else-if="!(store.dadosSala?.souCriador ?? store.souCriador)" class="lobby-rodape-dica">
-          Marque pronto e aguarde o host iniciar a partida.
-        </p>
+          <button
+            v-if="ehHost"
+            type="button"
+            class="btn-modo btn-largo lobby-btn-iniciar"
+            :disabled="!store.podeIniciarArena"
+            @click="store.wsEnviar('iniciar')"
+          >
+            Iniciar partida
+          </button>
+
+          <p v-if="ehHost && !store.podeIniciarArena" class="lobby-rodape-dica">
+            {{ store.motivoNaoIniciarArena || "Aguarde todos marcarem pronto." }}
+          </p>
+          <p v-else-if="!ehHost" class="lobby-rodape-dica">
+            Marque pronto e aguarde o host iniciar a partida.
+          </p>
+        </template>
 
         <button
           type="button"

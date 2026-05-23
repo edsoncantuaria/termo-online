@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from nucleo.arena_rodadas import ModoPontos
+from nucleo.arena_rodadas import ModoPontos, ModoVitorias
 from nucleo.gerenciador_salas import (
     MaximoCaracteresSenha,
     MaximoJogadoresPermitido,
@@ -34,7 +34,7 @@ class ChuteSoloRequest(BaseModel):
 
 class CriarSalaRequest(BaseModel):
     nomeJogador: str = Field(default="Jogador", max_length=24)
-    mesmaPalavra: bool = True
+    mesmaPalavra: bool = False
     verOutros: bool = True
     maximoJogadores: int = Field(
         default=4, ge=MinimoJogadoresSala, le=MaximoJogadoresPermitido
@@ -42,8 +42,8 @@ class CriarSalaRequest(BaseModel):
     senha: str | None = Field(default=None, max_length=MaximoCaracteresSenha)
     tempoLimiteSegundos: int = Field(default=180, ge=0, le=TempoLimiteMaximoSegundos)
     numeroRodadas: int = Field(default=0, ge=0, le=100)
-    modoSessao: str = Field(default=ModoPontos)
-    metaVitorias: int = Field(default=5, ge=1, le=20)
+    modoSessao: str = Field(default=ModoVitorias)
+    metaVitorias: int = Field(default=3, ge=1, le=20)
     inicioAutoDois: bool = False
     salaPublica: bool = True
 

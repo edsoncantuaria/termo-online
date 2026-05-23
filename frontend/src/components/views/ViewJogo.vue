@@ -129,7 +129,7 @@ const textoEntreRodadas = computed(() => {
 });
 
 const verOutros = computed(
-  () => !!store.dadosSala?.configuracao?.verOutros
+  () => !!store.dadosSala?.configuracao?.verOutros || store.espectador
 );
 
 function avatarPlacar(j) {
@@ -148,14 +148,6 @@ function avatarPlacar(j) {
     >
       <p class="countdown-legenda">Próxima rodada</p>
       <span class="countdown-numero">{{ store.countdownSegundos }}</span>
-      <p
-        v-if="store.balaoInstigacaoSerie"
-        class="balao-instigacao-serie balao-instigacao-serie--overlay"
-        :class="`balao-instigacao-serie--${store.balaoInstigacaoSerie.tipo}`"
-        role="status"
-      >
-        {{ store.balaoInstigacaoSerie.texto }}
-      </p>
     </div>
 
     <button
@@ -234,21 +226,6 @@ function avatarPlacar(j) {
           <span>{{ store.badgeEstadoJogo.texto }}</span>
         </div>
 
-        <Transition name="balao-serie">
-          <p
-            v-if="
-              store.balaoInstigacaoSerie &&
-              store.dadosSala?.estadoSala === 'jogando'
-            "
-            class="balao-instigacao-serie"
-            :class="`balao-instigacao-serie--${store.balaoInstigacaoSerie.tipo}`"
-            role="status"
-            aria-live="polite"
-          >
-            {{ store.balaoInstigacaoSerie.texto }}
-          </p>
-        </Transition>
-
         <button
           v-if="layoutMobile && oponentePrincipal"
           type="button"
@@ -310,6 +287,18 @@ function avatarPlacar(j) {
               <small>{{ dicaDesistenciaDesktop }}</small>
             </span>
           </button>
+        </div>
+
+        <div
+          v-if="store.espectador"
+          class="card-espectador"
+          role="status"
+        >
+          <span class="card-aguardo-icone" aria-hidden="true">👁</span>
+          <p>
+            <strong>Modo espectador</strong> — acompanhe os tabuleiros na coluna
+            ao lado. O resultado aparece ao fim da sessão.
+          </p>
         </div>
 
         <div
@@ -483,14 +472,6 @@ function avatarPlacar(j) {
             <h3>Rodada encerrada</h3>
           </div>
           <p class="entre-rodadas-resumo">{{ textoEntreRodadas }}</p>
-          <p
-            v-if="store.balaoInstigacaoSerie"
-            class="balao-instigacao-serie balao-instigacao-serie--entre-rodadas"
-            :class="`balao-instigacao-serie--${store.balaoInstigacaoSerie.tipo}`"
-            role="status"
-          >
-            {{ store.balaoInstigacaoSerie.texto }}
-          </p>
           <p
             v-if="store.dadosSala?.mensagemFimRodada"
             class="entre-rodadas-verdes"
