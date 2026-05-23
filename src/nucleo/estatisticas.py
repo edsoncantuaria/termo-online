@@ -16,6 +16,7 @@ _NOMES_MODO = {
     ModoQuarteto: "Quarteto",
     ModoDesafio: "Desafio",
     "ranqueada": "Ranqueado 1v1",
+    "treino_ranqueado": "Treino!",
 }
 
 _ORDEM_MODOS = [
@@ -25,6 +26,7 @@ _ORDEM_MODOS = [
     ModoQuarteto,
     ModoDesafio,
     "ranqueada",
+    "treino_ranqueado",
 ]
 
 
@@ -32,12 +34,17 @@ def MontarListaPartidasPorModo(
     Contagem: dict[str, dict[str, int]],
     PartidasRanqueadas: int = 0,
     VitoriasRanqueadas: int = 0,
+    PartidasTreinoRanqueado: int = 0,
+    VitoriasTreinoRanqueado: int = 0,
 ) -> list[dict]:
     Itens = []
     for Modo in _ORDEM_MODOS:
         if Modo == "ranqueada":
             Partidas = PartidasRanqueadas
             Vitorias = VitoriasRanqueadas
+        elif Modo == "treino_ranqueado":
+            Partidas = PartidasTreinoRanqueado
+            Vitorias = VitoriasTreinoRanqueado
         else:
             Dados = Contagem.get(Modo) or {}
             Partidas = int(Dados.get("partidas") or 0)
@@ -79,17 +86,28 @@ def ObterEstatisticasJogador(
     ContagemModos = persistencia.ContarPartidasSoloPorModo(IdConta, NickNorm)
     PartidasRanqueadas = 0
     VitoriasRanqueadas = 0
+    PartidasTreinoRanqueado = 0
+    VitoriasTreinoRanqueado = 0
     if Perfil and not Perfil.get("ehVisitante"):
         PartidasRanqueadas = int(Perfil.get("partidasRanqueadas") or 0)
         VitoriasRanqueadas = int(Perfil.get("vitoriasRanqueadas") or 0)
+        PartidasTreinoRanqueado = int(Perfil.get("partidasTreinoRanqueado") or 0)
+        VitoriasTreinoRanqueado = int(Perfil.get("vitoriasTreinoRanqueado") or 0)
     elif IdConta:
         PartidasRanqueadas = persistencia.ContarPartidasRanqueadasConta(IdConta)
         VitoriasRanqueadas = persistencia.ContarVitoriasRanqueadasConta(IdConta)
+        PartidasTreinoRanqueado = persistencia.ContarPartidasTreinoRanqueadoConta(IdConta)
+        VitoriasTreinoRanqueado = persistencia.ContarVitoriasTreinoRanqueadoConta(IdConta)
 
     PartidasPorModo = MontarListaPartidasPorModo(
-        ContagemModos, PartidasRanqueadas, VitoriasRanqueadas
+        ContagemModos,
+        PartidasRanqueadas,
+        VitoriasRanqueadas,
+        PartidasTreinoRanqueado,
+        VitoriasTreinoRanqueado,
     )
-    TotalSolo = sum(I["partidas"] for I in PartidasPorModo if I["modo"] != "ranqueada")
+    _ModosArena = {"ranqueada", "treino_ranqueado"}
+    TotalSolo = sum(I["partidas"] for I in PartidasPorModo if I["modo"] not in _ModosArena)
 
     return {
         "nick": NickNorm,

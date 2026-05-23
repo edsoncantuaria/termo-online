@@ -40,13 +40,30 @@ def test_contar_partidas_solo_por_modo(tmp_path, monkeypatch):
     assert Contagem[ModoPratica]["partidas"] >= 1
     assert Contagem[ModoDueto]["partidas"] >= 1
 
-    Lista = MontarListaPartidasPorModo(Contagem, 3, 1)
+    Lista = MontarListaPartidasPorModo(Contagem, 3, 1, 2, 1)
     Pratica = next(x for x in Lista if x["modo"] == ModoPratica)
     Ranq = next(x for x in Lista if x["modo"] == "ranqueada")
+    Treino = next(x for x in Lista if x["modo"] == "treino_ranqueado")
     assert Pratica["partidas"] >= 1
     assert Ranq["partidas"] == 3
     assert Ranq["vitorias"] == 1
+    assert Treino["nome"] == "Treino!"
+    assert Treino["partidas"] == 2
+    assert Treino["vitorias"] == 1
 
     Stats = ObterEstatisticasJogador("statsmodo")
     assert "partidasPorModo" in Stats
-    assert len(Stats["partidasPorModo"]) == 6
+    assert len(Stats["partidasPorModo"]) == 7
+
+
+def test_registrar_partida_treino_ranqueado(tmp_path, monkeypatch):
+    monkeypatch.setattr(persistencia, "CaminhoBanco", tmp_path / "treino.db")
+    persistencia.InicializarBanco()
+    Id = persistencia.CriarConta("treinor", "hash", "salt", EhVisitante=False)
+    persistencia.RegistrarPartidaTreinoRanqueado(Id, True)
+    persistencia.RegistrarPartidaTreinoRanqueado(Id, False)
+    assert persistencia.ContarPartidasTreinoRanqueadoConta(Id) == 2
+    assert persistencia.ContarVitoriasTreinoRanqueadoConta(Id) == 1
+    Lista = MontarListaPartidasPorModo({}, 0, 0, 2, 1)
+    Treino = next(x for x in Lista if x["modo"] == "treino_ranqueado")
+    assert Treino["nome"] == "Treino!"

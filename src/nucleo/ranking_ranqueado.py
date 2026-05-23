@@ -87,7 +87,7 @@ def _GerarPopulacaoPassiva() -> list[dict]:
                 "eloNome": NomeEloExibicao(EloDePontos(Pontos)),
                 "partidas": Partidas,
                 "vitorias": Vitorias,
-                "ehBot": True,
+                "ehBot": False,
             }
         )
         I += 1
@@ -129,7 +129,7 @@ def _MontarListaExibicao(
     IndiceEu: int | None = None
 
     for I, E in enumerate(Entradas):
-        if not E["ehBot"] and E["nick"].lower() == NickEu:
+        if NickEu and E["nick"].lower() == NickEu:
             MinhaPosicao = I + 1
             IndiceEu = I
             break
@@ -197,7 +197,7 @@ def MontarRankingCompleto(
                 "eloNome": NomeEloExibicao(EloDePontos(Pontos)),
                 "partidas": Partidas,
                 "vitorias": Vitorias,
-                "ehBot": True,
+                "ehBot": False,
             }
         )
 

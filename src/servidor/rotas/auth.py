@@ -8,6 +8,8 @@ from nucleo.contas import (
     LoginConta,
     RegistrarConta,
 )
+from nucleo import persistencia
+
 from servidor.dependencias_auth import ContaOpcional, ContaRegistrada
 from servidor.estado_global import GerenciadorVersus
 from servidor.rotas.schemas import (
@@ -88,6 +90,15 @@ def RegistrarRotasAuth(Roteador: APIRouter) -> None:
 
         LimparSessaoContaJogador(Perfil["idConta"])
         return {"limpo": True}
+
+    @Roteador.get("/conta/ultimas-partidas")
+    def UltimasPartidasConta(Perfil=Depends(ContaRegistrada)):
+        return {
+            "partidas": persistencia.ListarUltimasPartidasConta(
+                Perfil["idConta"], persistencia.LIMITE_ULTIMAS_PARTIDAS
+            ),
+            "limite": persistencia.LIMITE_ULTIMAS_PARTIDAS,
+        }
 
     @Roteador.patch("/auth/avatar")
     def AtualizarAvatar(Corpo: AvatarRequest, Perfil=Depends(ContaRegistrada)):

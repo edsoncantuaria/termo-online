@@ -43,24 +43,32 @@ def CriarAplicacao() -> FastAPI:
         lifespan=CicloVida,
     )
 
+    PadraoCors = (
+        "https://termo.cloudive.com.br,"
+        "http://localhost:5173,http://127.0.0.1:5173,"
+        "http://localhost:8000,http://127.0.0.1:8000"
+    )
     OrigensCors = [
         O.strip()
-        for O in os.environ.get(
-            "TERM0_CORS_ORIGINS",
-            "https://termo.cloudive.com.br,http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000",
-        ).split(",")
+        for O in os.environ.get("TERM0_CORS_ORIGINS", PadraoCors).split(",")
         if O.strip()
     ]
-    Aplicacao.add_middleware(
-        CORSMiddleware,
-        allow_origins=OrigensCors,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    if not OrigensCors:
+        OrigensCors = [O.strip() for O in PadraoCors.split(",") if O.strip()]
+
     Aplicacao.add_middleware(MiddlewareMetricas)
     Aplicacao.add_middleware(MiddlewareControleCarga)
     Aplicacao.add_middleware(MiddlewareRateLimit)
+    # Por último = camada mais externa; cobre 429/503 dos middlewares internos.
+    Aplicacao.add_middleware(
+        CORSMiddleware,
+        allow_origins=OrigensCors,
+        allow_origin_regex=r"https://([a-z0-9-]+\.)?cloudive\.com\.br",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["Retry-After", "X-Termo-Worker"],
+    )
     Aplicacao.include_router(RoteadorSaude)
     RegistrarRotas(Aplicacao)
     RegistrarWebSocket(Aplicacao)  # registra também notificador do lobby

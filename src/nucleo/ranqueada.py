@@ -309,13 +309,16 @@ def RegistrarDueloRanqueadoVsBot(
     Pv = int(Conta["pontos_ranqueada"])
     Delta = CalcularDelta(Pv, int(PontosBot), VenceuReal)
     Antes, Depois = AplicarDeltaConta(IdContaReal, Delta)
-    if IdJogadorBot:
-        from .bots_ranqueados import AplicarResultadoDueloBot
+    from .bots_ranqueados import AplicarResultadoDueloBot, IdBotParaHistorico
 
+    if IdJogadorBot:
         AplicarResultadoDueloBot(IdJogadorBot, Pv, not VenceuReal)
+    IdOponente = IdBotParaHistorico(IdJogadorBot) if IdJogadorBot else None
+    if not IdOponente:
+        raise ValueError("Duelo contra bot sem identificador do oponente.")
     persistencia.RegistrarHistoricoRanqueada(
         IdContaReal,
-        None,
+        IdOponente,
         CodigoSala,
         Delta,
         Antes,
@@ -376,6 +379,8 @@ def MontarResultadosTreinoRanqueado(Sala) -> list[ResultadoRanqueada]:
                 Venceu=Venceu,
             )
         )
+    for R in Saida:
+        persistencia.RegistrarPartidaTreinoRanqueado(R.IdConta, R.Venceu)
     return Saida
 
 

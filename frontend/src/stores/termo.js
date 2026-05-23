@@ -6,6 +6,8 @@ import {
   TECLADO_LINHAS,
   CHAT_VIDA_MS,
   CHAT_MAX_VISIVEIS,
+  BALAO_FALA_MS,
+  BALAO_FALA_SAIDA_MS,
   DURACAO_TOAST_MS,
   CHAVE_TUTORIAL_VISTO,
   CHAVE_TUTORIAL_MULTI,
@@ -117,11 +119,10 @@ let socketLobby = null;
 let tentativasReconexaoLobby = 0;
 let intervaloTimer = null;
 let timersChat = new Map();
+let timerBalaoFala = null;
 const chavesChatVistas = new Set();
-let ultimoChatEnviadoMs = 0;
 let intervaloCountdown = null;
 let intervaloPausa = null;
-const COOLDOWN_CHAT_MS = 1500;
 let cacheDicionarioSet = null;
 
 function PararIntervaloCountdown() {
@@ -227,11 +228,17 @@ export const useTermoStore = defineStore("termo", {
     statsServidor: null,
     salasPublicas: [],
     historicoDiaria: [],
+    /** eu | outro — perfil do modal */
+    perfilVisualizacao: "eu",
+    perfilOutro: null,
+    carregandoPerfilOutro: false,
 
     preferencias: ObterPreferencias(),
     frasesChat: [],
 
     chatMensagens: [],
+    /** Balão de fala no topo (chat rápido), por jogador. */
+    balaoFala: null,
     cronometroTexto: "",
     cronometroUrgente: false,
     cronometroVisivel: false,
@@ -428,6 +435,12 @@ export const useTermoStore = defineStore("termo", {
       s.modoJogoArena &&
       (s.outrosNaRodada.length > 0 || s.emJogo),
     painelChatVisivel: (s) => s.modoJogoArena,
+    /** Só envia nova frase quando o seu balão de fala sumir. */
+    podeEnviarChatRapido: (s) => {
+      if (!s.idJogador || s.espectador) return false;
+      if (!s.balaoFala) return true;
+      return s.balaoFala.idJogador !== s.idJogador;
+    },
     painelEntreRodadas: (s) =>
       s.dadosSala?.estadoSala === "entre_rodadas" &&
       !s.dadosSala?.partidaEncerrada,
@@ -2301,6 +2314,31 @@ export const useTermoStore = defineStore("termo", {
       timersChat = new Map();
       chavesChatVistas.clear();
       this.chatMensagens = [];
+      if (timerBalaoFala) {
+        clearTimeout(timerBalaoFala);
+        timerBalaoFala = null;
+      }
+      this.balaoFala = null;
+    },
+
+    _ExibirBalaoFala(M, chave) {
+      if (timerBalaoFala) clearTimeout(timerBalaoFala);
+      this.balaoFala = {
+        chave,
+        idJogador: M.idJogador,
+        nomeJogador: M.nomeJogador,
+        texto: M.texto,
+        saindo: false,
+      };
+      timerBalaoFala = setTimeout(() => {
+        if (this.balaoFala?.chave === chave) {
+          this.balaoFala = { ...this.balaoFala, saindo: true };
+          setTimeout(() => {
+            if (this.balaoFala?.chave === chave) this.balaoFala = null;
+          }, BALAO_FALA_SAIDA_MS);
+        }
+        timerBalaoFala = null;
+      }, BALAO_FALA_MS);
     },
 
     renderizarChat(D) {
@@ -2319,6 +2357,14 @@ export const useTermoStore = defineStore("termo", {
           TocarSom("chat");
         }
         this.chatMensagens.push(item);
+        const balaoProprioJaVisivel =
+          this.balaoFala &&
+          M.idJogador === this.idJogador &&
+          this.balaoFala.idJogador === M.idJogador &&
+          this.balaoFala.texto === M.texto;
+        if (!balaoProprioJaVisivel) {
+          this._ExibirBalaoFala(M, chave);
+        }
         const timer = setTimeout(() => {
           const idx = this.chatMensagens.findIndex((x) => x.chave === chave);
           if (idx >= 0) {
@@ -2348,9 +2394,19 @@ export const useTermoStore = defineStore("termo", {
     },
 
     enviarChatFrase(texto) {
-      const agora = Date.now();
-      if (agora - ultimoChatEnviadoMs < COOLDOWN_CHAT_MS) return;
-      ultimoChatEnviadoMs = agora;
+      if (!this.podeEnviarChatRapido) {
+        this.mostrarToast("Aguarde o balão sumir para falar de novo.");
+        return;
+      }
+      const chave = `opt|${this.idJogador}|${texto}|${Date.now()}`;
+      this._ExibirBalaoFala(
+        {
+          idJogador: this.idJogador,
+          nomeJogador: this.nickJogo,
+          texto,
+        },
+        chave
+      );
       this.wsEnviar("chat", { texto });
     },
 
@@ -2692,8 +2748,37 @@ export const useTermoStore = defineStore("termo", {
       }
     },
 
+    voltarMeuPerfil() {
+      this.perfilVisualizacao = "eu";
+      this.perfilOutro = null;
+    },
+
+    async buscarPerfilJogador(nick) {
+      const N = (nick || "").trim();
+      if (!N) {
+        this.mostrarToast("Informe um nick para buscar.", true);
+        return;
+      }
+      if (N.toLowerCase() === (this.nickJogo || "").toLowerCase()) {
+        this.voltarMeuPerfil();
+        return;
+      }
+      this.carregandoPerfilOutro = true;
+      try {
+        const D = await api.jogadorPerfil(N);
+        this.perfilOutro = D;
+        this.perfilVisualizacao = "outro";
+      } catch (Erro) {
+        this.mostrarToast(Erro.message || "Jogador não encontrado.", true);
+      } finally {
+        this.carregandoPerfilOutro = false;
+      }
+    },
+
     async abrirPerfil() {
       if (!this.exigirContaRegistrada()) return;
+      this.perfilVisualizacao = "eu";
+      this.perfilOutro = null;
       this.abrirDialog("perfil");
       this.atualizarStatsUI();
       this.carregandoPerfil = true;

@@ -16,6 +16,7 @@ LimitesPorPrefixo: list[tuple[str, int]] = [
     ("/api/jogar/chute", 90),
     ("/api/solo/chute", 90),
     ("/api/diaria/grade", 12),
+    ("/api/jogador/", 30),
 ]
 
 

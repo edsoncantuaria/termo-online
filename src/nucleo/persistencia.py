@@ -149,6 +149,14 @@ def _AplicarMigracoesContas(C: sqlite3.Connection) -> None:
         C.execute(
             "ALTER TABLE contas ADD COLUMN vitorias_temporada INTEGER NOT NULL DEFAULT 0"
         )
+    if "partidas_treino_ranqueado" not in Colunas:
+        C.execute(
+            "ALTER TABLE contas ADD COLUMN partidas_treino_ranqueado INTEGER NOT NULL DEFAULT 0"
+        )
+    if "vitorias_treino_ranqueado" not in Colunas:
+        C.execute(
+            "ALTER TABLE contas ADD COLUMN vitorias_treino_ranqueado INTEGER NOT NULL DEFAULT 0"
+        )
 
 
 def _AplicarMigracoesProgresso(C: sqlite3.Connection) -> None:
@@ -1232,6 +1240,45 @@ def ContarVitoriasRanqueadasConta(IdConta: str) -> int:
     return int(Linha["vitorias_ranqueadas"]) if Linha else 0
 
 
+def ContarPartidasTreinoRanqueadoConta(IdConta: str) -> int:
+    with Conexao() as C:
+        Linha = C.execute(
+            "SELECT partidas_treino_ranqueado FROM contas WHERE id = ?", (IdConta,)
+        ).fetchone()
+    return int(Linha["partidas_treino_ranqueado"]) if Linha else 0
+
+
+def ContarVitoriasTreinoRanqueadoConta(IdConta: str) -> int:
+    with Conexao() as C:
+        Linha = C.execute(
+            "SELECT vitorias_treino_ranqueado FROM contas WHERE id = ?", (IdConta,)
+        ).fetchone()
+    return int(Linha["vitorias_treino_ranqueado"]) if Linha else 0
+
+
+def RegistrarPartidaTreinoRanqueado(IdConta: str, Venceu: bool) -> None:
+    with Conexao() as C:
+        if Venceu:
+            C.execute(
+                """
+                UPDATE contas SET
+                    partidas_treino_ranqueado = partidas_treino_ranqueado + 1,
+                    vitorias_treino_ranqueado = vitorias_treino_ranqueado + 1
+                WHERE id = ?
+                """,
+                (IdConta,),
+            )
+        else:
+            C.execute(
+                """
+                UPDATE contas SET
+                    partidas_treino_ranqueado = partidas_treino_ranqueado + 1
+                WHERE id = ?
+                """,
+                (IdConta,),
+            )
+
+
 def ObterIdContaPartidaSolo(IdPartida: str) -> str | None:
     with Conexao() as C:
         Linha = C.execute(
@@ -1724,16 +1771,13 @@ def ListarHistoricoRanqueadaConta(IdConta: str, Limite: int = 20) -> list[dict]:
             """,
             (IdConta, int(Limite)),
         ).fetchall()
+    from .bots_ranqueados import NickExibicaoPorId
+
     Saida: list[dict] = []
     for L in Linhas:
-        Oponente = L["nick_oponente"]
-        if not Oponente and L["id_oponente"]:
-            if str(L["id_oponente"]).startswith("bot"):
-                Oponente = "Bot"
-            else:
-                Oponente = "Jogador"
-        elif not Oponente:
-            Oponente = "Bot"
+        Oponente = L["nick_oponente"] or NickExibicaoPorId(L["id_oponente"])
+        if not Oponente:
+            Oponente = "Jogador"
         Saida.append(
             {
                 "id": L["id"],
@@ -1748,6 +1792,136 @@ def ListarHistoricoRanqueadaConta(IdConta: str, Limite: int = 20) -> list[dict]:
             }
         )
     return Saida
+
+
+LIMITE_ULTIMAS_PARTIDAS = 20
+
+
+def ListarHistoricoContraBot(IdBot: str, Limite: int = 20) -> list[dict]:
+    """Duelos ranqueados em que humanos enfrentaram este bot (perspectiva do bot)."""
+    with Conexao() as C:
+        Linhas = C.execute(
+            """
+            SELECT
+                h.id,
+                h.id_conta,
+                h.codigo_sala,
+                h.id_partida,
+                h.delta,
+                h.pontos_antes,
+                h.pontos_depois,
+                h.venceu,
+                h.data_hora,
+                c.nick AS nick_humano
+            FROM historico_ranqueada h
+            LEFT JOIN contas c ON c.id = h.id_conta
+            WHERE h.id_oponente = ?
+            ORDER BY h.data_hora DESC
+            LIMIT ?
+            """,
+            (IdBot, int(Limite)),
+        ).fetchall()
+    Saida: list[dict] = []
+    for L in Linhas:
+        HumanoVenceu = bool(L["venceu"])
+        Saida.append(
+            {
+                "id": L["id"],
+                "nickOponente": L["nick_humano"] or "Jogador",
+                "codigoSala": L["codigo_sala"],
+                "idPartida": L["id_partida"],
+                "delta": 0,
+                "pontosAntes": None,
+                "pontosDepois": None,
+                "venceu": not HumanoVenceu,
+                "dataHora": L["data_hora"],
+            }
+        )
+    return Saida
+
+
+def ListarUltimasPartidasBot(IdBot: str, Limite: int = LIMITE_ULTIMAS_PARTIDAS) -> list[dict]:
+    """Últimas partidas ranqueadas do bot (contra humanos)."""
+    from .estatisticas import _NOMES_MODO
+
+    Lim = max(1, min(LIMITE_ULTIMAS_PARTIDAS, int(Limite)))
+    Itens: list[dict] = []
+    for H in ListarHistoricoContraBot(IdBot, Lim):
+        Itens.append(
+            {
+                "id": f"ranq-{H['id']}",
+                "tipo": "ranqueada",
+                "modo": "ranqueada",
+                "modoNome": _NOMES_MODO.get("ranqueada", "Ranqueado 1v1"),
+                "venceu": H["venceu"],
+                "dataHora": H["dataHora"],
+                "oponente": H["nickOponente"],
+                "deltaRp": H["delta"],
+                "pontosDepois": H["pontosDepois"],
+                "tentativas": None,
+            }
+        )
+    return Itens
+
+
+def ListarUltimasPartidasConta(IdConta: str, Limite: int = LIMITE_ULTIMAS_PARTIDAS) -> list[dict]:
+    """Últimas partidas encerradas (solo + ranqueado), mais recentes primeiro."""
+    from .estatisticas import _NOMES_MODO
+
+    Lim = max(1, min(LIMITE_ULTIMAS_PARTIDAS, int(Limite)))
+    Itens: list[dict] = []
+
+    for H in ListarHistoricoRanqueadaConta(IdConta, Lim):
+        Itens.append(
+            {
+                "id": f"ranq-{H['id']}",
+                "tipo": "ranqueada",
+                "modo": "ranqueada",
+                "modoNome": _NOMES_MODO.get("ranqueada", "Ranqueado 1v1"),
+                "venceu": H["venceu"],
+                "dataHora": H["dataHora"],
+                "oponente": H["nickOponente"],
+                "deltaRp": H["delta"],
+                "pontosDepois": H["pontosDepois"],
+                "tentativas": None,
+            }
+        )
+
+    with Conexao() as C:
+        Linhas = C.execute(
+            """
+            SELECT id_partida, modo, venceu, atualizado_em, tentativas_json
+            FROM partidas_solo
+            WHERE encerrada = 1 AND id_conta = ?
+            ORDER BY atualizado_em DESC
+            LIMIT ?
+            """,
+            (IdConta, Lim),
+        ).fetchall()
+
+    for L in Linhas:
+        Modo = L["modo"]
+        try:
+            Tentativas = len(json.loads(L["tentativas_json"] or "[]"))
+        except json.JSONDecodeError:
+            Tentativas = 0
+        Itens.append(
+            {
+                "id": f"solo-{L['id_partida']}",
+                "tipo": "solo",
+                "modo": Modo,
+                "modoNome": _NOMES_MODO.get(Modo, Modo or "Solo"),
+                "venceu": bool(L["venceu"]),
+                "dataHora": L["atualizado_em"],
+                "oponente": None,
+                "deltaRp": None,
+                "pontosDepois": None,
+                "tentativas": Tentativas,
+            }
+        )
+
+    Itens.sort(key=lambda X: X["dataHora"] or "", reverse=True)
+    return Itens[:Lim]
 
 
 def ListarEstadoBotsRanqueados() -> dict[str, dict]:

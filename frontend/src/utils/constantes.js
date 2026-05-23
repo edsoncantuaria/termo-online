@@ -10,6 +10,9 @@ export const CHAVE_NICK = "termoNick";
 export const CHAVE_STATS = "termoStats";
 export const CHAT_VIDA_MS = 5200;
 export const CHAT_MAX_VISIVEIS = 4;
+/** Balão de fala no topo (chat rápido). */
+export const BALAO_FALA_MS = 3000;
+export const BALAO_FALA_SAIDA_MS = 350;
 export const DURACAO_TOAST_MS = 2600;
 /** @deprecated use DURACAO_TOAST_MS */
 export const DURACAO_TOAST_ERRO_MS = DURACAO_TOAST_MS;

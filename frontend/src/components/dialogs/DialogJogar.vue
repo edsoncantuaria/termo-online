@@ -93,8 +93,45 @@ function onCancelTravado(ev) {
 }
 
 const temporada = computed(() => store.temporadaRanqueada);
+const dialogoRegrasRanq = ref(null);
+
+const regrasRanqueadoDetalhes = [
+  {
+    titulo: "Melhor de 3 mapas",
+    texto: "Quem vencer 2 mapas leva o duelo. Em 1–1, o terceiro mapa decide.",
+  },
+  {
+    titulo: "Tempo por mapa",
+    texto: "Até 3 minutos e 24 segundos para cada palavra.",
+  },
+  {
+    titulo: "Pontos RP",
+    texto: "Vitória: cerca de +16 a +20 RP. Derrota: cerca de −8 a −12 RP (varia com o adversário).",
+  },
+  {
+    titulo: "Durante o duelo",
+    texto: "Você só vê quantos chutes o rival já fez — não as letras dele.",
+  },
+  {
+    titulo: "Treino ranqueado",
+    texto: "Mesma partida, sem ganhar ou perder RP. Conta no perfil como Treino!",
+  },
+];
+
+function abrirRegrasRanqueado() {
+  dialogoRegrasRanq.value?.showModal();
+}
+
+function fecharRegrasRanqueado() {
+  dialogoRegrasRanq.value?.close();
+}
+
+function onCliqueForaRegrasRanq(ev) {
+  if (ev.target === dialogoRegrasRanq.value) fecharRegrasRanqueado();
+}
 
 watch(aberto, (v) => {
+  if (!v) fecharRegrasRanqueado();
   if (v) {
     store.carregarRankingRanqueado();
     store.carregarTemporadaRanqueada();
@@ -247,7 +284,7 @@ function clicarAbaRanqueado() {
           <div v-if="!buscaAtiva" class="jogar-ranqueado-topo">
             <div>
               <h3>Duelo 1v1 ranqueado</h3>
-              <p>Matchmaking por RP · partida validada no servidor</p>
+              <p>Oponente por RP · validado no servidor</p>
             </div>
             <div v-if="contaRegistrada" class="jogar-ranqueado-stats">
               <EloPill
@@ -266,16 +303,9 @@ function clicarAbaRanqueado() {
 
           <div v-if="!contaRegistrada && !buscaAtiva" class="jogar-ranqueado-bloqueado">
             <p class="modo-explicacao">
-              Você entra na <strong>fila online</strong> e o jogo busca um oponente com
-              pontuação parecida (RP). Cada vitória ou derrota altera seu RP e sua
-              <strong>faixa de elo</strong> (Papelão → Estrela). O histórico fica na sua
-              conta e no ranking global.
+              Entre na fila, jogue contra alguém com RP parecido e suba de elo (Papelão →
+              Estrela). Precisa de <strong>conta com e-mail</strong>.
             </p>
-            <ul class="jogar-ranqueado-lista">
-              <li>Vitória: cerca de <strong>+16 a +20 RP</strong></li>
-              <li>Derrota: cerca de <strong>−8 a −12 RP</strong> (conforme o adversário)</li>
-              <li>Visitante não ranqueia — precisa de conta com e-mail</li>
-            </ul>
             <div class="modo-acoes-conta">
               <button
                 type="button"
@@ -365,11 +395,9 @@ function clicarAbaRanqueado() {
             <template v-else>
               <p v-if="temporada" class="jogar-temporada-resumo">
                 <strong>{{ temporada.nome }}</strong>
-                · {{ temporada.partidasTemporada ?? 0 }} partidas
-                · {{ temporada.vitoriasTemporada ?? 0 }} vitórias
-                <span class="jogar-temporada-reset">
-                  (reset {{ temporada.proximoReset }})
-                </span>
+                — {{ temporada.partidasTemporada ?? 0 }} partidas,
+                {{ temporada.vitoriasTemporada ?? 0 }} vitórias
+                <span class="jogar-temporada-reset">· reset {{ temporada.proximoReset }}</span>
               </p>
               <button
                 type="button"
@@ -385,11 +413,20 @@ function clicarAbaRanqueado() {
               >
                 Treino ranqueado (sem RP)
               </button>
-              <p class="jogar-ranqueado-regras">
-                <strong>Melhor de 3</strong> mapas (primeiro a 2 vitórias; em 1–1, o 3º decide).
-                Até <strong>3 min 24 s</strong> por mapa. Vitória <strong>+16~+20 RP</strong> · Derrota
-                <strong>−8~−12 RP</strong>. No duelo você só vê quantos chutes o rival fez.
-              </p>
+              <div class="jogar-ranqueado-rodape">
+                <p class="jogar-ranqueado-resumo">
+                  Melhor de 3 mapas · ~3 min cada
+                </p>
+                <button
+                  type="button"
+                  class="btn-ranq-info"
+                  aria-label="Como funciona o ranqueado"
+                  title="Regras do ranqueado"
+                  @click="abrirRegrasRanqueado"
+                >
+                  ?
+                </button>
+              </div>
             </template>
           </template>
         </article>
@@ -442,5 +479,34 @@ function clicarAbaRanqueado() {
         </article>
       </section>
     </div>
+  </dialog>
+
+  <dialog
+    ref="dialogoRegrasRanq"
+    class="dialog dialog-ranq-info"
+    aria-labelledby="ranq-info-titulo"
+    @click="onCliqueForaRegrasRanq"
+    @cancel.prevent="fecharRegrasRanqueado"
+  >
+    <header class="ranq-info-cabecalho">
+      <div>
+        <p class="ranq-info-kicker">Ranqueado 1v1</p>
+        <h2 id="ranq-info-titulo">Como funciona</h2>
+      </div>
+      <BtnFecharDialog :ao-fechar="fecharRegrasRanqueado" />
+    </header>
+    <ul class="ranq-info-lista">
+      <li v-for="item in regrasRanqueadoDetalhes" :key="item.titulo">
+        <strong>{{ item.titulo }}</strong>
+        <p>{{ item.texto }}</p>
+      </li>
+    </ul>
+    <button
+      type="button"
+      class="btn-modo btn-modo-destaque btn-largo"
+      @click="fecharRegrasRanqueado"
+    >
+      Entendi
+    </button>
   </dialog>
 </template>

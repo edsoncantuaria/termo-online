@@ -157,8 +157,10 @@ def MontarPerfilConta(Conta: dict) -> dict:
         "rotuloRank": Rank["rotuloRank"],
         "semRank": Rank["semRank"],
         "partidasRanqueadas": Partidas,
+        "partidasTreinoRanqueado": int(Conta.get("partidas_treino_ranqueado", 0)),
         "partidasTemporada": int(Conta.get("partidas_temporada", 0)),
         "vitoriasRanqueadas": int(Conta.get("vitorias_ranqueadas", 0)),
+        "vitoriasTreinoRanqueado": int(Conta.get("vitorias_treino_ranqueado", 0)),
         "vitoriasTemporada": int(Conta.get("vitorias_temporada", 0)),
         "podeRanqueada": not bool(Conta.get("eh_visitante")),
     }

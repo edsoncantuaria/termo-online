@@ -141,6 +141,14 @@ export const api = {
   contaJogoAtivo: () =>
     fetchAuth(UrlApi("/api/conta/jogo-ativo")).then(JsonOuErro),
 
+  contaUltimasPartidas: () =>
+    fetchAuth(UrlApi("/api/conta/ultimas-partidas")).then(JsonOuErro),
+
+  jogadorPerfil: (nick) =>
+    fetchAuth(UrlApi(`/api/jogador/${encodeURIComponent(nick)}/perfil`)).then(
+      JsonOuErro
+    ),
+
   contaLimparJogoAtivo: () =>
     fetchAuth(UrlApi("/api/conta/jogo-ativo"), { method: "DELETE" }).then(
       JsonOuErro

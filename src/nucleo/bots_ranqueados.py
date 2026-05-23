@@ -269,6 +269,41 @@ def ObterBot(Id: str) -> BotRanqueado | None:
     return _BOTS_POR_ID.get(Id)
 
 
+def ObterBotPorNick(Nick: str) -> BotRanqueado | None:
+    """Busca bot pelo nick exibido (mesmo critério de contas: minúsculas)."""
+    if not BotsRanqueadosAtivos():
+        return None
+    NickNorm = Nick.strip().lower()[:20]
+    if len(NickNorm) < 3:
+        return None
+    for B in BOTS:
+        if B.Nick.lower() == NickNorm:
+            return B
+    return None
+
+
+def NickExibicaoPorId(Id: str | None) -> str | None:
+    """Resolve id de oponente (conta ou bot) para nick público."""
+    if not Id:
+        return None
+    IdStr = str(Id)
+    IdBot = _IdBotInterno(IdStr)
+    if IdBot:
+        B = ObterBot(IdBot)
+        return B.Nick if B else None
+    from . import persistencia
+
+    Conta = persistencia.ObterContaPorId(IdStr)
+    return Conta["nick"] if Conta else None
+
+
+def IdBotParaHistorico(IdJogador: str | None) -> str | None:
+    """Normaliza id de jogador na sala (bot-xxx) para id gravado no histórico."""
+    if not IdJogador:
+        return None
+    return _IdBotInterno(IdJogador)
+
+
 def ContarBotsDisponiveis() -> int:
     return sum(
         1
@@ -373,7 +408,7 @@ def BotParaRanking(B: BotRanqueado, Posicao: int) -> dict:
         "eloNome": NomeEloExibicao(Elo),
         "partidas": Partidas,
         "vitorias": Vitorias,
-        "ehBot": True,
+        "ehBot": False,
         "souEu": False,
     }
 

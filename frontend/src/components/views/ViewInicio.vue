@@ -17,20 +17,6 @@ const diariaBloqueada = computed(
     <div class="layout-inicio">
       <div class="inicio-hero inicio-hero-compacto">
         <h1 class="hero-titulo">Descubra a palavra. <span>Em português.</span></h1>
-        <p class="hero-legenda" aria-hidden="true">
-          <span class="hero-legenda-chip">
-            <span class="hero-legenda-swatch correto" />
-            certa
-          </span>
-          <span class="hero-legenda-chip">
-            <span class="hero-legenda-swatch presente" />
-            no lugar
-          </span>
-          <span class="hero-legenda-chip">
-            <span class="hero-legenda-swatch ausente" />
-            fora
-          </span>
-        </p>
       </div>
 
       <HeroJogoAtivo />

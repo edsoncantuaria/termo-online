@@ -137,6 +137,19 @@ function avatarPlacar(j) {
     ? store.avatarIdEfetivo()
     : j.avatarId;
 }
+
+const balaoOponente = computed(() => {
+  const b = store.balaoFala;
+  const opp = oponentePrincipal.value;
+  if (!b || !opp || b.idJogador !== opp.idJogador) return null;
+  return b;
+});
+
+const balaoEu = computed(() => {
+  const b = store.balaoFala;
+  if (!b || b.idJogador !== store.idJogador) return null;
+  return b;
+});
 </script>
 
 <template>
@@ -226,31 +239,57 @@ function avatarPlacar(j) {
           <span>{{ store.badgeEstadoJogo.texto }}</span>
         </div>
 
-        <button
+        <div
           v-if="layoutMobile && oponentePrincipal"
-          type="button"
-          class="oponente-resumo-mobile"
-          @click="abrirAbaMobile('sala')"
+          class="oponente-resumo-mobile-wrap"
         >
-          <JogadorAvatar
-            :nome="oponentePrincipal.nomeJogador"
-            :avatar-id="
-              oponentePrincipal.idJogador === store.idJogador
-                ? store.avatarIdEfetivo()
-                : oponentePrincipal.avatarId
-            "
-            pequeno
-          />
-          <span class="oponente-resumo-mobile-nome">{{
-            oponentePrincipal.nomeJogador
-          }}</span>
-          <span
-            v-if="statusOponenteMobile"
-            class="oponente-resumo-mobile-status"
-            :class="statusOponenteMobile.classe"
-            >{{ statusOponenteMobile.texto }}</span
+          <Transition name="balao-fala">
+            <div
+              v-if="balaoOponente"
+              class="balao-fala"
+              :class="{ 'balao-fala--saindo': balaoOponente.saindo }"
+              role="status"
+              aria-live="polite"
+            >
+              <p class="balao-fala-texto">{{ balaoOponente.texto }}</p>
+            </div>
+          </Transition>
+          <button
+            type="button"
+            class="oponente-resumo-mobile"
+            @click="abrirAbaMobile('sala')"
           >
-        </button>
+            <JogadorAvatar
+              :nome="oponentePrincipal.nomeJogador"
+              :avatar-id="
+                oponentePrincipal.idJogador === store.idJogador
+                  ? store.avatarIdEfetivo()
+                  : oponentePrincipal.avatarId
+              "
+              pequeno
+            />
+            <span class="oponente-resumo-mobile-nome">{{
+              oponentePrincipal.nomeJogador
+            }}</span>
+            <span
+              v-if="statusOponenteMobile"
+              class="oponente-resumo-mobile-status"
+              :class="statusOponenteMobile.classe"
+              >{{ statusOponenteMobile.texto }}</span
+            >
+          </button>
+        </div>
+
+        <Transition name="balao-fala">
+          <div
+            v-if="balaoEu"
+            class="balao-fala balao-fala--eu"
+            :class="{ 'balao-fala--saindo': balaoEu.saindo }"
+            role="status"
+          >
+            <p class="balao-fala-texto">{{ balaoEu.texto }}</p>
+          </div>
+        </Transition>
 
         <div class="jogo-meta">
           <span class="modo-pill">{{ store.pillModoTexto }}</span>
@@ -523,12 +562,23 @@ function avatarPlacar(j) {
               <strong>{{ msg.nomeJogador }}</strong> {{ msg.texto }}
             </li>
           </ul>
-          <div class="chat-botoes">
+          <p
+            v-if="!store.podeEnviarChatRapido"
+            class="chat-aguarde-balao"
+            role="status"
+          >
+            Aguarde o balão sumir…
+          </p>
+          <div
+            class="chat-botoes"
+            :class="{ 'chat-botoes--bloqueado': !store.podeEnviarChatRapido }"
+          >
             <button
               v-for="frase in store.frasesChat"
               :key="frase"
               type="button"
               class="btn-chat-frase"
+              :disabled="!store.podeEnviarChatRapido"
               @click="store.enviarChatFrase(frase)"
             >
               {{ frase }}

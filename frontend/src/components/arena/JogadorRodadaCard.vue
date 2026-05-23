@@ -100,6 +100,12 @@ watch(
     if (!props.modoMultiplo) expandido.value = false;
   }
 );
+
+const balaoFala = computed(() => {
+  const b = store.balaoFala;
+  if (!b || b.idJogador !== props.jogador.idJogador) return null;
+  return b;
+});
 </script>
 
 <template>
@@ -115,6 +121,17 @@ watch(
     ]"
     :data-jogador-id="jogador.idJogador"
   >
+    <Transition name="balao-fala">
+      <div
+        v-if="balaoFala"
+        class="balao-fala balao-fala--card"
+        :class="{ 'balao-fala--saindo': balaoFala.saindo }"
+        role="status"
+        aria-live="polite"
+      >
+        <p class="balao-fala-texto">{{ balaoFala.texto }}</p>
+      </div>
+    </Transition>
     <div class="jogador-rodada-topo">
       <JogadorAvatar
         :nome="jogador.nomeJogador"
