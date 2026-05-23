@@ -445,6 +445,142 @@ def VerificarPausasExpiradas(Gerenciador: GerenciadorSalas) -> list[SalaJogo]:
     return Alteradas
 
 
+def _GarantirDesconexaoParaJogadoresOffline(
+    Gerenciador: GerenciadorSalas, Sala: SalaJogo
+) -> None:
+    """Ao carregar do banco, jogadores vêm desconectados — inicia pausa/abandono se necessário."""
+    if not PartidaEmAndamento(Sala):
+        return
+    Agora = time.time()
+    Desconectados = [
+        J
+        for J in Gerenciador.JogadoresAtivos(Sala)
+        if not J.Conectado and not J.Espectador
+    ]
+    if not Desconectados:
+        return
+    for J in Desconectados:
+        if not J.DesconexaoInicioEpoch:
+            J.DesconexaoInicioEpoch = J.UltimaAtividade or (Agora - ABANDONO_TOTAL_SEG - 1)
+    if Sala.EstadoSala == "pausada":
+        return
+    if Sala.Configuracao.Ranqueada and len(Desconectados) >= 1:
+        IniciarPausaPorDesconexao(Gerenciador, Sala, Desconectados[0].IdJogador)
+        return
+    if len(Desconectados) == 1:
+        IniciarPausaPorDesconexao(Gerenciador, Sala, Desconectados[0].IdJogador)
+
+
+def ProcessarTimeoutsPartida(Gerenciador: GerenciadorSalas, Sala: SalaJogo) -> SalaJogo:
+    """Aplica pausa expirada e abandono (3 min) — essencial ao retomar após horas offline."""
+    if not Sala or Sala.PartidaEncerrada:
+        return Sala
+    _GarantirDesconexaoParaJogadoresOffline(Gerenciador, Sala)
+    Sala = Gerenciador.ObterSala(Sala.CodigoSala) or Sala
+    VerificarPausasExpiradas(Gerenciador)
+    VerificarAbandonosProlongados(Gerenciador)
+    return Gerenciador.ObterSala(Sala.CodigoSala) or Sala
+
+
+def SincronizarEncerramentoComBanco(Sala: SalaJogo) -> None:
+    GarantirIdPartidaSala(Sala)
+    Registro = persistencia.ObterRegistroPartidaSala(Sala.IdPartida)
+    if not Registro:
+        return
+    if Registro["encerrada"] and not Sala.PartidaEncerrada:
+        Sala.PartidaEncerrada = True
+        Sala.EstadoSala = "encerrada"
+        if Registro.get("idVencedor"):
+            Sala.VencedorId = Registro["idVencedor"]
+        if Registro.get("partidaCancelada"):
+            Sala.PartidaCancelada = True
+    elif Sala.PartidaEncerrada and not Registro["encerrada"]:
+        persistencia.MarcarPartidaSalaEncerrada(
+            Sala.IdPartida,
+            Sala.VencedorId,
+            getattr(Sala, "PartidaCancelada", False),
+        )
+
+
+def MontarPerspectivaResultado(Sala: SalaJogo, IdJogador: str) -> dict:
+    Reg = (
+        persistencia.ObterRegistroPartidaSala(Sala.IdPartida)
+        if Sala.IdPartida
+        else None
+    )
+    Encerrada = bool(
+        Sala.PartidaEncerrada or Sala.EstadoSala == "encerrada"
+    )
+    if not Encerrada and Reg and Reg.get("encerrada"):
+        Encerrada = True
+    Cancelada = bool(getattr(Sala, "PartidaCancelada", False))
+    Vencedor = Sala.VencedorId
+    if Encerrada and not Vencedor:
+        Reg = persistencia.ObterRegistroPartidaSala(Sala.IdPartida or "")
+        if Reg:
+            Vencedor = Reg.get("idVencedor")
+    EmAndamento = PartidaEmAndamento(Sala) and not Encerrada
+    return {
+        "partidaEncerrada": Encerrada,
+        "partidaCancelada": Cancelada,
+        "vencedorId": Vencedor,
+        "voceGanhou": bool(Encerrada and not Cancelada and Vencedor == IdJogador),
+        "vocePerdeu": bool(
+            Encerrada and not Cancelada and Vencedor and Vencedor != IdJogador
+        ),
+        "somenteResultado": Encerrada,
+        "podeRetomar": EmAndamento,
+    }
+
+
+def SalaPrecisaSincronizarOffline(
+    Gerenciador: GerenciadorSalas, Sala: SalaJogo
+) -> bool:
+    """Sala carregada do banco ou com todos offline — timers podem não ter corrido."""
+    if Sala.PartidaEncerrada or not PartidaEmAndamento(Sala):
+        return False
+    if Sala.EstadoSala == "pausada":
+        return True
+    Ativos = Gerenciador.JogadoresAtivos(Sala)
+    if not Ativos:
+        return False
+    return any(not J.Conectado for J in Ativos)
+
+
+def ProcessarSalasComJogadoresOffline(
+    Gerenciador: GerenciadorSalas,
+) -> list[SalaJogo]:
+    """Aplica pausa/abandono em salas sem ninguém conectado (ex.: após restart da API)."""
+    Alteradas: list[SalaJogo] = []
+    for Sala in list(Gerenciador.Salas.values()):
+        if not SalaPrecisaSincronizarOffline(Gerenciador, Sala):
+            continue
+        AntesEncerrada = Sala.PartidaEncerrada
+        AntesEstado = Sala.EstadoSala
+        Sala = PrepararSalaParaRetomar(Gerenciador, Sala)
+        if (
+            Sala.PartidaEncerrada != AntesEncerrada
+            or Sala.EstadoSala != AntesEstado
+        ):
+            Alteradas.append(Sala)
+    return Alteradas
+
+
+def PrepararSalaParaRetomar(
+    Gerenciador: GerenciadorSalas, Sala: SalaJogo
+) -> SalaJogo:
+    GarantirIdPartidaSala(Sala)
+    if not Sala.PartidaEncerrada:
+        Sala = ProcessarTimeoutsPartida(Gerenciador, Sala)
+        Gerenciador.PersistirSala(Sala)
+        Sala = Gerenciador.ObterSala(Sala.CodigoSala) or Sala
+    SincronizarEncerramentoComBanco(Sala)
+    if Sala.PartidaEncerrada:
+        Gerenciador.PersistirSala(Sala)
+        Sala = Gerenciador.ObterSala(Sala.CodigoSala) or Sala
+    return Sala
+
+
 def VerificarAbandonosProlongados(Gerenciador: GerenciadorSalas) -> list[SalaJogo]:
     Agora = time.time()
     Alteradas: list[SalaJogo] = []
@@ -467,6 +603,7 @@ def MontarRetomarPartida(
     Sala: SalaJogo,
     IdJogador: str,
 ) -> dict:
+    Sala = PrepararSalaParaRetomar(Gerenciador, Sala)
     Jogador = Sala.Jogadores[IdJogador]
     GarantirTokenJogador(Jogador)
     Estado = Gerenciador.EstadoPublicoSala(Sala, IdJogador)
@@ -474,7 +611,7 @@ def MontarRetomarPartida(
     Estado["nomeJogador"] = Jogador.NomeJogador
     Estado["idPartida"] = Sala.IdPartida
     Estado["tokenSessao"] = Jogador.TokenSessao
-    Estado["podeRetomar"] = PartidaEmAndamento(Sala)
+    Estado.update(MontarPerspectivaResultado(Sala, IdJogador))
     return Estado
 
 
@@ -522,10 +659,7 @@ def RetomarPartida(
         {"idJogador": IdJogador},
         Sala.CodigoSala,
     )
-    Gerenciador.PersistirSala(Sala)
     Estado = MontarRetomarPartida(Gerenciador, Sala, IdJogador)
-    if Sala.PartidaEncerrada:
-        Estado["podeRetomar"] = False
     return Estado, None, 200
 
 

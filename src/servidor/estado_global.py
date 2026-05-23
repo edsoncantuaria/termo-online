@@ -1,8 +1,10 @@
 from nucleo import persistencia
 from nucleo.bots_ranqueados import InicializarEstadoBotsRanqueados
 from nucleo.gerenciador_salas import GerenciadorSalas
+from nucleo.partida_sessao import ProcessarSalasComJogadoresOffline
 
 persistencia.InicializarBanco()
 InicializarEstadoBotsRanqueados()
 GerenciadorVersus = GerenciadorSalas()
 GerenciadorVersus.RestaurarSalasAtivas()
+ProcessarSalasComJogadoresOffline(GerenciadorVersus)

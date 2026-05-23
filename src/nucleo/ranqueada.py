@@ -240,7 +240,7 @@ def RegistrarDueloRanqueado(
     Cv = persistencia.ObterContaPorId(IdContaVencedor)
     Cp = persistencia.ObterContaPorId(IdContaPerdedor)
     if not Cv or not Cp:
-        raise ValueError("Conta não encontrada.")
+        return []
     if Cv.get("eh_visitante") or Cp.get("eh_visitante"):
         raise ValueError("Visitantes não pontuam no ranqueado.")
 

@@ -10,10 +10,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from nucleo.arena_rodadas import ModoPontos, ModoVitorias
 from nucleo.gerenciador_salas import ConfiguracaoSala, GerenciadorSalas
+from nucleo import persistencia
 from nucleo.partida_sessao import (
     ABANDONO_TOTAL_SEG,
     DesistirPartida,
     PAUSA_DESAFIO_SEG,
+    ProcessarSalasComJogadoresOffline,
     RetomarPartida,
     ValidarTokenJogador,
     VerificarAbandonosProlongados,
@@ -70,6 +72,47 @@ def test_retomar_rejeita_token_invalido(Gerenciador):
     )
     assert Status == 403
     assert Erro
+
+
+def test_processar_salas_offline_apos_restart_simulado(Gerenciador):
+    """Sala com jogador offline (como após restart) deve evoluir até encerrar na manutenção."""
+    G, Sala, J1, J2 = Gerenciador
+    G.MarcarConexao(Sala, J1.IdJogador, False)
+    Sala = G.ObterSala(Sala.CodigoSala)
+    Sala.PausaAteEpoch = time.time() - 1
+    ProcessarSalasComJogadoresOffline(G)
+    Sala = G.ObterSala(Sala.CodigoSala)
+    Sala.Jogadores[J1.IdJogador].DesconexaoInicioEpoch = (
+        time.time() - ABANDONO_TOTAL_SEG - 1
+    )
+    ProcessarSalasComJogadoresOffline(G)
+    Sala = G.ObterSala(Sala.CodigoSala)
+    assert Sala.PartidaEncerrada
+    assert Sala.VencedorId == J2.IdJogador
+
+
+def test_retomar_apos_abandono_prolongado_somente_resultado(Gerenciador):
+    G, Sala, J1, J2 = Gerenciador
+    G.MarcarConexao(Sala, J1.IdJogador, False)
+    Sala = G.ObterSala(Sala.CodigoSala)
+    Sala.PausaAteEpoch = time.time() - 1
+    VerificarPausasExpiradas(G)
+    Sala = G.ObterSala(Sala.CodigoSala)
+    Sala.Jogadores[J1.IdJogador].DesconexaoInicioEpoch = (
+        time.time() - ABANDONO_TOTAL_SEG - 1
+    )
+    Dados, Erro, Status = RetomarPartida(
+        G, Sala.IdPartida, J1.TokenSessao, J1.IdJogador
+    )
+    assert Status == 200 and Erro is None
+    assert Dados["partidaEncerrada"] is True
+    assert Dados["somenteResultado"] is True
+    assert Dados["podeRetomar"] is False
+    assert Dados["vocePerdeu"] is True
+    assert Dados["vencedorId"] == J2.IdJogador
+    Reg = persistencia.ObterRegistroPartidaSala(Sala.IdPartida)
+    assert Reg["encerrada"] is True
+    assert Reg["idVencedor"] == J2.IdJogador
 
 
 def test_retomar_partida_encerrada_retorna_estado(Gerenciador):

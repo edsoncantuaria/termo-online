@@ -6,7 +6,10 @@ import {
   TextoBloqueioNovoModo,
   TextoContagemHero,
 } from "../../utils/contagem-jogo-ativo.js";
-import { JogoAtivoDeSessaoLocal } from "../../utils/jogo-ativo.js";
+import {
+  JogoAtivoDeSessaoLocal,
+  MesclarJogoAtivoComRetomar,
+} from "../../utils/jogo-ativo.js";
 import { ObterSessao, LimparSessao, PersistirSessao } from "../../utils/sessao.js";
 import { DiariaJaJogadaLocal } from "../../utils/stats.js";
 import { PartidaOnlineEmAndamento } from "../../utils/jogo.js";
@@ -72,6 +75,21 @@ export function IniciarTickJogoAtivoHome() {
   }, 1000);
 }
 
+async function sincronizarJogoAtivoLocalComApi(Local) {
+  if (!Local?.ativo || !EhJogoAtivoOnline(Local)) return Local;
+  if (!Local.idPartida || !Local.tokenSessao) return Local;
+  try {
+    const Dados = await api.partidaRetomar(
+      Local.idPartida,
+      Local.tokenSessao,
+      Local.idJogador
+    );
+    return MesclarJogoAtivoComRetomar(Local, Dados);
+  } catch {
+    return Local;
+  }
+}
+
 export async function carregarJogoAtivo() {
   if (this.conta?.idConta && !this.conta?.ehVisitante) {
     try {
@@ -85,14 +103,18 @@ export async function carregarJogoAtivo() {
         }
         this.jogoAtivo = D;
       } else {
-        const Local = JogoAtivoDeSessaoLocal(ObterSessao());
+        let Local = JogoAtivoDeSessaoLocal(ObterSessao());
+        if (Local) Local = await sincronizarJogoAtivoLocalComApi(Local);
         this.jogoAtivo = Local;
       }
     } catch {
-      this.jogoAtivo = JogoAtivoDeSessaoLocal(ObterSessao());
+      let Local = JogoAtivoDeSessaoLocal(ObterSessao());
+      if (Local) Local = await sincronizarJogoAtivoLocalComApi(Local);
+      this.jogoAtivo = Local;
     }
   } else {
-    const Local = JogoAtivoDeSessaoLocal(ObterSessao());
+    let Local = JogoAtivoDeSessaoLocal(ObterSessao());
+    if (Local) Local = await sincronizarJogoAtivoLocalComApi(Local);
     if (Local && EhJogoAtivoOnline(Local)) {
       Local.textoEstado = TextoContagemHero(Local, {
         pausaRestante: Local.segundosPausaRestantes,
@@ -184,7 +206,7 @@ export async function reconectarJogoAtivo() {
         estado = await R.json();
       }
       if (J.tipo === "ranqueada") {
-        if (estado.partidaEncerrada) {
+        if (estado.partidaEncerrada || estado.somenteResultado) {
           entrarNaSalaRanqueada.call(this, estado, J, {
             exibirResultadoEncerrada: true,
           });
@@ -194,6 +216,17 @@ export async function reconectarJogoAtivo() {
             await api.contaLimparJogoAtivo().catch(() => {});
           }
           LimparSessao();
+        } else if (estado.podeRetomar === false) {
+          const msg = estado.voceGanhou
+            ? "Partida já encerrada — você venceu."
+            : estado.vocePerdeu
+              ? "Partida já encerrada — você perdeu."
+              : "Partida já encerrada.";
+          this.mostrarToast(msg, !estado.voceGanhou);
+          LimparSessao();
+          if (this.conta?.idConta && !this.conta?.ehVisitante) {
+            await api.contaLimparJogoAtivo().catch(() => {});
+          }
         } else if (PartidaOnlineEmAndamento(estado)) {
           entrarNaSalaRanqueada.call(this, estado, J, {
             exibirResultadoEncerrada: false,
@@ -203,12 +236,36 @@ export async function reconectarJogoAtivo() {
           entrarNaSalaRanqueada.call(this, estado, J);
         }
       } else if (J.tipo === "arena") {
-        this.entrarNaSala(estado);
-        if (estado.partidaEncerrada) {
+        if (estado.partidaEncerrada || estado.somenteResultado) {
+          this.entrarNaSala(estado);
           this.conectarWs();
           this.irParaView("arenaLobby");
+          this.atualizarArena(estado, { exibirResultadoEncerrada: true });
+          if (this.conta?.idConta && !this.conta?.ehVisitante) {
+            await api.contaLimparJogoAtivo().catch(() => {});
+          }
+          LimparSessao();
+        } else if (estado.podeRetomar === false) {
+          this.mostrarToast(
+            estado.voceGanhou
+              ? "Partida já encerrada — você venceu."
+              : estado.vocePerdeu
+                ? "Partida já encerrada — você perdeu."
+                : "Partida já encerrada.",
+            !estado.voceGanhou
+          );
+          LimparSessao();
+          if (this.conta?.idConta && !this.conta?.ehVisitante) {
+            await api.contaLimparJogoAtivo().catch(() => {});
+          }
+        } else {
+          this.entrarNaSala(estado);
+          if (estado.partidaEncerrada) {
+            this.conectarWs();
+            this.irParaView("arenaLobby");
+          }
+          this.atualizarArena(estado);
         }
-        this.atualizarArena(estado);
       } else {
         this.entrarNaSala(estado);
         this.atualizarArena(estado);
@@ -295,6 +352,78 @@ export async function abandonarJogoAtivo() {
   });
 }
 
+/**
+ * Após esgotar tentativas de WebSocket: consulta o servidor (partida pode ter acabado).
+ */
+export async function aoReconexaoWsEsgotada(store) {
+  store.bannerReconexao = false;
+  store.fecharSocketSala();
+  const { idPartida, idJogador, tokenSessao, modo } = store;
+  if (!idPartida || !idJogador || !EhModoSalaOnline(modo)) {
+    store.mostrarToast("Conexão perdida. Voltando ao início.", true);
+    await voltarInicioPreservandoPartida.call(store);
+    return;
+  }
+  try {
+    const estado = await api.partidaRetomar(
+      idPartida,
+      tokenSessao,
+      idJogador
+    );
+    const cred = {
+      codigoSala: estado.codigoSala || store.codigoSala,
+      idJogador,
+      idPartida,
+      tokenSessao,
+    };
+    if (estado.partidaEncerrada || estado.somenteResultado) {
+      if (modo === "ranqueada") {
+        entrarNaSalaRanqueada.call(store, estado, cred, {
+          exibirResultadoEncerrada: true,
+        });
+        await store.carregarRankingRanqueado().catch(() => {});
+        await store.carregarHistoricoRanqueado().catch(() => {});
+      } else {
+        store.entrarNaSala(estado);
+        store.atualizarArena(estado, { exibirResultadoEncerrada: true });
+        store.irParaView("arenaLobby");
+      }
+      if (store.conta?.idConta && !store.conta?.ehVisitante) {
+        await api.contaLimparJogoAtivo().catch(() => {});
+      }
+      LimparSessao();
+      store.jogoAtivo = null;
+      PararTickJogoAtivoHome();
+      return;
+    }
+    if (PartidaOnlineEmAndamento(estado)) {
+      if (modo === "ranqueada") {
+        entrarNaSalaRanqueada.call(store, estado, cred, {
+          exibirResultadoEncerrada: false,
+        });
+        store.mostrarDialogoRetomadaRanqueada(estado);
+      } else {
+        store.entrarNaSala(estado);
+        store.atualizarArena(estado);
+        store.conectarWs();
+      }
+      store.mostrarToast("Conexão restabelecida.", false);
+      return;
+    }
+    const msg = estado.voceGanhou
+      ? "Partida encerrada — você venceu."
+      : estado.vocePerdeu
+        ? "Partida encerrada — você perdeu."
+        : "Partida encerrada.";
+    store.mostrarToast(msg, !estado.voceGanhou);
+    LimparSessao();
+    await voltarInicioPreservandoPartida.call(store);
+  } catch {
+    store.mostrarToast("Conexão perdida. Voltando ao início.", true);
+    await voltarInicioPreservandoPartida.call(store);
+  }
+}
+
 export async function voltarInicioPreservandoPartida() {
   this.pararFilaRanqueada();
   this.pararCronometro();
@@ -328,6 +457,7 @@ export const acoesJogoAtivo = {
   assegurarSemConflitoJogoAtivo,
   reconectarJogoAtivo,
   abandonarJogoAtivo,
+  aoReconexaoWsEsgotada,
   voltarInicioPreservandoPartida,
   IniciarTickJogoAtivoHome,
 };

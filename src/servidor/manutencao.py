@@ -5,6 +5,7 @@ from nucleo import persistencia
 from nucleo.bot_jogador import ProcessarBotsNasSalas
 from nucleo.matchmaking import FilaGlobal
 from nucleo.partida_sessao import (
+    ProcessarSalasComJogadoresOffline,
     VerificarAbandonosProlongados,
     VerificarPausasExpiradas,
 )
@@ -27,6 +28,9 @@ async def TarefaManutencaoSalas() -> None:
             persistencia.LimparSnapshotsEncerradosAntigos(48)
             _UltimaLimpezaSnapshots = Agora
         FilaGlobal.Processar(Gerenciador)
+        for Sala in ProcessarSalasComJogadoresOffline(Gerenciador):
+            VerificarFimRodada(Sala)
+            await BroadcastEstadoSala(Sala)
         for Sala in VerificarPausasExpiradas(Gerenciador):
             VerificarFimRodada(Sala)
             await BroadcastEstadoSala(Sala)

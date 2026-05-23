@@ -328,6 +328,12 @@ def _AplicarMigracoesPartida(C: sqlite3.Connection) -> None:
         )
     if "encerrada_em" not in ColunasPs:
         C.execute("ALTER TABLE partidas_sala ADD COLUMN encerrada_em TEXT")
+    if "id_vencedor" not in ColunasPs:
+        C.execute("ALTER TABLE partidas_sala ADD COLUMN id_vencedor TEXT")
+    if "partida_cancelada" not in ColunasPs:
+        C.execute(
+            "ALTER TABLE partidas_sala ADD COLUMN partida_cancelada INTEGER NOT NULL DEFAULT 0"
+        )
 
 
 def RegistrarPartidaSala(IdPartida: str, CodigoSala: str) -> None:
@@ -346,16 +352,46 @@ def RegistrarPartidaSala(IdPartida: str, CodigoSala: str) -> None:
         )
 
 
-def MarcarPartidaSalaEncerrada(IdPartida: str) -> None:
+def MarcarPartidaSalaEncerrada(
+    IdPartida: str,
+    IdVencedor: str | None = None,
+    PartidaCancelada: bool = False,
+) -> None:
     with Conexao() as C:
         C.execute(
             """
             UPDATE partidas_sala
-            SET encerrada = 1, encerrada_em = datetime('now')
+            SET encerrada = 1,
+                encerrada_em = datetime('now'),
+                id_vencedor = ?,
+                partida_cancelada = ?
+            WHERE id_partida = ?
+            """,
+            (IdVencedor, int(PartidaCancelada), IdPartida),
+        )
+
+
+def ObterRegistroPartidaSala(IdPartida: str) -> dict | None:
+    with Conexao() as C:
+        Linha = C.execute(
+            """
+            SELECT id_partida, codigo_sala, encerrada, encerrada_em,
+                   id_vencedor, partida_cancelada
+            FROM partidas_sala
             WHERE id_partida = ?
             """,
             (IdPartida,),
-        )
+        ).fetchone()
+    if not Linha:
+        return None
+    return {
+        "idPartida": Linha["id_partida"],
+        "codigoSala": Linha["codigo_sala"],
+        "encerrada": bool(Linha["encerrada"]),
+        "encerradaEm": Linha["encerrada_em"],
+        "idVencedor": Linha["id_vencedor"],
+        "partidaCancelada": bool(Linha["partida_cancelada"]),
+    }
 
 
 def SalvarVinculoJogadorPartida(
@@ -1771,27 +1807,49 @@ def ListarHistoricoRanqueadaConta(IdConta: str, Limite: int = 20) -> list[dict]:
             """,
             (IdConta, int(Limite)),
         ).fetchall()
-    from .bots_ranqueados import NickExibicaoPorId
+        from .bots_ranqueados import NickExibicaoPorId
 
-    Saida: list[dict] = []
-    for L in Linhas:
-        Oponente = L["nick_oponente"] or NickExibicaoPorId(L["id_oponente"])
-        if not Oponente:
-            Oponente = "Jogador"
-        Saida.append(
-            {
-                "id": L["id"],
-                "nickOponente": Oponente,
-                "codigoSala": L["codigo_sala"],
-                "idPartida": L["id_partida"],
-                "delta": int(L["delta"]),
-                "pontosAntes": int(L["pontos_antes"]),
-                "pontosDepois": int(L["pontos_depois"]),
-                "venceu": bool(L["venceu"]),
-                "dataHora": L["data_hora"],
-            }
-        )
-    return Saida
+        Saida: list[dict] = []
+        for L in Linhas:
+            Oponente = L["nick_oponente"] or NickExibicaoPorId(L["id_oponente"])
+            if (not Oponente or Oponente == "Jogador") and L["id_partida"]:
+                LinhaOpp = C.execute(
+                    """
+                    SELECT jp.id_conta
+                    FROM jogadores_partida jp
+                    WHERE jp.id_partida = ?
+                      AND jp.id_conta IS NOT NULL
+                      AND jp.id_conta != ?
+                    LIMIT 1
+                    """,
+                    (L["id_partida"], IdConta),
+                ).fetchone()
+                if LinhaOpp and LinhaOpp["id_conta"]:
+                    ContaOpp = C.execute(
+                        "SELECT nick FROM contas WHERE id = ?",
+                        (LinhaOpp["id_conta"],),
+                    ).fetchone()
+                    Oponente = (
+                        ContaOpp["nick"]
+                        if ContaOpp and ContaOpp["nick"]
+                        else NickExibicaoPorId(LinhaOpp["id_conta"])
+                    )
+            if not Oponente:
+                Oponente = "Jogador"
+            Saida.append(
+                {
+                    "id": L["id"],
+                    "nickOponente": Oponente,
+                    "codigoSala": L["codigo_sala"],
+                    "idPartida": L["id_partida"],
+                    "delta": int(L["delta"]),
+                    "pontosAntes": int(L["pontos_antes"]),
+                    "pontosDepois": int(L["pontos_depois"]),
+                    "venceu": bool(L["venceu"]),
+                    "dataHora": L["data_hora"],
+                }
+            )
+        return Saida
 
 
 LIMITE_ULTIMAS_PARTIDAS = 20

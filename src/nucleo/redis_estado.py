@@ -102,6 +102,10 @@ def StatusRedis() -> dict:
             "habilitado": False,
             "modo": "memoria",
             "workerId": IdWorker(),
+            "aviso": (
+                "Salas e WebSocket ficam na memória deste processo. "
+                "Em produção use um único worker termo-api por VM ou habilite Redis."
+            ),
         }
     Cliente = _ObterCliente()
     if Cliente:

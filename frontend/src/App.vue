@@ -18,6 +18,7 @@ import DialogConta from "./components/dialogs/DialogConta.vue";
 import AppToast from "./components/ui/AppToast.vue";
 import TutorialPrimeiraVisita from "./components/ui/TutorialPrimeiraVisita.vue";
 import FaixaInstalarPwa from "./components/home/FaixaInstalarPwa.vue";
+import BannerAtualizacaoPwa from "./components/ui/BannerAtualizacaoPwa.vue";
 
 const store = useTermoStore();
 const cloudive = marcaCloudiveAtiva();
@@ -97,6 +98,7 @@ onUnmounted(() => {
     >
       Reconectando…
     </div>
+    <BannerAtualizacaoPwa />
 
     <div class="app" :class="classesApp">
       <AppTopo />

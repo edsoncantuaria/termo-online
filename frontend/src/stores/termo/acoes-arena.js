@@ -3,6 +3,7 @@ import { UrlWebSocket } from "../../config/origem.js";
 import { api } from "../../services/api.js";
 import { TocarSom } from "../../lib/som.js";
 import { EhModoSalaOnline } from "../../utils/modos.js";
+import { aoReconexaoWsEsgotada } from "./acoes-jogo-ativo.js";
 
 let socketSala = null;
 let intervaloSyncArena = null;
@@ -186,6 +187,8 @@ export function conectarWsArena(store) {
       store.tentativasReconexao++;
       const espera = Math.min(1500 * store.tentativasReconexao, 8000);
       setTimeout(() => conectarWsArena(store), espera);
+      return;
     }
+    aoReconexaoWsEsgotada(store);
   };
 }

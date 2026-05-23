@@ -188,7 +188,11 @@ def PersistirSala(Gerenciador, Sala: SalaJogo | None) -> None:
                 partida_sessao.RegistrarVinculoJogadorPartida(Sala, J)
             sessao_jogo_conta.LimparSessaoContaJogador(J.IdConta)
         persistencia.SalvarSalaSnapshot(Sala.CodigoSala, ExportarSnapshot(Sala))
-        persistencia.MarcarPartidaSalaEncerrada(Sala.IdPartida)
+        persistencia.MarcarPartidaSalaEncerrada(
+            Sala.IdPartida,
+            Sala.VencedorId,
+            getattr(Sala, "PartidaCancelada", False),
+        )
         _DispararNotificacaoLobby()
         return
     persistencia.SalvarSalaSnapshot(Sala.CodigoSala, ExportarSnapshot(Sala))

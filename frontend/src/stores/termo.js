@@ -121,6 +121,14 @@ function PodeEditarGradeAtualEstado(Estado) {
 
 let socketLobby = null;
 let tentativasReconexaoLobby = 0;
+let intervaloLobbyHttpFallback = null;
+
+function pararLobbyHttpFallback() {
+  if (intervaloLobbyHttpFallback) {
+    clearInterval(intervaloLobbyHttpFallback);
+    intervaloLobbyHttpFallback = null;
+  }
+}
 let intervaloTimer = null;
 let timersChat = new Map();
 let timerBalaoFala = null;
@@ -1123,6 +1131,7 @@ export const useTermoStore = defineStore("termo", {
     },
 
     pararLobbyWs() {
+      pararLobbyHttpFallback();
       if (socketLobby) {
         socketLobby.onclose = null;
         socketLobby.onerror = null;
@@ -1152,6 +1161,7 @@ export const useTermoStore = defineStore("termo", {
 
       socketLobby.onopen = () => {
         tentativasReconexaoLobby = 0;
+        pararLobbyHttpFallback();
         this.lobbyWsConectado = true;
         this.lobbyWsReconectando = false;
       };
@@ -1184,7 +1194,17 @@ export const useTermoStore = defineStore("termo", {
           const espera = Math.min(1500 * tentativasReconexaoLobby, 8000);
           setTimeout(() => this.conectarLobbyWs(), espera);
         } else {
+          this.lobbyWsReconectando = false;
+          this.mostrarToast(
+            "Lista de salas em atualização manual (a cada 30 s). Puxe a tela para atualizar.",
+            false
+          );
           this.carregarSalasPublicas();
+          pararLobbyHttpFallback();
+          const store = this;
+          intervaloLobbyHttpFallback = setInterval(() => {
+            if (store.view === "inicio") store.carregarSalasPublicas();
+          }, 30000);
         }
       };
     },
@@ -1519,6 +1539,14 @@ export const useTermoStore = defineStore("termo", {
               dados: { palavra },
             })
           );
+          return;
+        }
+        this.mostrarToast(
+          "Sem conexão com o servidor. Tentando reconectar…",
+          true
+        );
+        if (this.codigoSala && this.idJogador) {
+          this.conectarWs();
         }
         return;
       }
@@ -2625,7 +2653,7 @@ export const useTermoStore = defineStore("termo", {
             }
             D = await R.json();
           }
-          if (D.partidaEncerrada) {
+          if (D.partidaEncerrada || D.somenteResultado) {
             if (modo === "ranqueada") {
               entrarNaSalaRanqueada.call(this, { ...S, ...D }, S, {
                 exibirResultadoEncerrada: true,
@@ -2643,7 +2671,21 @@ export const useTermoStore = defineStore("termo", {
               }
               this.atualizarArena(D);
             }
+            if (this.conta?.idConta && !this.conta?.ehVisitante) {
+              await api.contaLimparJogoAtivo().catch(() => {});
+            }
+            this.jogoAtivo = null;
             return { ok: true, invalida: false };
+          }
+          if (D.podeRetomar === false) {
+            LimparSessao();
+            const msg = D.voceGanhou
+              ? "Esta partida já terminou — você venceu."
+              : D.vocePerdeu
+                ? "Esta partida já terminou — você perdeu."
+                : "Esta partida já foi encerrada.";
+            this.mostrarToast(msg, !D.voceGanhou);
+            return { ok: false, invalida: true };
           }
           this.modo = modo;
           this.codigoSala = S.codigoSala;
@@ -2977,9 +3019,21 @@ export const useTermoStore = defineStore("termo", {
       this.fecharDialogs();
       this.atualizarStatsUI();
       const salvo = ObterSessao();
-      const estavaNoJogo =
-        salvo?.ranqueada?.view === "jogo" || salvo?.arena?.view === "jogo";
-      const retomou = estavaNoJogo ? await this.retomarSessao() : false;
+      await this.carregarJogoAtivo();
+
+      let retomou = false;
+      const J = this.jogoAtivo;
+      if (J?.ativo && (J.somenteResultado || J.resultadoPendente)) {
+        await this.reconectarJogoAtivo();
+        retomou = true;
+      } else {
+        const estavaNoJogo =
+          salvo?.ranqueada?.view === "jogo" || salvo?.arena?.view === "jogo";
+        if (estavaNoJogo) {
+          retomou = await this.retomarSessao();
+        }
+      }
+
       await Promise.all([this.carregarInfoDiaria(), this.carregarHomePainel()]);
       const temConviteSala = !!this.capturarConviteSalaDaUrl();
       this.mostrarTutorial = false;

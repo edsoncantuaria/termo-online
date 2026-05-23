@@ -3,11 +3,18 @@ import { createPinia } from "pinia";
 import { registerSW } from "virtual:pwa-register";
 import App from "./App.vue";
 import { desbloquearAudio, prepararSons } from "./lib/som.js";
+import {
+  atualizacaoPwaDisponivel,
+  registrarAplicarAtualizacaoPwa,
+} from "./utils/pwa-atualizacao.js";
 
 if (import.meta.env.PROD) {
   const IntervaloChecagemMs = 5 * 60 * 1000;
-  registerSW({
+  const updateSW = registerSW({
     immediate: true,
+    onNeedRefresh() {
+      atualizacaoPwaDisponivel.value = true;
+    },
     onRegisteredSW(_swUrl, registration) {
       if (!registration) return;
       const ChecarAtualizacao = () => {
@@ -20,6 +27,7 @@ if (import.meta.env.PROD) {
       setInterval(ChecarAtualizacao, IntervaloChecagemMs);
     },
   });
+  registrarAplicarAtualizacaoPwa(updateSW);
 }
 
 const app = createApp(App);

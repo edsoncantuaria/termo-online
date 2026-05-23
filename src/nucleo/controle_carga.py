@@ -141,8 +141,16 @@ def PodeEntrarFilaRanqueada(TamanhoFila: int, JaNaFila: bool) -> ResultadoAdmiss
 
 
 def MontarStatusCarga(*, SalasAtivas: int, FilaRanqueada: int) -> dict:
+    from .redis_estado import RedisHabilitado
+
     with _Bloqueio:
         Espera = len(_FilaEsperaServidor)
+    Aviso = None
+    if not RedisHabilitado():
+        Aviso = (
+            "Sem Redis: não rode vários workers com salas ativas — "
+            "cada processo tem estado próprio."
+        )
     return {
         "limites": {
             "maxWsSala": MAX_CONEXOES_WS_SALA,
@@ -157,4 +165,5 @@ def MontarStatusCarga(*, SalasAtivas: int, FilaRanqueada: int) -> dict:
             "filaRanqueada": FilaRanqueada,
             "filaEsperaConexao": Espera,
         },
+        "aviso": Aviso,
     }

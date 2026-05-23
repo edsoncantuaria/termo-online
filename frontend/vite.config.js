@@ -29,6 +29,7 @@ export default defineConfig({
         "cloudive-icon.svg",
         "pwa-192.png",
         "pwa-512.png",
+        "offline.html",
         "sounds/*.ogg",
       ],
       manifest: {
@@ -66,13 +67,15 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,ico,svg,ogg,woff2}"],
-        globIgnores: ["**/index.html"],
+        globPatterns: ["**/*.{js,css,html,ico,svg,ogg,woff2,png}"],
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api/, /^\/ws/],
+        navigateFallbackDenylist: [/^\/api/, /^\/ws/, /^\/offline\.html$/],
+        additionalManifestEntries: [
+          { url: "/offline.html", revision: BuildId },
+        ],
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.mode === "navigate",
@@ -80,7 +83,7 @@ export default defineConfig({
             options: {
               cacheName: "termo-paginas",
               networkTimeoutSeconds: 4,
-              expiration: { maxEntries: 2, maxAgeSeconds: 60 },
+              expiration: { maxEntries: 4, maxAgeSeconds: 86400 },
             },
           },
         ],

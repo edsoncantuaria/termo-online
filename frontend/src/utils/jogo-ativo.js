@@ -1,4 +1,5 @@
 /** Monta resumo de jogo ativo a partir do localStorage (visitante ou fallback). */
+import { TextoContagemHero } from "./contagem-jogo-ativo.js";
 
 const RotulosSolo = {
   diaria: "Palavra do dia",
@@ -120,4 +121,48 @@ export function JogoAtivoDeSessaoLocal(salvo) {
   }
 
   return null;
+}
+
+/** Atualiza o hero local com o estado real da API (visitante ou fallback offline). */
+export function MesclarJogoAtivoComRetomar(Local, DadosApi) {
+  if (!Local?.ativo || !DadosApi) return Local;
+
+  if (DadosApi.partidaEncerrada || DadosApi.somenteResultado) {
+    const Ganhou = !!DadosApi.voceGanhou;
+    const Perdeu = !!DadosApi.vocePerdeu;
+    let Texto = "Partida encerrada — toque para ver o resultado";
+    if (Ganhou) Texto = "Vitória! Toque para ver o resultado.";
+    else if (Perdeu) Texto = "Derrota. Toque para ver o resultado.";
+    return {
+      ...Local,
+      partidaEncerrada: true,
+      somenteResultado: true,
+      resultadoPendente: true,
+      voceGanhou: Ganhou,
+      vocePerdeu: Perdeu,
+      pausada: false,
+      emTempoDeJogo: false,
+      estadoSala: DadosApi.estadoSala ?? Local.estadoSala,
+      textoEstado: Texto,
+    };
+  }
+
+  const Atualizado = {
+    ...Local,
+    pausada: !!DadosApi.pausada,
+    estadoSala: DadosApi.estadoSala ?? Local.estadoSala,
+    segundosPausaRestantes:
+      DadosApi.segundosPausaRestantes ?? Local.segundosPausaRestantes,
+    segundosAteAbandono:
+      DadosApi.segundosAteAbandono ?? Local.segundosAteAbandono,
+    souJogadorPausado:
+      DadosApi.souJogadorPausado ?? Local.souJogadorPausado,
+    emTempoDeJogo:
+      Local.view === "jogo" && !DadosApi.pausada && !DadosApi.partidaEncerrada,
+  };
+  Atualizado.textoEstado = TextoContagemHero(Atualizado, {
+    pausaRestante: Atualizado.segundosPausaRestantes,
+    abandonoRestante: Atualizado.segundosAteAbandono,
+  });
+  return Atualizado;
 }

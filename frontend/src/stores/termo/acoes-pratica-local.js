@@ -34,7 +34,7 @@ export async function iniciarPraticaLocal(cacheDicionarioSet) {
   }
   if (!Conjunto?.size) {
     this.mostrarToast(
-      "Conecte-se à internet uma vez para baixar o dicionário e jogar a prática.",
+      "Prática offline precisa do dicionário: conecte à internet, abra o menu e toque em «Limpar cache local» se já tentou antes; depois inicie a prática de novo.",
       true
     );
     return false;

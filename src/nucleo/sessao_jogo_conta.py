@@ -184,8 +184,23 @@ def MontarJogoAtivoParaConta(
         if J.Espectador:
             persistencia.LimparSessaoJogoConta(IdConta)
             return None
-        if Sala.PartidaEncerrada:
+        Sala = partida_sessao.PrepararSalaParaRetomar(Gerenciador, Sala)
+        Perspectiva = partida_sessao.MontarPerspectivaResultado(Sala, IdJogador)
+        if Perspectiva["partidaEncerrada"]:
             partida_sessao.GarantirTokenJogador(J)
+            TextoResultado = (
+                "Partida encerrada — você venceu"
+                if Perspectiva["voceGanhou"]
+                else (
+                    "Partida encerrada — você perdeu"
+                    if Perspectiva["vocePerdeu"]
+                    else (
+                        "Partida cancelada — nada foi registrado"
+                        if Perspectiva["partidaCancelada"]
+                        else "Partida encerrada — toque em Reconectar para ver o resultado"
+                    )
+                )
+            )
             return {
                 "ativo": True,
                 "tipo": Tipo,
@@ -196,6 +211,11 @@ def MontarJogoAtivoParaConta(
                 "tokenSessao": J.TokenSessao or Linha.get("token_sessao"),
                 "estadoSala": Sala.EstadoSala,
                 "partidaEncerrada": True,
+                "partidaCancelada": Perspectiva["partidaCancelada"],
+                "vencedorId": Perspectiva["vencedorId"],
+                "voceGanhou": Perspectiva["voceGanhou"],
+                "vocePerdeu": Perspectiva["vocePerdeu"],
+                "somenteResultado": True,
                 "resultadoPendente": True,
                 "voltarParaLobby": Tipo == "arena",
                 "pausada": False,
@@ -203,11 +223,7 @@ def MontarJogoAtivoParaConta(
                 "segundosAteAbandono": None,
                 "tempoLimiteSegundos": Sala.Configuracao.TempoLimiteSegundos or 0,
                 "emTempoDeJogo": False,
-                "textoEstado": (
-                    "Sessão encerrada — volte à sala para revanche ou resultado"
-                    if Tipo == "arena"
-                    else "Partida encerrada — toque em Reconectar para ver o resultado"
-                ),
+                "textoEstado": TextoResultado,
                 "souCriador": Sala.CriadorId == IdJogador,
             }
         if not partida_sessao.PartidaEmAndamento(Sala):
