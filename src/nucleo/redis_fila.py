@@ -175,7 +175,7 @@ class FilaMatchmakingRedis(FilaMatchmaking):
         self.UltimoOponenteHumano = _MapaRedisJson(_CHAVE_ULTIMO_OPONENTE)
 
     def Processar(self, Gerenciador) -> None:
-        if not AdquirirLockRedis(_LOCK_PROCESSAR, Segundos=3):
+        if not AdquirirLockRedis(_LOCK_PROCESSAR, Segundos=5):
             return
         super().Processar(Gerenciador)
 

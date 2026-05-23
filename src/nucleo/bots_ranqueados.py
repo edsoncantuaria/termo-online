@@ -259,7 +259,9 @@ def EscolherBotParaPontos(
     Janela = [B for B in Proximos if abs(B.Pontos - PontosJogador) <= JanelaRp]
     MesmoElo = [B for B in (Janela or Proximos) if EloDePontos(B.Pontos) == EloJogador]
     Pool = (MesmoElo or Janela or Proximos)[:12]
-    return random.choice(Pool)
+    if not Pool and Proximos:
+        Pool = Proximos[:12]
+    return random.choice(Pool) if Pool else None
 
 
 def ListarBotsProximos(Pontos: int, Limite: int = 12) -> list[BotRanqueado]:

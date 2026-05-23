@@ -6,9 +6,9 @@ import time
 
 from .ranqueada import EloDePontos, ELOS
 
-# Tempos da fila (segundos)
-BUSCA_REAL_SEG = 4
-ESPERA_BOT_SEG = 10
+# Tempos da fila (segundos) — após BUSCA_REAL reserva bot; após +ESPERA_BOT inicia duelo
+BUSCA_REAL_SEG = 2
+ESPERA_BOT_SEG = 5
 
 # Janela ±RP entre oponentes
 JANELA_RP_INICIAL = 75

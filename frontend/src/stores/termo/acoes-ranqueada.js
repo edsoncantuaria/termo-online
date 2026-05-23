@@ -63,7 +63,7 @@ export async function entrarFilaRanqueada() {
       await ProcessarMatchRanqueadoEncontrado.call(this, D);
       return;
     }
-    timerFilaRanqueada = setInterval(() => pollFilaRanqueada.call(this), 2000);
+    timerFilaRanqueada = setInterval(() => pollFilaRanqueada.call(this), 1000);
     await pollFilaRanqueada.call(this);
   } catch (e) {
     this.filaRanqueada = false;
@@ -160,7 +160,7 @@ export async function solicitarRevancheRanqueada() {
     this.filaRanqueada = true;
     this.filaPodeCancelar = true;
     this.filaMensagem = D.mensagem || "Buscando revanche…";
-    timerFilaRanqueada = setInterval(() => pollFilaRanqueada.call(this), 2000);
+    timerFilaRanqueada = setInterval(() => pollFilaRanqueada.call(this), 1000);
     await pollFilaRanqueada.call(this);
     this.mostrarToast(D.mensagem || "Revanche na fila", false, true);
   } catch (e) {

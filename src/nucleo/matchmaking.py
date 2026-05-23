@@ -56,6 +56,11 @@ class FilaMatchmaking:
         self.UltimoOponenteHumano: dict[str, dict] = {}
         self.RevancheAlvo: dict[str, str] = {}
 
+    def _SalvarEntradaFila(self, IdConta: str, E: EntradaFila) -> None:
+        """Persiste alterações (obrigatório com fila Redis — get desserializa cópia)."""
+        if IdConta in self.Fila:
+            self.Fila[IdConta] = E
+
     def Processar(self, Gerenciador: GerenciadorSalas) -> None:
         self._TentarParearReais(Gerenciador)
         Agora = time.time()
@@ -64,6 +69,7 @@ class FilaMatchmaking:
             if not E:
                 continue
             Seg = Agora - E.EntrouEm
+            Alterou = False
             if (
                 BotsRanqueadosAtivos()
                 and Seg >= BUSCA_REAL_SEG
@@ -73,15 +79,22 @@ class FilaMatchmaking:
                 if Bot:
                     ReservarBot(Bot.Id)
                     E.BotReservadoId = Bot.Id
-            if (
-                BotsRanqueadosAtivos()
-                and Seg >= BUSCA_REAL_SEG + ESPERA_BOT_SEG
-                and E.BotReservadoId
-            ):
-                Bot = ObterBot(E.BotReservadoId)
+                    Alterou = True
+            if BotsRanqueadosAtivos() and Seg >= BUSCA_REAL_SEG + ESPERA_BOT_SEG:
+                Bot = None
+                if E.BotReservadoId:
+                    Bot = ObterBot(E.BotReservadoId)
+                if not Bot:
+                    Bot = EscolherBotParaPontos(E.Pontos, Seg)
+                    if Bot:
+                        E.BotReservadoId = Bot.Id
+                        Alterou = True
                 if Bot:
                     self._CriarDueloComBot(Gerenciador, E, Bot)
                     self.Fila.pop(IdConta, None)
+                    continue
+            if Alterou:
+                self._SalvarEntradaFila(IdConta, E)
 
     def Status(self, IdConta: str, Gerenciador: GerenciadorSalas | None = None) -> dict:
         if Gerenciador:

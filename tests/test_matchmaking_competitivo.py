@@ -1,5 +1,6 @@
 from nucleo.matchmaking_competitivo import (
     BUSCA_REAL_SEG,
+    ESPERA_BOT_SEG,
     JANELA_RP_INICIAL,
     JANELA_RP_MAXIMA,
     PodeParearRp,
@@ -44,4 +45,5 @@ def test_melhor_par_menor_score():
 
 
 def test_busca_real_antes_do_bot():
-    assert BUSCA_REAL_SEG == 4
+    assert BUSCA_REAL_SEG == 2
+    assert ESPERA_BOT_SEG == 5

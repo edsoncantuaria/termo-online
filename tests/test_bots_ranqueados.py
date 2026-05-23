@@ -1,3 +1,4 @@
+import copy
 import time
 
 from nucleo.bots_ranqueados import (
@@ -60,28 +61,73 @@ def test_bot_reserva_e_libera():
     assert ContarBotsDisponiveis() == 100
 
 
-def test_fila_entra_bot_apos_14_segundos(monkeypatch):
+class _ArmazemFilaCopia:
+    """Simula Redis: cada leitura devolve cópia — exige regravar após mutar."""
+
+    def __init__(self) -> None:
+        self._d: dict = {}
+
+    def get(self, Chave, Padrao=None):
+        Valor = self._d.get(Chave)
+        return copy.copy(Valor) if Valor is not None else Padrao
+
+    def __contains__(self, Chave: str) -> bool:
+        return Chave in self._d
+
+    def __setitem__(self, Chave, Valor) -> None:
+        self._d[Chave] = Valor
+
+    def keys(self):
+        return list(self._d.keys())
+
+    def pop(self, Chave, Padrao=None):
+        return self._d.pop(Chave, Padrao)
+
+    def __len__(self) -> int:
+        return len(self._d)
+
+
+class GerenciadorFake:
+    Salas = {}
+
+    def CriarSala(self, *a, **k):
+        from nucleo.gerenciador_salas import GerenciadorSalas
+
+        return GerenciadorSalas().CriarSala(*a, **k)
+
+    def ObterSala(self, c):
+        return self.Salas.get(c)
+
+    def IniciarDueloRanqueado(self, s):
+        pass
+
+    def TentarInicioAutomatico(self, s):
+        pass
+
+    def PersistirSala(self, s):
+        self.Salas[s.CodigoSala] = s
+
+
+def test_fila_persiste_reserva_bot_como_redis(monkeypatch):
     from nucleo import matchmaking as mm
 
-    class GerenciadorFake:
-        Salas = {}
+    G = GerenciadorFake()
+    Fila = FilaMatchmaking()
+    Fila.Fila = _ArmazemFilaCopia()
+    T0 = 2000.0
+    monkeypatch.setattr(mm.time, "time", lambda: T0)
+    Fila.Fila["u1"] = mm.EntradaFila(
+        IdConta="u1", Nick="tester", Pontos=400, EntrouEm=T0
+    )
+    monkeypatch.setattr(
+        mm.time, "time", lambda: T0 + BUSCA_REAL_SEG + 0.2
+    )
+    Fila.Processar(G)
+    assert Fila.Fila.get("u1").BotReservadoId
 
-        def CriarSala(self, *a, **k):
-            from nucleo.gerenciador_salas import GerenciadorSalas
 
-            return GerenciadorSalas().CriarSala(*a, **k)
-
-        def ObterSala(self, c):
-            return self.Salas.get(c)
-
-        def IniciarDueloRanqueado(self, s):
-            pass
-
-        def TentarInicioAutomatico(self, s):
-            pass
-
-        def PersistirSala(self, s):
-            self.Salas[s.CodigoSala] = s
+def test_fila_entra_bot_apos_tempo_configurado(monkeypatch):
+    from nucleo import matchmaking as mm
 
     G = GerenciadorFake()
     Fila = FilaMatchmaking()
