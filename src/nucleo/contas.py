@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 from . import persistencia
 from .avatares import AvatarValido, ResolverAvatarId
-from .ranqueada import EloDePontos, NomeEloExibicao, PONTOS_INICIAIS
+from .ranqueada import MontarCamposRankExibicao, PONTOS_INICIAIS
 
 ITERACOES_SENHA = 120_000
 DURACAO_SESSAO_DIAS = 30
@@ -142,7 +142,8 @@ def MontarPerfilConta(Conta: dict) -> dict:
     from .progresso import MontarProgressoConta
 
     Pontos = int(Conta.get("pontos_ranqueada", PONTOS_INICIAIS))
-    Elo = EloDePontos(Pontos)
+    Partidas = int(Conta.get("partidas_ranqueadas", 0))
+    Rank = MontarCamposRankExibicao(Partidas, Pontos)
     Perfil = {
         "idConta": Conta["id"],
         "nick": Conta["nick"],
@@ -150,10 +151,15 @@ def MontarPerfilConta(Conta: dict) -> dict:
         "email": Conta.get("email") or "",
         "ehVisitante": bool(Conta.get("eh_visitante")),
         "pontosRanqueada": Pontos,
-        "elo": Elo,
-        "eloNome": NomeEloExibicao(Elo),
-        "partidasRanqueadas": int(Conta.get("partidas_ranqueadas", 0)),
+        "elo": Rank["elo"],
+        "eloNome": Rank["eloNome"],
+        "eloClasse": Rank["eloClasse"],
+        "rotuloRank": Rank["rotuloRank"],
+        "semRank": Rank["semRank"],
+        "partidasRanqueadas": Partidas,
+        "partidasTemporada": int(Conta.get("partidas_temporada", 0)),
         "vitoriasRanqueadas": int(Conta.get("vitorias_ranqueadas", 0)),
+        "vitoriasTemporada": int(Conta.get("vitorias_temporada", 0)),
         "podeRanqueada": not bool(Conta.get("eh_visitante")),
     }
     if not Perfil["ehVisitante"]:

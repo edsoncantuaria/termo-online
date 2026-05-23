@@ -20,5 +20,8 @@ def MontarInfoTemporada() -> dict:
         "nome": f"Temporada {D.strftime('%B %Y')}",
         "inicio": f"{D.year}-{D.month:02d}-01",
         "proximoReset": f"{AnoProx}-{ProximoMes:02d}-01",
-        "descricao": "Ranking e RP seguem a temporada do mês (horário de Brasília).",
+        "descricao": (
+            "Ranking e RP seguem a temporada do mês (horário de Brasília). "
+            "Partidas e vitórias da temporada são contadas à parte do total da conta."
+        ),
     }

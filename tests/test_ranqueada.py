@@ -11,9 +11,9 @@ def test_derrota_perde_entre_8_e_12():
     assert -12 <= d <= -8
 
 
-def test_elo_madeira():
-    assert EloDePontos(0) == "madeira"
-    assert EloDePontos(200) == "madeira"
+def test_elo_papelao_inicio():
+    assert EloDePontos(0) == "papelao"
+    assert EloDePontos(200) == "papelao"
 
 
 def test_pontos_iniciais_zero():
@@ -23,4 +23,4 @@ def test_pontos_iniciais_zero():
 
 
 def test_elo_estrela():
-    assert EloDePontos(3000) == "estrela"
+    assert EloDePontos(3300) == "estrela"

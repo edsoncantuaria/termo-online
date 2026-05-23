@@ -5,6 +5,7 @@ import { ModoVitoriasArena } from "../../utils/jogo.js";
 import { GerarTextoCompartilhar, MontarResultadoUi } from "../../utils/jogo.js";
 import { ObterStats, SalvarStats } from "../../utils/stats.js";
 import { LimparSessao } from "../../utils/sessao.js";
+import { ClasseElo, NOMES_ELO } from "../../utils/elos.js";
 
 export function mostrarResultadoSolo(venceu, palavra, pontos, modo, tentativasUsadas) {
   const tentativa =
@@ -109,11 +110,18 @@ export function mostrarResultadoArena(D, venci, campeao) {
     this.statsLocais = S;
   }
   if (meuRanq && this.conta) {
+    const EloId = meuRanq.eloDepois;
+    const Nome = NOMES_ELO[EloId] || EloId;
     this.conta = {
       ...this.conta,
       pontosRanqueada: meuRanq.pontosDepois,
-      elo: meuRanq.eloDepois,
-      eloNome: (meuRanq.eloDepois || "").replace(/^./, (c) => c.toUpperCase()),
+      elo: EloId,
+      eloNome: Nome,
+      rotuloRank: Nome,
+      semRank: false,
+      eloClasse: ClasseElo(EloId),
+      partidasRanqueadas: (this.conta.partidasRanqueadas || 0) + 1,
+      partidasTemporada: (this.conta.partidasTemporada || 0) + 1,
     };
     SalvarAuthLocal(this.token, this.conta);
     this.carregarRankingRanqueado();

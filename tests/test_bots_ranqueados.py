@@ -3,11 +3,16 @@ import time
 from nucleo.bots_ranqueados import (
     BOTS,
     ContarBotsDisponiveis,
+    ContarBotsPorElo,
+    ELOS_COM_BOTS,
     EscolherBotParaPontos,
     LiberarReservaBot,
+    MINIMOS_BOTS_POR_ELO,
+    RP_MAXIMO_BOTS,
     ReservarBot,
     TOTAL_BOTS,
 )
+from nucleo.ranqueada import EloDePontos
 from nucleo.matchmaking import FilaMatchmaking
 from nucleo.matchmaking_competitivo import BUSCA_REAL_SEG, ESPERA_BOT_SEG
 from nucleo.ranking_ranqueado import MontarRankingCompleto
@@ -17,6 +22,33 @@ def test_cem_bots_com_rp_minimo_zero():
     assert len(BOTS) == TOTAL_BOTS == 100
     assert min(B.Pontos for B in BOTS) >= 0
     assert ContarBotsDisponiveis() == 100
+
+
+def test_bots_distribuidos_nos_elos_baixos():
+    PorElo = ContarBotsPorElo()
+    for Elo, Minimo in MINIMOS_BOTS_POR_ELO.items():
+        assert PorElo.get(Elo, 0) >= Minimo, f"poucos bots em {Elo}: {PorElo.get(Elo, 0)}"
+    assert PorElo["papelao"] >= 20
+    assert PorElo["madeira"] >= 14
+    assert PorElo.get("prata", 0) == 0
+    assert PorElo.get("ouro", 0) == 0
+    assert PorElo.get("platina", 0) == 0
+    assert PorElo.get("diamante", 0) == 0
+    assert PorElo.get("estrela", 0) == 0
+
+
+def test_nenhum_bot_ouro_para_cima():
+    assert ELOS_COM_BOTS == frozenset({"papelao", "madeira", "ferro", "bronze"})
+    for B in BOTS:
+        assert B.Pontos <= RP_MAXIMO_BOTS
+        assert EloDePontos(B.Pontos) in ELOS_COM_BOTS
+
+
+def test_escolher_bot_para_jogador_iniciante():
+    Bot = EscolherBotParaPontos(0, SegundosEspera=14.0)
+    assert Bot is not None
+    assert abs(Bot.Pontos - 0) <= 200
+    assert EloDePontos(Bot.Pontos) in ("papelao", "madeira", "ferro", "bronze")
 
 
 def test_bot_reserva_e_libera():

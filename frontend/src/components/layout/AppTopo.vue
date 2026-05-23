@@ -7,6 +7,7 @@ import PerfilNivelAnel from "../ui/PerfilNivelAnel.vue";
 import CloudiveMarcaTopo from "@cloudive-brand/components/CloudiveMarcaTopo.vue";
 import { marcaCloudiveAtiva } from "../../utils/marca.js";
 import { VERSAO_ROTULO } from "../../config/versao.js";
+import EloPill from "../ui/EloPill.vue";
 
 const store = useTermoStore();
 const cloudive = marcaCloudiveAtiva();
@@ -85,12 +86,19 @@ const mostrarCentro = computed(
             <span v-if="store.conta.ehVisitante" class="topo-usuario-meta">
               Conta temporária
             </span>
-            <span v-else-if="store.conta.progresso" class="topo-usuario-meta">
-              Nv. {{ store.conta.progresso.nivel }}
-              · {{ store.conta.eloNome }} · {{ store.conta.pontosRanqueada }} RP
-            </span>
-            <span v-else-if="store.conta.podeRanqueada" class="topo-usuario-meta">
-              {{ store.conta.eloNome }} · {{ store.conta.pontosRanqueada }} RP
+            <span v-else-if="store.conta.podeRanqueada" class="topo-usuario-meta topo-usuario-meta--rank">
+              <template v-if="store.conta.progresso">
+                Nv. {{ store.conta.progresso.nivel }} ·
+              </template>
+              <EloPill
+                :rotulo="store.conta.rotuloRank || store.conta.eloNome"
+                :elo="store.conta.elo"
+                :elo-classe="store.conta.eloClasse"
+                :sem-rank="store.conta.semRank"
+              />
+              <template v-if="!store.conta.semRank">
+                · {{ store.conta.pontosRanqueada }} RP
+              </template>
             </span>
           </span>
         </button>

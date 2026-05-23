@@ -8,6 +8,7 @@ import PerfilNivelAnel from "../ui/PerfilNivelAnel.vue";
 import { InicialNick, CorAvatarNick } from "../../utils/jogador.js";
 import { BarrasHistorico7d } from "../../utils/progresso.js";
 import SeletorAvatares from "../ui/SeletorAvatares.vue";
+import EloPill from "../ui/EloPill.vue";
 
 const store = useTermoStore();
 const dialogo = ref(null);
@@ -31,7 +32,9 @@ const metasConcluidas = computed(
   () => (progresso.value?.metasSemanais || []).filter((m) => m.concluida).length
 );
 const metasTotal = computed(() => progresso.value?.metasSemanais?.length ?? 0);
-const eloExibicao = computed(() => store.conta?.eloNome || "—");
+const eloExibicao = computed(
+  () => store.conta?.rotuloRank || store.conta?.eloNome || "—"
+);
 const pontosRp = computed(() => store.conta?.pontosRanqueada ?? 0);
 const partidasPorModo = computed(
   () => store.statsServidor?.partidasPorModo || []
@@ -101,7 +104,13 @@ async function onSalvarAvatar(id) {
             v-if="store.conta?.podeRanqueada"
             class="perfil-cabecalho-ranqueado"
           >
-            <span class="jogar-elo-pill">{{ eloExibicao }}</span>
+            <EloPill
+              :rotulo="eloExibicao"
+              :elo="store.conta?.elo"
+              :elo-classe="store.conta?.eloClasse"
+              :sem-rank="store.conta?.semRank"
+              grande
+            />
             <strong class="perfil-cabecalho-rp">{{ pontosRp }} RP</strong>
             <span
               v-if="store.minhaPosicaoRanqueada && store.totalRanqueados"
@@ -266,7 +275,7 @@ async function onSalvarAvatar(id) {
     <section v-if="store.conta?.podeRanqueada" class="perfil-secao">
       <h3>Ranking ranqueado</h3>
       <p class="dialog-sub">
-        Elos: Madeira → Estrela · {{ totalRanqueadosFmt }} jogadores no ranking global
+        Elos: Papelão → Estrela · {{ totalRanqueadosFmt }} jogadores no ranking global
         (topo + sua posição).
       </p>
       <ol v-if="store.carregandoPerfil" class="lista-ranking lista-ranking-perfil lista-loading">

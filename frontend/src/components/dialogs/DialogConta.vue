@@ -188,7 +188,9 @@ async function visitante() {
             v-if="!store.conta.ehVisitante && store.conta.podeRanqueada"
             class="auth-rank-hero"
           >
-            <span class="auth-rank-elo">{{ store.conta.eloNome }}</span>
+            <span class="auth-rank-elo">{{
+              store.conta.rotuloRank || store.conta.eloNome
+            }}</span>
             <span class="auth-rank-rp">{{ store.conta.pontosRanqueada }} RP</span>
             <span
               v-if="store.minhaPosicaoRanqueada && store.totalRanqueados"

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from nucleo.matchmaking import FilaGlobal
-from nucleo.ranqueada import ELOS, NomeEloExibicao
+from nucleo.ranqueada import ListarElosApi
 from nucleo.redis_estado import StatusRedis
 from nucleo.temporada_ranqueada import MontarInfoTemporada
 from servidor.dependencias_auth import ContaRegistrada
@@ -36,17 +36,7 @@ def RegistrarRotasRanqueada(Roteador: APIRouter) -> None:
 
     @Roteador.get("/ranqueada/elos")
     def ListarElos():
-        return {
-            "elos": [
-                {
-                    "id": E[0],
-                    "nome": NomeEloExibicao(E[0]),
-                    "minimo": E[1],
-                    "maximo": E[2],
-                }
-                for E in ELOS
-            ]
-        }
+        return {"elos": ListarElosApi()}
 
     @Roteador.get("/ranqueada/ranking")
     def RankingRanqueado(Perfil=Depends(ContaRegistrada)):

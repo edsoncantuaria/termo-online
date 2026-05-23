@@ -2,6 +2,8 @@
 import { computed, ref, watch } from "vue";
 import { useTermoStore } from "../../stores/termo.js";
 import JogadorAvatar from "../jogo/JogadorAvatar.vue";
+import EloPill from "../ui/EloPill.vue";
+import { RotuloRankDeJogador } from "../../utils/elos.js";
 import GradeTermo from "../jogo/GradeTermo.vue";
 import { StatusJogadorRodada } from "../../utils/jogador.js";
 import {
@@ -120,7 +122,16 @@ watch(
         pequeno
       />
       <div class="jogador-rodada-ident">
-        <span class="jogador-rodada-nome">{{ jogador.nomeJogador }}</span>
+        <span class="jogador-rodada-nome-linha">
+          <span class="jogador-rodada-nome">{{ jogador.nomeJogador }}</span>
+          <EloPill
+            v-if="jogador.rotuloRank || jogador.eloNome"
+            :rotulo="RotuloRankDeJogador(jogador)"
+            :elo="jogador.elo"
+            :elo-classe="jogador.eloClasse"
+            :sem-rank="jogador.semRank"
+          />
+        </span>
         <span class="jogador-rodada-status">{{ status.texto }}</span>
       </div>
       <span

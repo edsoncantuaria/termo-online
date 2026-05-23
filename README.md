@@ -48,7 +48,7 @@ Ver [DEPLOY.md](DEPLOY.md) para colocar em produção.
 
 O modal de conta abre em **Entrar**; **Entrar como visitante** fica acima do login.
 
-**Elos (pontos RP):** Madeira (0–399) → Papelão → Ferro → Bronze → Ouro → Platina → Diamante → Estrela (2800+). Início em **0 RP** (elo Madeira).
+**Elos (pontos RP):** Papelão (0–399) → Madeira → Ferro → Bronze → **Prata** → Ouro → Platina → Diamante → Estrela (3200+). Início em **0 RP**; até a 1ª partida ranqueada o rótulo é **Sem Rank**. Cada elo tem cor própria nas salas online.
 
 **Nível e XP (conta registrada):** níveis infinitos com anel colorido no avatar (faixa muda a cada 10 níveis). XP só com login validado no servidor.
 
@@ -80,7 +80,9 @@ O modal de conta abre em **Entrar**; **Entrar como visitante** fica acima do log
 | 0s | ~75 (+ ajuste da faixa de elo) | Só oponentes muito próximos |
 | +1s | +12 RP por segundo | Quem espera mais aceita adversários um pouco mais distantes |
 | 4s | ~123 | Fim da “busca estrita”; pode reservar oponente na fila |
-| 14s | até ~320 | Se não houver humano compatível, entra duelo com oponente da fila reservada |
+| 14s | até ~320 | Se não houver humano compatível, entra duelo com oponente reservado (bot) |
+
+**Bots na fila (temporário):** ~100 oponentes artificiais só em **Madeira, Papelão, Ferro e Bronze** (nenhum em Ouro para cima), com mais densidade nos elos baixos. No futuro, use `TERM0_BOTS_RANQUEADOS=0` para só PvP real.
 
 - Pareamento **real × real:** escolhe o par com RP **mais próximo** entre quem está na janela (não é “o primeiro da fila”).
 - **Mesmo elo** (ex.: Ferro com Ferro): +45 RP de tolerância.

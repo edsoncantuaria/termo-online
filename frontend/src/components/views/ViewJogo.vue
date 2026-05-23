@@ -6,6 +6,8 @@ import GradesMulti from "../jogo/GradesMulti.vue";
 import TecladoVirtual from "../jogo/TecladoVirtual.vue";
 import TentativasDots from "../jogo/TentativasDots.vue";
 import JogadorRodadaCard from "../arena/JogadorRodadaCard.vue";
+import EloPill from "../ui/EloPill.vue";
+import { RotuloRankDeJogador } from "../../utils/elos.js";
 import JogadorAvatar from "../jogo/JogadorAvatar.vue";
 
 const store = useTermoStore();
@@ -226,6 +228,13 @@ function avatarPlacar(j) {
                       pequeno
                     />
                     <span class="placar-nome">{{ j.nomeJogador }}</span>
+                    <EloPill
+                      v-if="j.rotuloRank || j.eloNome"
+                      :rotulo="RotuloRankDeJogador(j)"
+                      :elo="j.elo"
+                      :elo-classe="j.eloClasse"
+                      :sem-rank="j.semRank"
+                    />
                   </span>
                   <span class="placar-pontos">
                     <template v-if="store.porVitoriasArena">

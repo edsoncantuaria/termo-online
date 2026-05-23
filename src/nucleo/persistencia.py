@@ -138,6 +138,14 @@ def _AplicarMigracoesContas(C: sqlite3.Connection) -> None:
             WHERE ultima_atividade_em IS NULL
             """
         )
+    if "partidas_temporada" not in Colunas:
+        C.execute(
+            "ALTER TABLE contas ADD COLUMN partidas_temporada INTEGER NOT NULL DEFAULT 0"
+        )
+    if "vitorias_temporada" not in Colunas:
+        C.execute(
+            "ALTER TABLE contas ADD COLUMN vitorias_temporada INTEGER NOT NULL DEFAULT 0"
+        )
 
 
 def _AplicarMigracoesProgresso(C: sqlite3.Connection) -> None:
@@ -1360,7 +1368,8 @@ def AtualizarPontosRanqueada(IdConta: str, Pontos: int) -> None:
             """
             UPDATE contas SET
                 pontos_ranqueada = ?,
-                partidas_ranqueadas = partidas_ranqueadas + 1
+                partidas_ranqueadas = partidas_ranqueadas + 1,
+                partidas_temporada = partidas_temporada + 1
             WHERE id = ?
             """,
             (Pontos, IdConta),
@@ -1370,9 +1379,28 @@ def AtualizarPontosRanqueada(IdConta: str, Pontos: int) -> None:
 def IncrementarVitoriaRanqueada(IdConta: str) -> None:
     with Conexao() as C:
         C.execute(
-            "UPDATE contas SET vitorias_ranqueadas = vitorias_ranqueadas + 1 WHERE id = ?",
+            """
+            UPDATE contas SET
+                vitorias_ranqueadas = vitorias_ranqueadas + 1,
+                vitorias_temporada = vitorias_temporada + 1
+            WHERE id = ?
+            """,
             (IdConta,),
         )
+
+
+def ResetarEstatisticasTemporadaRanqueada() -> int:
+    """Zera contadores da temporada (RP mantido). Para uso administrativo futuro."""
+    with Conexao() as C:
+        Cur = C.execute(
+            """
+            UPDATE contas SET
+                partidas_temporada = 0,
+                vitorias_temporada = 0
+            WHERE eh_visitante = 0
+            """
+        )
+    return Cur.rowcount
 
 
 def RegistrarHistoricoRanqueada(
@@ -1428,7 +1456,12 @@ def RegistrarHistoricoRanqueada(
             )
         if Venceu:
             C.execute(
-                "UPDATE contas SET vitorias_ranqueadas = vitorias_ranqueadas + 1 WHERE id = ?",
+                """
+                UPDATE contas SET
+                    vitorias_ranqueadas = vitorias_ranqueadas + 1,
+                    vitorias_temporada = vitorias_temporada + 1
+                WHERE id = ?
+                """,
                 (IdConta,),
             )
 

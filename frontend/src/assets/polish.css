@@ -1320,6 +1320,24 @@ html.tema-claro .btn-modo-conta-destaque:hover {
   color: #f0d078;
 }
 
+.topo-usuario-meta--rank {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.jogador-rodada-nome-linha {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.placar-jogador .elo-pill {
+  flex-shrink: 0;
+}
+
 .jogar-rp {
   font-size: 0.82rem;
   font-variant-numeric: tabular-nums;

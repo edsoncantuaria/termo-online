@@ -48,6 +48,7 @@ O próprio Termo limita sobrecarga **dentro do processo** — não precisa fila 
 | `TERM0_MAX_WS_LOBBY` | 400 | Conexões no lobby |
 | `TERM0_MAX_SALAS` | 280 | Salas vivas em memória |
 | `TERM0_MAX_FILA_RANQUEADA` | 150 | Humanos na fila 1v1 |
+| `TERM0_BOTS_RANQUEADOS` | `1` | `0` desliga bots na fila (só PvP real quando a base crescer) |
 | `TERM0_MAX_FILA_ESPERA` | 200 | Fila quando WS sala cheio |
 
 Cheio → HTTP **503** + `Retry-After`, ou WebSocket **1013**.

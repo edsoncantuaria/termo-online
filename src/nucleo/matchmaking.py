@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 
 from .arena_rodadas import ModoVitorias
 from .bots_ranqueados import (
+    BotsRanqueadosAtivos,
     ContarBotsDisponiveis,
     EscolherBotParaPontos,
     LiberarReservaBot,
@@ -63,12 +64,20 @@ class FilaMatchmaking:
             if not E:
                 continue
             Seg = Agora - E.EntrouEm
-            if Seg >= BUSCA_REAL_SEG and not E.BotReservadoId:
+            if (
+                BotsRanqueadosAtivos()
+                and Seg >= BUSCA_REAL_SEG
+                and not E.BotReservadoId
+            ):
                 Bot = EscolherBotParaPontos(E.Pontos, Seg)
                 if Bot:
                     ReservarBot(Bot.Id)
                     E.BotReservadoId = Bot.Id
-            if Seg >= BUSCA_REAL_SEG + ESPERA_BOT_SEG and E.BotReservadoId:
+            if (
+                BotsRanqueadosAtivos()
+                and Seg >= BUSCA_REAL_SEG + ESPERA_BOT_SEG
+                and E.BotReservadoId
+            ):
                 Bot = ObterBot(E.BotReservadoId)
                 if Bot:
                     self._CriarDueloComBot(Gerenciador, E, Bot)

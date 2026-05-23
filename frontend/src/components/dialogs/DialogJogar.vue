@@ -3,6 +3,8 @@ import { computed, ref, watch } from "vue";
 import { useTermoStore } from "../../stores/termo.js";
 import { useDialogoNativo } from "../../composables/useDialogoNativo.js";
 import BtnFecharDialog from "./BtnFecharDialog.vue";
+import EloPill from "../ui/EloPill.vue";
+import { NOMES_ELO, ORDEM_ELOS, ROTULO_SEM_RANK } from "../../utils/elos.js";
 
 const store = useTermoStore();
 const dialogo = ref(null);
@@ -30,7 +32,10 @@ const linkDesafio = computed(() =>
     : ""
 );
 
-const eloExibicao = computed(() => store.conta?.eloNome || "—");
+const eloExibicao = computed(
+  () => store.conta?.rotuloRank || store.conta?.eloNome || ROTULO_SEM_RANK
+);
+const elosFaixa = ORDEM_ELOS;
 const pontosExibicao = computed(() => store.conta?.pontosRanqueada ?? 0);
 const posicaoExibicao = computed(() => store.minhaPosicaoRanqueada);
 const totalRanqueadosFmt = computed(() =>
@@ -242,7 +247,13 @@ function clicarAbaRanqueado() {
               <p>Matchmaking por RP · partida validada no servidor</p>
             </div>
             <div v-if="contaRegistrada" class="jogar-ranqueado-stats">
-              <span class="jogar-elo-pill">{{ eloExibicao }}</span>
+              <EloPill
+                :rotulo="eloExibicao"
+                :elo="store.conta?.elo"
+                :elo-classe="store.conta?.eloClasse"
+                :sem-rank="store.conta?.semRank"
+                grande
+              />
               <span class="jogar-rp">{{ pontosExibicao }} RP</span>
               <span v-if="posicaoExibicao && store.totalRanqueados" class="jogar-posicao">
                 #{{ posicaoExibicao }} / {{ totalRanqueadosFmt }}
@@ -254,7 +265,7 @@ function clicarAbaRanqueado() {
             <p class="modo-explicacao">
               Você entra na <strong>fila online</strong> e o jogo busca um oponente com
               pontuação parecida (RP). Cada vitória ou derrota altera seu RP e sua
-              <strong>faixa de elo</strong> (Madeira → Estrela). O histórico fica na sua
+              <strong>faixa de elo</strong> (Papelão → Estrela). O histórico fica na sua
               conta e no ranking global.
             </p>
             <ul class="jogar-ranqueado-lista">
@@ -369,14 +380,13 @@ function clicarAbaRanqueado() {
           class="jogar-elos-faixa"
           aria-label="Faixas de elo"
         >
-          <span>Madeira</span>
-          <span>Papelão</span>
-          <span>Ferro</span>
-          <span>Bronze</span>
-          <span>Ouro</span>
-          <span>Platina</span>
-          <span>Diamante</span>
-          <span class="jogar-elo-estrela">Estrela</span>
+          <EloPill
+            v-for="id in elosFaixa"
+            :key="id"
+            :rotulo="NOMES_ELO[id]"
+            :elo="id"
+            :elo-classe="`elo-pill--${id}`"
+          />
         </div>
       </section>
 

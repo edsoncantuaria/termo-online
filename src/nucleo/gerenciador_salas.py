@@ -1096,6 +1096,10 @@ class GerenciadorSalas:
             Dados["tempoEsgotado"] = True
         if SouEu and Jogador.TempoFimEpoch:
             Dados["tempoFimEpoch"] = Jogador.TempoFimEpoch
+        if not Jogador.Espectador:
+            from .ranqueada import MetadadosRankJogadorSala
+
+            Dados.update(MetadadosRankJogadorSala(Jogador))
         return Dados
 
     def EstadoPublicoSala(self, Sala: SalaJogo, IdObservador: str) -> dict:
@@ -1116,6 +1120,9 @@ class GerenciadorSalas:
             J = JogadoresPlacar.get(Linha["idJogador"])
             if J:
                 Linha["avatarId"] = self.ResolverAvatarJogador(J)
+                from .ranqueada import MetadadosRankJogadorSala
+
+                Linha.update(MetadadosRankJogadorSala(J))
         NumeroRodadas = Config.NumeroRodadas
         Maratona = Config.ModoSessao == ModoPontos
         UltimoNome = None

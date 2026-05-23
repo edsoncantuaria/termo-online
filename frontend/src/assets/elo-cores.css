@@ -1,0 +1,97 @@
+/* Pílulas de elo — cores alinhadas a frontend/src/utils/elos.js */
+
+.elo-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  white-space: nowrap;
+  text-transform: none;
+}
+
+.elo-pill--grande {
+  font-size: 0.82rem;
+  padding: 0.22rem 0.7rem;
+}
+
+.elo-pill--sem-rank {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--texto-secundario, #9a9aa3);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.elo-pill--papelao {
+  background: linear-gradient(135deg, #6b5344 0%, #4a3828 100%);
+  color: #f5e6d3;
+  border-color: rgba(180, 140, 90, 0.55);
+  box-shadow: 0 0 12px rgba(120, 90, 50, 0.35);
+}
+
+.elo-pill--madeira {
+  background: linear-gradient(135deg, #8b5a2b 0%, #5c3d1e 100%);
+  color: #ffe8c8;
+  border-color: rgba(210, 150, 80, 0.5);
+  box-shadow: 0 0 14px rgba(160, 100, 40, 0.4);
+}
+
+.elo-pill--ferro {
+  background: linear-gradient(135deg, #8a939e 0%, #5a626c 100%);
+  color: #eef2f6;
+  border-color: rgba(180, 190, 200, 0.45);
+  box-shadow: 0 0 10px rgba(140, 150, 160, 0.35);
+}
+
+.elo-pill--bronze {
+  background: linear-gradient(135deg, #c97b3d 0%, #8b4513 100%);
+  color: #fff4e6;
+  border-color: rgba(230, 160, 80, 0.55);
+  box-shadow: 0 0 16px rgba(200, 120, 40, 0.45);
+}
+
+.elo-pill--prata {
+  background: linear-gradient(135deg, #e8ecef 0%, #9aa3ad 50%, #c5cdd6 100%);
+  color: #1a2230;
+  border-color: rgba(220, 228, 235, 0.7);
+  box-shadow: 0 0 18px rgba(200, 210, 225, 0.5);
+}
+
+.elo-pill--ouro {
+  background: linear-gradient(135deg, #ffe566 0%, #d4a017 45%, #b8860b 100%);
+  color: #2a1f08;
+  border-color: rgba(255, 220, 100, 0.65);
+  box-shadow: 0 0 20px rgba(255, 200, 60, 0.55);
+}
+
+.elo-pill--platina {
+  background: linear-gradient(135deg, #f0f8ff 0%, #7eb8da 40%, #4a7fa8 100%);
+  color: #0d1a28;
+  border-color: rgba(180, 220, 255, 0.6);
+  box-shadow: 0 0 22px rgba(120, 180, 255, 0.5);
+}
+
+.elo-pill--diamante {
+  background: linear-gradient(135deg, #e0ffff 0%, #5ec8e8 35%, #2a8fc4 70%, #7b68ee 100%);
+  color: #061820;
+  border-color: rgba(150, 230, 255, 0.7);
+  box-shadow: 0 0 24px rgba(100, 200, 255, 0.6);
+}
+
+.elo-pill--estrela {
+  background: linear-gradient(135deg, #fff9c4 0%, #ffd54f 25%, #ff6f00 55%, #7b1fa2 100%);
+  color: #fffef5;
+  border-color: rgba(255, 220, 120, 0.75);
+  box-shadow:
+    0 0 28px rgba(255, 180, 50, 0.65),
+    0 0 40px rgba(180, 80, 255, 0.35);
+}
+
+.jogar-elos-faixa .elo-pill {
+  font-size: 0.65rem;
+  padding: 0.12rem 0.4rem;
+}
