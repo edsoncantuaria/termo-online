@@ -1120,6 +1120,14 @@ export const useTermoStore = defineStore("termo", {
       }
     },
 
+    moverCursorCelula(delta) {
+      if (this.encerrada || this.carregandoChute) return;
+      const Novo = this.indiceCursor + delta;
+      if (Novo >= 0 && Novo < TAMANHO_PALAVRA) {
+        this.selecionarCelula(Novo);
+      }
+    },
+
     onTecla(k) {
       if (this.encerrada || this.carregandoChute) return;
       this.letras = NormalizarLetrasProgresso(this.letras);

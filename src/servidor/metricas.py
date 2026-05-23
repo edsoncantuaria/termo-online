@@ -23,7 +23,10 @@ def MontarSnapshotMetricas() -> dict:
     FilaGlobal.Processar(GerenciadorVersus)
     Salas = len(GerenciadorVersus.Salas)
     Fila = len(FilaGlobal.Fila)
+    from nucleo.versao import InfoVersao
+
     return {
+        **InfoVersao(),
         "uptimeSegundos": int(time.time() - InicioProcesso),
         "requisicoes": dict(Contadores),
         "salasAtivas": Salas,

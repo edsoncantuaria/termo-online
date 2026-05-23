@@ -66,11 +66,20 @@ free -h    # RAM + swap em uso
 
 Visitante joga na arena e modos casuais, mas **não** entra em ranking nem fila ranqueada — só conta com e-mail.
 
-## Atualizar
+## Atualizar (UI + API)
+
+**`git pull` sozinho não muda a interface.** O Vue compilado fica em `src/static/dist/`, que **não vai no Git** (`.gitignore`).
 
 ```bash
-cd /root/termo-online && git pull && sh deploy/vm/instalar-na-vm.sh
+cd /root/termo-online
+sh atualizar.sh
 ```
+
+Isso faz: `git pull` → `npm run build` → reinicia `termo-api` e `termo-web`.
+
+Primeira instalação ou Node/Python novos: use `sh instalar.sh`.
+
+No celular/PC, depois do deploy: **recarregar forçado** (Ctrl+Shift+R) ou fechar e abrir o app — o PWA pode guardar cache antigo por alguns segundos (`autoUpdate`).
 
 ## Checklist
 

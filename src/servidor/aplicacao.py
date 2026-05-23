@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from nucleo.dicionario import CarregarDicionario
+from nucleo.versao import VERSAO
 
 from .manutencao import TarefaManutencaoSalas
 from .metricas import MiddlewareMetricas
@@ -38,7 +39,7 @@ def CriarAplicacao() -> FastAPI:
     Aplicacao = FastAPI(
         title="Termo Online",
         description="Jogo de palavras em português com pontuação e modo Arena",
-        version="3.0.0",
+        version=VERSAO,
         lifespan=CicloVida,
     )
 

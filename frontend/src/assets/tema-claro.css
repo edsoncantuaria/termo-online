@@ -28,3 +28,8 @@ html.tema-claro .toast {
   background: rgba(255, 255, 255, 0.95);
   color: var(--text);
 }
+
+html.tema-claro .app-versao-canto {
+  color: var(--text-muted);
+  opacity: 0.45;
+}

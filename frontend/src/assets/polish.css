@@ -3516,6 +3516,10 @@ html.tema-claro .resultado-grade-card {
     padding-bottom: env(safe-area-inset-bottom);
   }
 
+  .app-versao-canto {
+    bottom: calc(0.35rem + env(safe-area-inset-bottom));
+  }
+
   .teclado {
     padding-bottom: calc(0.35rem + env(safe-area-inset-bottom));
   }
@@ -4119,15 +4123,10 @@ html.tema-claro .grade-multi-label {
 }
 
 @media (max-width: 960px) {
-  .app.modo-jogo .layout-jogo {
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .app.modo-jogo .jogo-principal {
-    flex: 1 1 auto;
-    min-height: min(72dvh, 100%);
+  .app.modo-jogo .layout-jogo,
+  .app.modo-jogo .jogo-principal,
+  .app.modo-jogo .view-jogo {
+    overflow: hidden;
   }
 
   .faixa-estado,

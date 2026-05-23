@@ -29,9 +29,11 @@ O script `instalar.sh` (ou `deploy/vm/instalar-na-vm.sh`) faz tudo:
 
 ```bash
 cd /root/termo-online
-git pull
-sh instalar.sh
+sh atualizar.sh    # git pull + build Vue + restart (use este no dia a dia)
+# sh instalar.sh   # só na 1ª vez ou se faltar Node/venv
 ```
+
+**Importante:** `git pull` sem `npm run build` deixa a UI antiga em `src/static/dist/`.
 
 ## Variáveis opcionais
 
@@ -61,6 +63,7 @@ Ver **[DEPLOY-ALPINE.md](DEPLOY-ALPINE.md)** — tunnel direto, sem nginx; limit
 | Arquivo | Função |
 |---------|--------|
 | `DEPLOY-ALPINE.md` | Guia VM leve (tunnel → :8000/:8001) |
+| `atualizar-na-vm.sh` / `atualizar.sh` | Pull + build frontend + restart |
 | `instalar-na-vm.sh` | Instalação completa |
 | `openrc/termo-*` | Init scripts Alpine (padrão na VM) |
 | `termo-api.service` | Unit systemd (Debian/Ubuntu) |

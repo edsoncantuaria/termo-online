@@ -4,6 +4,7 @@ import { useTermoStore } from "./stores/termo.js";
 import { marcaCloudiveAtiva } from "./utils/marca.js";
 import CloudiveSplash from "@cloudive-brand/components/CloudiveSplash.vue";
 import AppTopo from "./components/layout/AppTopo.vue";
+import AppVersaoCanto from "./components/layout/AppVersaoCanto.vue";
 import ViewInicio from "./components/views/ViewInicio.vue";
 import ViewArenaLobby from "./components/views/ViewArenaLobby.vue";
 import ViewJogo from "./components/views/ViewJogo.vue";
@@ -44,7 +45,17 @@ const classesApp = computed(() => ({
 }));
 
 function onKeydown(e) {
-  if (store.view !== "jogo" || store.encerrada) return;
+  if (store.view !== "jogo" || store.encerrada || store.espectador) return;
+  if (e.key === "ArrowLeft") {
+    e.preventDefault();
+    store.moverCursorCelula(-1);
+    return;
+  }
+  if (e.key === "ArrowRight") {
+    e.preventDefault();
+    store.moverCursorCelula(1);
+    return;
+  }
   if (e.key === "Enter") store.onTecla("enter");
   else if (e.key === "Backspace") store.onTecla("back");
   else if (/^[a-zA-Z]$/.test(e.key)) store.onTecla(e.key.toLowerCase());
@@ -98,6 +109,7 @@ onUnmounted(() => {
         <ViewJogo v-else-if="store.view === 'jogo'" />
       </main>
     </div>
+    <AppVersaoCanto />
 
     <DialogPerfil />
     <DialogConta />

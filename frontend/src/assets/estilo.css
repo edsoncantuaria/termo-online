@@ -63,6 +63,26 @@ html {
   flex-direction: column;
 }
 
+.app-versao-canto {
+  position: fixed;
+  right: max(0.45rem, env(safe-area-inset-right, 0px));
+  bottom: max(0.35rem, env(safe-area-inset-bottom, 0px));
+  z-index: 4;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
+}
+
+html:has(.app.modo-jogo) .app-versao-canto {
+  bottom: max(11rem, calc(10.5rem + env(safe-area-inset-bottom, 0px)));
+  opacity: 0.42;
+}
+
 /* --- Topo desktop --- */
 .topo {
   display: grid;
@@ -1006,8 +1026,9 @@ html {
   margin-bottom: 0.75rem;
 }
 
-/* --- Jogo: tela cheia 100dvh --- */
+/* --- Jogo: tela cheia 100dvh, sem scroll --- */
 .app.modo-jogo {
+  --tile: clamp(40px, calc((100dvh - var(--topo-h) - 15.5rem) / 6.8), 62px);
   min-height: 100dvh;
   height: 100dvh;
   max-height: 100dvh;
@@ -1103,11 +1124,31 @@ body:has(.app.modo-jogo) {
 .app.modo-jogo .grade-wrap {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
+  display: flex;
   align-items: center;
-  margin-bottom: 0.25rem;
-  -webkit-overflow-scrolling: touch;
+  justify-content: center;
+  margin-bottom: 0.15rem;
+}
+
+.app.modo-jogo .grade {
+  gap: clamp(5px, 1.2vw, 8px);
+}
+
+.app.modo-jogo .grade .linha {
+  gap: clamp(5px, 1.2vw, 8px);
+}
+
+.app.modo-jogo .jogo-meta {
+  margin-bottom: 0.5rem;
+}
+
+.app.modo-jogo .dica-celulas {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  text-align: center;
+  max-width: 100%;
 }
 
 .app.modo-jogo .teclado {

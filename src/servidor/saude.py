@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from nucleo import persistencia
 from nucleo.dicionario import ObterDicionario
+from nucleo.versao import InfoVersao
 
 RoteadorSaude = APIRouter(tags=["saude"])
 
@@ -14,6 +15,7 @@ def Health():
     return {
         "status": "ok",
         "servico": "termo-online",
+        **InfoVersao(),
         "dicionarioCarregado": len(Palavras) > 0,
         "palavrasNoDicionario": len(Palavras),
     }
