@@ -1,11 +1,19 @@
 /** Diálogos e persistência de resultados (solo e arena). */
 import { api } from "../../services/api.js";
 import { SalvarAuthLocal } from "../../utils/auth.js";
-import { ModoVitoriasArena } from "../../utils/jogo.js";
+import {
+  ModoVitoriasArena,
+  TextoResultadoRanqueado,
+} from "../../utils/jogo.js";
 import { GerarTextoCompartilhar, MontarResultadoUi } from "../../utils/jogo.js";
 import { ObterStats, SalvarStats } from "../../utils/stats.js";
 import { LimparSessao } from "../../utils/sessao.js";
-import { ClasseElo, NOMES_ELO } from "../../utils/elos.js";
+import {
+  ClasseElo,
+  NOMES_ELO,
+  CaiuDeElo,
+  SubiuDeElo,
+} from "../../utils/elos.js";
 
 export function mostrarResultadoSolo(venceu, palavra, pontos, modo, tentativasUsadas) {
   const tentativa =
@@ -59,6 +67,7 @@ export function mostrarResultadoSolo(venceu, palavra, pontos, modo, tentativasUs
 
 export function mostrarResultadoArena(D, venci, campeao) {
   const ehRanq = this.modo === "ranqueada" || D.configuracao?.ranqueada;
+  const ehTreinoRanq = !!(ehRanq && D.configuracao?.treinoRanqueado);
   const porVitorias = ModoVitoriasArena(D);
   const meta = ehRanq ? D.metaVitorias || 2 : D.metaVitorias || 5;
   const meuPlacar = D.placar?.find((j) => j.idJogador === this.idJogador);
@@ -83,35 +92,64 @@ export function mostrarResultadoArena(D, venci, campeao) {
   const gradeTexto = ehRanq
     ? `Termo Ranqueado · melhor de 3\nSérie ${placarSerie}\n\n${linhas}`
     : `Termo Arena ${D.codigoSala}\nRodadas: ${D.rodadaAtual}\n\n${linhas}`;
+  const subiuElo =
+    !!meuRanq && SubiuDeElo(meuRanq.eloAntes, meuRanq.eloDepois);
+  const caiuElo =
+    !!meuRanq && CaiuDeElo(meuRanq.eloAntes, meuRanq.eloDepois);
+  const nomeEloAntes = meuRanq?.eloAntes
+    ? NOMES_ELO[meuRanq.eloAntes] || meuRanq.eloAntes
+    : null;
+  const nomeEloDepois = meuRanq?.eloDepois
+    ? NOMES_ELO[meuRanq.eloDepois] || meuRanq.eloDepois
+    : null;
+
   this.resultado = {
     titulo: ehRanq
-      ? venci
-        ? "Vitória no ranqueado!"
-        : "Derrota no ranqueado"
+      ? ehTreinoRanq
+        ? venci
+          ? "Vitória no treino"
+          : "Derrota no treino"
+        : venci
+          ? subiuElo
+            ? "Novo elo alcançado!"
+            : "Vitória no ranqueado!"
+          : caiuElo
+            ? "Você caiu de elo"
+            : "Derrota no ranqueado"
       : venci
         ? "Você venceu a sessão!"
         : "Sessão encerrada",
     texto: campeao
       ? ehRanq
-        ? `Melhor de 3 — ${campeao.nomeJogador} venceu a série (${campeao.vitoriasRodada || 0} mapas).`
+        ? ehTreinoRanq
+          ? `${TextoResultadoRanqueado(D, campeao, venci)}\n\nModo treino — seu RP não mudou.`
+          : TextoResultadoRanqueado(D, campeao, venci)
         : porVitorias
           ? `Campeão: ${campeao.nomeJogador} com ${campeao.vitoriasRodada || 0} vitórias (meta ${meta}).`
           : `Campeão: ${campeao.nomeJogador} com ${campeao.pontosAcumulados} pontos.`
       : "Obrigado por jogar!",
     pontos: "",
+    venceu: venci,
+    ehRanqueada: ehRanq,
     ranqueadaResumo: meuRanq
       ? {
           delta: meuRanq.delta,
           pontosAntes: meuRanq.pontosAntes,
           pontosDepois: meuRanq.pontosDepois,
+          eloAntes: meuRanq.eloAntes,
           eloDepois: meuRanq.eloDepois,
+          nomeEloAntes,
+          nomeEloDepois,
+          subiuElo,
+          caiuElo,
           venceu: venci,
           vitorias: vitoriasTotais,
           derrotas: derrotasTotais,
           placarSerie,
         }
       : null,
-    confete: venci,
+    confete: venci || subiuElo,
+    confeteIntenso: subiuElo,
     gradeTexto,
     mostrarGrade: !ehRanq,
     mostrarCopiar: !ehRanq,

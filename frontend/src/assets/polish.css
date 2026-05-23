@@ -2233,6 +2233,57 @@ html.reduzir-animacao .jogar-mm-orbita {
   text-align: center;
 }
 
+.jogar-temporada-resumo {
+  margin: 0 0 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.45;
+}
+
+.jogar-temporada-reset {
+  display: block;
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+
+.perfil-duelos-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.perfil-duelos-lista li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--raio);
+  background: var(--bg);
+  font-size: 0.82rem;
+}
+
+.perfil-duelo--v {
+  border-left: 3px solid var(--correto);
+}
+
+.perfil-duelo--d {
+  border-left: 3px solid var(--ausente);
+}
+
+.perfil-duelo-delta {
+  font-weight: 700;
+  color: var(--dourado);
+}
+
+.perfil-duelo--d .perfil-duelo-delta {
+  color: #e88;
+}
+
 .btn-jogar-ranqueado {
   background: linear-gradient(180deg, #c9a84a, #a88632) !important;
   border-color: rgba(212, 168, 67, 0.5) !important;
@@ -3659,6 +3710,107 @@ html.tema-claro .lobby-rodape {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
   text-align: center;
+}
+
+.resultado-elo-promocao {
+  margin: 0 0 1rem;
+  padding: 1rem 0.85rem 1.1rem;
+  border-radius: var(--raio-lg);
+  background: linear-gradient(
+    145deg,
+    rgba(201, 180, 88, 0.22) 0%,
+    rgba(106, 170, 100, 0.14) 45%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  border: 1px solid rgba(201, 180, 88, 0.45);
+  box-shadow: 0 0 28px rgba(201, 180, 88, 0.18);
+  animation: resultado-elo-promocao-pulso 2.2s ease-in-out infinite;
+}
+
+@keyframes resultado-elo-promocao-pulso {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(201, 180, 88, 0.12);
+  }
+  50% {
+    box-shadow: 0 0 32px rgba(201, 180, 88, 0.28);
+  }
+}
+
+.resultado-elo-promocao-icone {
+  display: block;
+  font-size: 1.5rem;
+  line-height: 1;
+  margin-bottom: 0.35rem;
+  color: var(--dourado);
+}
+
+.resultado-elo-promocao-titulo {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--dourado);
+}
+
+.resultado-elo-promocao-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 0.65rem;
+}
+
+.resultado-elo-promocao-seta {
+  font-size: 1.25rem;
+  font-weight: 800;
+  opacity: 0.65;
+}
+
+.resultado-elo-atual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
+}
+
+.resultado-elo-atual-legenda {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--texto-muted);
+}
+
+.resultado-elo-democao {
+  margin: 0 0 1rem;
+  padding: 1rem 0.85rem 1.1rem;
+  border-radius: var(--raio-lg);
+  background: linear-gradient(
+    145deg,
+    rgba(180, 70, 70, 0.2) 0%,
+    rgba(80, 40, 60, 0.12) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  border: 1px solid rgba(220, 100, 100, 0.45);
+  box-shadow: 0 0 22px rgba(180, 60, 60, 0.15);
+}
+
+.resultado-elo-democao-icone {
+  display: block;
+  font-size: 1.1rem;
+  line-height: 1;
+  margin-bottom: 0.35rem;
+  color: #e88;
+}
+
+.resultado-elo-democao-titulo {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #f0a8a8;
 }
 
 .resultado-ranqueada-delta {

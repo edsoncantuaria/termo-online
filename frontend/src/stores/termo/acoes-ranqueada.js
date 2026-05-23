@@ -48,7 +48,7 @@ async function ProcessarMatchRanqueadoEncontrado(D) {
   }
 }
 
-export async function entrarFilaRanqueada() {
+export async function entrarFilaRanqueada(treino = false) {
   if (!this.exigirContaRegistrada()) return;
   if (!(await this.assegurarSemConflitoJogoAtivo())) return;
   if (this.modo === "arena" && this.codigoSala) {
@@ -58,8 +58,9 @@ export async function entrarFilaRanqueada() {
   pararFilaRanqueada.call(this);
   this.filaRanqueada = true;
   this.filaPodeCancelar = true;
+  this.filaUltimoContagemNaFila = 0;
   try {
-    const D = await api.ranqueadaEntrarFila();
+    const D = await api.ranqueadaEntrarFila(!!treino);
     if (D.estado === "encontrado") {
       await ProcessarMatchRanqueadoEncontrado.call(this, D);
       return;
@@ -74,6 +75,18 @@ export async function entrarFilaRanqueada() {
 
 export async function pollFilaRanqueada() {
   if (!this.filaRanqueada) return;
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    if (!this._filaAvisoOffline) {
+      this._filaAvisoOffline = true;
+      this.mostrarToast(
+        "Sem conexão — a fila pausou até a internet voltar.",
+        true,
+        true
+      );
+    }
+    return;
+  }
+  this._filaAvisoOffline = false;
   try {
     const D = await api.ranqueadaStatusFila();
     if (D.estado === "fila_cheia") {
@@ -90,16 +103,36 @@ export async function pollFilaRanqueada() {
       return;
     }
     if (D.estado === "aguardando") {
+      const NaFila = D.jogadoresNaFila ?? 0;
+      if (
+        NaFila > this.filaUltimoContagemNaFila &&
+        this.filaUltimoContagemNaFila > 0
+      ) {
+        this.mostrarToast(
+          `${NaFila} jogador${NaFila === 1 ? "" : "es"} na fila agora`,
+          false,
+          true
+        );
+      }
+      this.filaUltimoContagemNaFila = NaFila;
       this.filaSegundos = D.segundos ?? null;
       this.filaFase = D.fase ?? null;
       this.filaMensagem = D.mensagem ?? "";
-      this.filaJogadoresNaFila = D.jogadoresNaFila ?? 0;
+      this.filaJogadoresNaFila = NaFila;
       this.filaJogadoresOnline =
         D.jogadoresOnline != null ? D.jogadoresOnline : null;
       this.filaPreview = D.filaPreview ?? [];
       this.filaBusca = D.busca ?? null;
     }
     if (D.estado === "encontrado") {
+      this.mostrarToast(
+        D.nickOponente
+          ? `Duelo encontrado: ${D.nickOponente}`
+          : "Oponente encontrado!",
+        false,
+        true
+      );
+      TocarSom("entrada");
       await ProcessarMatchRanqueadoEncontrado.call(this, D);
     }
   } catch (e) {
@@ -129,13 +162,13 @@ export async function entrarSalaRanqueada(D) {
     }
     entrarNaSalaRanqueada.call(this, estado, D);
     TocarSom("entrada");
-    this.atualizarArena(estado);
   } catch (e) {
     this.mostrarToast(e.message || "Erro ao entrar no duelo", true);
   }
 }
 
-export function entrarNaSalaRanqueada(D, Credenciais = null) {
+export function entrarNaSalaRanqueada(D, Credenciais = null, Opcoes = {}) {
+  const encerrada = !!D.partidaEncerrada;
   LimparSessao();
   this.modo = "ranqueada";
   this.configArena = D.configuracao;
@@ -146,10 +179,41 @@ export function entrarNaSalaRanqueada(D, Credenciais = null) {
   this.codigoEntrada = "";
   this.dadosSala = D;
   this.fecharDialogs();
+  if (encerrada && Opcoes.irParaInicioSeEncerrada !== false) {
+    this.fecharSocketSala();
+    this.irParaView("inicio");
+    this.atualizarArena(D, { exibirResultadoEncerrada: Opcoes.exibirResultadoEncerrada });
+    return;
+  }
   this.conectarWs();
   this.iniciarTelaJogo("Ranqueado");
-  this.atualizarArena(D);
+  this.atualizarArena(D, { exibirResultadoEncerrada: Opcoes.exibirResultadoEncerrada });
   this.persistir();
+}
+
+export async function carregarHistoricoRanqueado() {
+  if (!this.conta?.podeRanqueada) {
+    this.historicoRanqueado = [];
+    return;
+  }
+  try {
+    const D = await api.ranqueadaHistorico(20);
+    this.historicoRanqueado = D.historico || [];
+  } catch {
+    this.historicoRanqueado = [];
+  }
+}
+
+export async function carregarTemporadaRanqueada() {
+  if (!this.conta?.podeRanqueada) {
+    this.temporadaRanqueada = null;
+    return;
+  }
+  try {
+    this.temporadaRanqueada = await api.ranqueadaTemporada();
+  } catch {
+    this.temporadaRanqueada = null;
+  }
 }
 
 export async function carregarRankingRanqueado() {
@@ -195,5 +259,7 @@ export const acoesRanqueada = {
   entrarSalaRanqueada,
   entrarNaSalaRanqueada,
   carregarRankingRanqueado,
+  carregarHistoricoRanqueado,
+  carregarTemporadaRanqueada,
   solicitarRevancheRanqueada,
 };

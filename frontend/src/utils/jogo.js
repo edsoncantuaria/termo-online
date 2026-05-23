@@ -174,6 +174,35 @@ export function ModoVitoriasArena(D) {
   return (D?.modoSessao || D?.configuracao?.modoSessao) === "vitorias";
 }
 
+/** Texto do diálogo ao fim de duelo ranqueado (melhor de 3). */
+export function TextoResultadoRanqueado(D, campeao, venci) {
+  if (!campeao) return "Obrigado por jogar!";
+  const meta = D?.metaVitorias ?? 2;
+  const placar = D?.placar || [];
+  const eu = placar.find((j) => j.souEu);
+  const oponente = campeao.nomeJogador || "Oponente";
+  const vEu = eu?.vitoriasRodada ?? 0;
+  const vOp = campeao.vitoriasRodada ?? 0;
+  const serie = `${vEu}–${vOp}`;
+  if (venci) {
+    const mapas =
+      vEu === 1 ? "1 mapa" : `${vEu} mapas`;
+    return `Melhor de 3 (${serie}) — você venceu a série após ${mapas}.`;
+  }
+  if (vOp >= meta) {
+    const mapas = vOp === 1 ? "1 mapa" : `${vOp} mapas`;
+    return `Melhor de 3 (${serie}) — ${oponente} venceu a série após ${mapas}.`;
+  }
+  return `Melhor de 3 (${serie}) — ${oponente} venceu o duelo.`;
+}
+
+export function PartidaOnlineEmAndamento(D) {
+  if (!D || D.partidaEncerrada) return false;
+  return ["jogando", "entre_rodadas", "countdown", "pausada"].includes(
+    D.estadoSala
+  );
+}
+
 export function FormatarDataDiaria(DataIso) {
   if (!DataIso) return "Hoje";
   const D = new Date(`${DataIso}T12:00:00`);

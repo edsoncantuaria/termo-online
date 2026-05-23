@@ -34,6 +34,7 @@ def ExportarSnapshot(Sala: SalaJogo) -> dict:
             "inicioAutoDois": Config.InicioAutoDois,
             "salaPublica": Config.SalaPublica,
             "ranqueada": Config.Ranqueada,
+            "treinoRanqueado": getattr(Config, "TreinoRanqueado", False),
             "ehDesafio": Config.EhDesafio,
             "modoSessaoTexto": FormatarModoSessao(
                 Config.ModoSessao, Config.MetaVitorias, Config.Ranqueada
@@ -89,6 +90,7 @@ def ImportarSnapshot(Dados: dict) -> SalaJogo | None:
             InicioAutoDois=ConfigDados.get("inicioAutoDois", False),
             SalaPublica=ConfigDados.get("salaPublica", True),
             Ranqueada=ConfigDados.get("ranqueada", False),
+            TreinoRanqueado=ConfigDados.get("treinoRanqueado", False),
             EhDesafio=ConfigDados.get("ehDesafio", False),
         )
         Jogadores = {}

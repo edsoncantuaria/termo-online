@@ -70,6 +70,7 @@ class ConfiguracaoSala:
     InicioAutoDois: bool = False
     SalaPublica: bool = True
     Ranqueada: bool = False
+    TreinoRanqueado: bool = False
     EhDesafio: bool = False
 
 
@@ -380,6 +381,9 @@ class GerenciadorSalas:
         Nome = NomeJogador[:24] or "Jogador"
         if any(J.NomeJogador.lower() == Nome.lower() for J in Sala.Jogadores.values()):
             return None, None, "Este nick já está na sala."
+
+        if Espectador and Sala.Configuracao.Ranqueada:
+            return None, None, "Duelos ranqueados não permitem espectadores."
 
         if Espectador:
             if Sala.EstadoSala == "aguardando":
@@ -858,7 +862,8 @@ class GerenciadorSalas:
 
                         if JogadorSemPontuacaoNaSessao(Jogador):
                             continue
-                    RecompensaRanqueada(R.IdConta, R.Venceu)
+                    if not getattr(Config, "TreinoRanqueado", False):
+                        RecompensaRanqueada(R.IdConta, R.Venceu)
                 FilaGlobal.RegistrarFimDueloRanqueado(Sala, Resultados)
                 Sala.ResultadosRanqueada = [
                     {
@@ -1192,6 +1197,9 @@ class GerenciadorSalas:
         )
         Eu = Sala.Jogadores.get(IdObservador)
         ObservadorEspectador = bool(Eu and Eu.Espectador)
+        from .ranqueada import GarantirResultadosRanqueadaSala
+
+        GarantirResultadosRanqueadaSala(Sala)
         RespostaBase = {
             "idPartida": Sala.IdPartida,
             "codigoSala": Sala.CodigoSala,

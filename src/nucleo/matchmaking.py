@@ -12,6 +12,7 @@ from .bots_ranqueados import (
     ListarBotsProximos,
     MarcarBotEmPartida,
     ObterBot,
+    PontosBotAtual,
     ReservarBot,
 )
 from .contas import ExigirPodeRanquear
@@ -39,6 +40,7 @@ class EntradaFila:
     Pontos: int
     EntrouEm: float = field(default_factory=time.time)
     BotReservadoId: str | None = None
+    Treino: bool = False
 
 
 def JogadoresOnlineParaCliente() -> int | None:
@@ -187,7 +189,9 @@ class FilaMatchmaking:
             Bot = ObterBot(Eu.BotReservadoId)
             if Bot:
                 Itens.append(
-                    self._ItemPreview(Bot.Nick, Bot.Pontos, naFila=True, destacado=False)
+                    self._ItemPreview(
+                        Bot.Nick, PontosBotAtual(Bot.Id), naFila=True, destacado=False
+                    )
                 )
         for Outro in self.Fila.values():
             if Outro.IdConta == Eu.IdConta:
@@ -197,7 +201,9 @@ class FilaMatchmaking:
         for Bot in ListarBotsProximos(Eu.Pontos, 12):
             if Bot.Nick in Vistos:
                 continue
-            Itens.append(self._ItemPreview(Bot.Nick, Bot.Pontos, naFila=True))
+            Itens.append(
+                self._ItemPreview(Bot.Nick, PontosBotAtual(Bot.Id), naFila=True)
+            )
             Vistos.add(Bot.Nick)
         return Itens[:14]
 
@@ -207,7 +213,9 @@ class FilaMatchmaking:
         if E and E.BotReservadoId:
             LiberarReservaBot(E.BotReservadoId)
 
-    def Entrar(self, Perfil: dict, Gerenciador: GerenciadorSalas) -> dict:
+    def Entrar(
+        self, Perfil: dict, Gerenciador: GerenciadorSalas, *, Treino: bool = False
+    ) -> dict:
         from .controle_carga import PodeEntrarFilaRanqueada
 
         ExigirPodeRanquear(Perfil)
@@ -226,6 +234,7 @@ class FilaMatchmaking:
             IdConta=IdConta,
             Nick=Perfil["nick"],
             Pontos=int(Perfil["pontosRanqueada"]),
+            Treino=bool(Treino),
         )
         self.Processar(Gerenciador)
         return self.Status(IdConta, Gerenciador)
@@ -314,6 +323,8 @@ class FilaMatchmaking:
                 Sb = SegundosNaFila(B.EntrouEm, Agora)
                 Pa = ContarPartidasRanqueadasConta(A.IdConta)
                 Pb = ContarPartidasRanqueadasConta(B.IdConta)
+                if A.Treino != B.Treino:
+                    continue
                 if not PodeParearRp(
                     A.Pontos, Sa, B.Pontos, Sb, PartidasA=Pa, PartidasB=Pb
                 ):
@@ -345,7 +356,7 @@ class FilaMatchmaking:
         A: EntradaFila,
         B: EntradaFila,
     ) -> None:
-        Config = self._ConfigRanqueada()
+        Config = self._ConfigRanqueada(A.Treino)
         Sala, J1 = Gerenciador.CriarSala(A.Nick, Config, IdConta=A.IdConta)
         _Sala2, J2, Erro = Gerenciador.EntrarSala(
             Sala.CodigoSala,
@@ -367,7 +378,7 @@ class FilaMatchmaking:
         A: EntradaFila,
         Bot,
     ) -> None:
-        Config = self._ConfigRanqueada()
+        Config = self._ConfigRanqueada(A.Treino)
         Sala, J1 = Gerenciador.CriarSala(A.Nick, Config, IdConta=A.IdConta)
         IdBotJogador = f"bot-{Bot.Id}"
         J2 = JogadorSala(
@@ -392,7 +403,7 @@ class FilaMatchmaking:
             nick_bot=Bot.Nick,
         )
 
-    def _ConfigRanqueada(self) -> ConfiguracaoSala:
+    def _ConfigRanqueada(self, Treino: bool = False) -> ConfiguracaoSala:
         return ConfiguracaoSala(
             MesmaPalavra=True,
             VerOutros=False,
@@ -405,6 +416,7 @@ class FilaMatchmaking:
             InicioAutoDois=True,
             SalaPublica=False,
             Ranqueada=True,
+            TreinoRanqueado=bool(Treino),
         )
 
     def _RegistrarMatch(

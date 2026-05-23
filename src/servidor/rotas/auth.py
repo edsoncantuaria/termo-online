@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from nucleo.avatares import AVATARES
@@ -23,7 +23,23 @@ class AvatarRequest(BaseModel):
 
 def RegistrarRotasAuth(Roteador: APIRouter) -> None:
     @Roteador.post("/auth/registrar")
-    def AuthRegistrar(Corpo: AuthRegistroRequest):
+    def AuthRegistrar(Corpo: AuthRegistroRequest, Requisicao: Request):
+        from nucleo.redis_estado import PermitirRequisicaoRateLimit
+
+        Ip = (
+            (Requisicao.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+            or (Requisicao.client.host if Requisicao.client else "local")
+        )
+        if not PermitirRequisicaoRateLimit(f"reg:{Ip}", 6, 3600):
+            raise HTTPException(
+                status_code=429,
+                detail="Muitas tentativas de registro deste IP. Tente mais tarde.",
+            )
+        if not PermitirRequisicaoRateLimit(f"nick:{Corpo.nick.strip().lower()[:20]}", 3, 600):
+            raise HTTPException(
+                status_code=429,
+                detail="Muitas tentativas com este nick. Aguarde alguns minutos.",
+            )
         try:
             Perfil, Token = RegistrarConta(Corpo.nick, Corpo.email, Corpo.senha)
         except ValueError as Erro:

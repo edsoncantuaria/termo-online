@@ -89,6 +89,25 @@ export function ClasseElo(eloId) {
   return `elo-pill--${eloId}`;
 }
 
+export function IndiceElo(eloId) {
+  if (!eloId) return -1;
+  return ORDEM_ELOS.indexOf(eloId);
+}
+
+/** True se a faixa de elo subiu após o duelo (ex.: Bronze → Prata). */
+export function SubiuDeElo(eloAntes, eloDepois) {
+  const ia = IndiceElo(eloAntes);
+  const id = IndiceElo(eloDepois);
+  return ia >= 0 && id > ia;
+}
+
+/** True se a faixa de elo caiu após o duelo (ex.: Prata → Bronze). */
+export function CaiuDeElo(eloAntes, eloDepois) {
+  const ia = IndiceElo(eloAntes);
+  const id = IndiceElo(eloDepois);
+  return ia >= 0 && id >= 0 && id < ia;
+}
+
 export function RotuloRankDeJogador(j) {
   if (j?.rotuloRank) return j.rotuloRank;
   if (j?.semRank) return ROTULO_SEM_RANK;

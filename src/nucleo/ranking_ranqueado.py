@@ -182,14 +182,19 @@ def MontarRankingCompleto(
             }
         )
 
+    from .bots_ranqueados import EstatisticasBot, PontosBotAtual
+
     for B in BOTS:
-        Partidas, Vitorias = _StatsExibicaoBot(B.Id)
+        Pontos = PontosBotAtual(B.Id)
+        Partidas, Vitorias = EstatisticasBot(B.Id)
+        if Partidas <= 0:
+            Partidas, Vitorias = _StatsExibicaoBot(B.Id)
         Entradas.append(
             {
                 "nick": B.Nick,
-                "pontos": B.Pontos,
-                "elo": EloDePontos(B.Pontos),
-                "eloNome": NomeEloExibicao(EloDePontos(B.Pontos)),
+                "pontos": Pontos,
+                "elo": EloDePontos(Pontos),
+                "eloNome": NomeEloExibicao(EloDePontos(Pontos)),
                 "partidas": Partidas,
                 "vitorias": Vitorias,
                 "ehBot": True,

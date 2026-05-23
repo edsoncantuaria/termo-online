@@ -1,14 +1,24 @@
-from nucleo.ranqueada import CalcularDelta, EloDePontos
+from nucleo.ranqueada import CalcularDelta, EloDePontos, MultiplicadorDelta
 
 
 def test_vitoria_contra_mais_forte_da_mais_pontos():
     d = CalcularDelta(1000, 1200, True)
-    assert 16 <= d <= 20
+    assert 14 <= d <= 24
 
 
-def test_derrota_perde_entre_8_e_12():
+def test_derrota_perde_entre_7_e_14():
     d = CalcularDelta(1000, 1200, False)
-    assert -12 <= d <= -8
+    assert -14 <= d <= -7
+
+
+def test_inicio_ganha_mais_e_perde_menos():
+    assert CalcularDelta(100, 100, True) > CalcularDelta(2500, 2500, True)
+    assert abs(CalcularDelta(100, 100, False)) < abs(CalcularDelta(2500, 2500, False))
+
+
+def test_multiplicador_favorece_inicio():
+    assert MultiplicadorDelta(50, True) > MultiplicadorDelta(3000, True)
+    assert MultiplicadorDelta(50, False) < MultiplicadorDelta(3000, False)
 
 
 def test_elo_papelao_inicio():

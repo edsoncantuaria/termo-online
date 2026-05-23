@@ -175,6 +175,20 @@ async def ProcessarChuteSala(Sala, IdJogador: str, Palavra: str) -> None:
     if not Jogador:
         return
 
+    from nucleo.redis_estado import PermitirRequisicaoRateLimit
+
+    ChaveRl = f"chute:{Jogador.IdConta or IdJogador}:{getattr(Sala, 'IdPartida', Sala.CodigoSala)}"
+    if not PermitirRequisicaoRateLimit(ChaveRl, 40, 60):
+        await EnviarParaJogador(
+            Sala.CodigoSala,
+            IdJogador,
+            {
+                "tipo": "erro",
+                "mensagem": "Muitos chutes em pouco tempo — aguarde um instante.",
+            },
+        )
+        return
+
     if Jogador.Espectador:
         await EnviarParaJogador(
             Sala.CodigoSala,

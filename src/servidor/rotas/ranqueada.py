@@ -1,12 +1,18 @@
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 
 from nucleo.matchmaking import FilaGlobal
+from nucleo import persistencia
 from nucleo.ranqueada import ListarElosApi
 from nucleo.redis_estado import StatusRedis
 from nucleo.temporada_ranqueada import MontarInfoTemporada
 from servidor.dependencias_auth import ContaRegistrada
 from servidor.estado_global import GerenciadorVersus
 from servidor.websocket import BroadcastEstadoSala
+
+
+class EntrarFilaRanqueadaRequest(BaseModel):
+    treino: bool = False
 
 
 def RegistrarRotasRanqueada(Roteador: APIRouter) -> None:
@@ -55,9 +61,22 @@ def RegistrarRotasRanqueada(Roteador: APIRouter) -> None:
                 await BroadcastEstadoSala(Sala)
         return {**R, "fila": Status}
 
+    @Roteador.get("/ranqueada/historico")
+    def HistoricoRanqueado(Perfil=Depends(ContaRegistrada), limite: int = 20):
+        Lim = max(1, min(50, int(limite)))
+        return {
+            "historico": persistencia.ListarHistoricoRanqueadaConta(
+                Perfil["idConta"], Lim
+            )
+        }
+
     @Roteador.post("/ranqueada/fila")
-    async def RanqueadaEntrarFila(Perfil=Depends(ContaRegistrada)):
-        Status = FilaGlobal.Entrar(Perfil, GerenciadorVersus)
+    async def RanqueadaEntrarFila(
+        Corpo: EntrarFilaRanqueadaRequest | None = None,
+        Perfil=Depends(ContaRegistrada),
+    ):
+        Treino = bool(Corpo and Corpo.treino)
+        Status = FilaGlobal.Entrar(Perfil, GerenciadorVersus, Treino=Treino)
         if Status.get("estado") == "encontrado" and Status.get("codigoSala"):
             Sala = GerenciadorVersus.ObterSala(Status["codigoSala"])
             if Sala:
@@ -74,8 +93,11 @@ def RegistrarRotasRanqueada(Roteador: APIRouter) -> None:
         return FilaGlobal.Status(Perfil["idConta"], GerenciadorVersus)
 
     @Roteador.get("/ranqueada/temporada")
-    def TemporadaRanqueada():
-        return MontarInfoTemporada()
+    def TemporadaRanqueada(Perfil=Depends(ContaRegistrada)):
+        Info = MontarInfoTemporada()
+        Info["partidasTemporada"] = int(Perfil.get("partidasTemporada", 0))
+        Info["vitoriasTemporada"] = int(Perfil.get("vitoriasTemporada", 0))
+        return Info
 
     @Roteador.get("/infra/redis")
     def InfraRedis():

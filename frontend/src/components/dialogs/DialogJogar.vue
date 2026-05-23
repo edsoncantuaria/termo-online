@@ -92,9 +92,12 @@ function onCancelTravado(ev) {
   onCancel(ev);
 }
 
+const temporada = computed(() => store.temporadaRanqueada);
+
 watch(aberto, (v) => {
   if (v) {
     store.carregarRankingRanqueado();
+    store.carregarTemporadaRanqueada();
     if (store.filaRanqueada) aba.value = "ranqueado";
   }
 });
@@ -124,10 +127,10 @@ async function jogarDesafio() {
   store.iniciarModo("desafio", { codigoDesafio: cod });
 }
 
-function buscarRanqueado() {
+function buscarRanqueado(treino = false) {
   if (!store.exigirContaRegistrada()) return;
   aba.value = "ranqueado";
-  store.entrarFilaRanqueada();
+  store.entrarFilaRanqueada(treino);
 }
 
 function clicarAbaRanqueado() {
@@ -360,12 +363,27 @@ function clicarAbaRanqueado() {
             </div>
 
             <template v-else>
+              <p v-if="temporada" class="jogar-temporada-resumo">
+                <strong>{{ temporada.nome }}</strong>
+                · {{ temporada.partidasTemporada ?? 0 }} partidas
+                · {{ temporada.vitoriasTemporada ?? 0 }} vitórias
+                <span class="jogar-temporada-reset">
+                  (reset {{ temporada.proximoReset }})
+                </span>
+              </p>
               <button
                 type="button"
                 class="btn-modo btn-modo-destaque btn-largo btn-jogar-ranqueado"
-                @click="buscarRanqueado"
+                @click="buscarRanqueado(false)"
               >
                 Buscar partida ranqueada
+              </button>
+              <button
+                type="button"
+                class="btn-modo btn-modo-sec btn-largo"
+                @click="buscarRanqueado(true)"
+              >
+                Treino ranqueado (sem RP)
               </button>
               <p class="jogar-ranqueado-regras">
                 <strong>Melhor de 3</strong> mapas (primeiro a 2 vitórias; em 1–1, o 3º decide).

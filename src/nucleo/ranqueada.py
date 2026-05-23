@@ -185,13 +185,38 @@ def MetadadosRankJogadorSala(Jogador) -> dict:
     return MontarCamposRankExibicao(0, 0)
 
 
+def IndiceFaixaElo(Pontos: int) -> int:
+    Elo = EloDePontos(Pontos)
+    for Indice, (Id, _, _) in enumerate(ELOS):
+        if Id == Elo:
+            return Indice
+    return len(ELOS) - 1
+
+
+def MultiplicadorDelta(PontosJogador: int, Venceu: bool) -> float:
+    """Início mais fácil (mais ganho / menos perda); elos altos mais exigentes."""
+    I = IndiceFaixaElo(PontosJogador)
+    if I <= 1:
+        return 1.32 if Venceu else 0.88
+    if I <= 3:
+        return 1.14 if Venceu else 0.96
+    if I <= 5:
+        return 1.0 if Venceu else 1.0
+    return 0.84 if Venceu else 1.1
+
+
 def CalcularDelta(PontosJogador: int, PontosOponente: int, Venceu: bool) -> int:
     Diff = int(PontosOponente) - int(PontosJogador)
+    Mult = MultiplicadorDelta(PontosJogador, Venceu)
     if Venceu:
         Bonus = max(0, min(DELTA_VITORIA_MAX - DELTA_VITORIA_MIN, Diff // 25))
-        return DELTA_VITORIA_MIN + Bonus
+        Base = DELTA_VITORIA_MIN + Bonus
+        Delta = int(round(Base * Mult))
+        return max(14, min(24, Delta))
     Penal = max(0, min(DELTA_DERROTA_MAX - DELTA_DERROTA_MIN, (-Diff) // 25))
-    return -(DELTA_DERROTA_MIN + Penal)
+    Base = DELTA_DERROTA_MIN + Penal
+    Delta = int(round(Base * Mult))
+    return -max(7, min(14, Delta))
 
 
 def AplicarDeltaConta(IdConta: str, Delta: int) -> tuple[int, int]:
@@ -276,6 +301,7 @@ def RegistrarDueloRanqueadoVsBot(
     PontosBot: int,
     CodigoSala: str | None = None,
     IdPartida: str | None = None,
+    IdJogadorBot: str | None = None,
 ) -> list[ResultadoRanqueada]:
     Conta = persistencia.ObterContaPorId(IdContaReal)
     if not Conta or Conta.get("eh_visitante"):
@@ -283,6 +309,10 @@ def RegistrarDueloRanqueadoVsBot(
     Pv = int(Conta["pontos_ranqueada"])
     Delta = CalcularDelta(Pv, int(PontosBot), VenceuReal)
     Antes, Depois = AplicarDeltaConta(IdContaReal, Delta)
+    if IdJogadorBot:
+        from .bots_ranqueados import AplicarResultadoDueloBot
+
+        AplicarResultadoDueloBot(IdJogadorBot, Pv, not VenceuReal)
     persistencia.RegistrarHistoricoRanqueada(
         IdContaReal,
         None,
@@ -307,9 +337,86 @@ def RegistrarDueloRanqueadoVsBot(
     ]
 
 
+def ResultadosRanqueadaParaApi(Resultados: list[ResultadoRanqueada]) -> list[dict]:
+    return [
+        {
+            "idConta": R.IdConta,
+            "nick": R.Nick,
+            "delta": R.Delta,
+            "pontosAntes": R.PontosAntes,
+            "pontosDepois": R.PontosDepois,
+            "eloAntes": R.EloAntes,
+            "eloDepois": R.EloDepois,
+            "venceu": R.Venceu,
+        }
+        for R in Resultados
+    ]
+
+
+def MontarResultadosTreinoRanqueado(Sala) -> list[ResultadoRanqueada]:
+    """Duelo de treino: sem alterar RP nem histórico."""
+    Saida: list[ResultadoRanqueada] = []
+    for J in Sala.Jogadores.values():
+        if J.Espectador or getattr(J, "EhBot", False) or not J.IdConta:
+            continue
+        Conta = persistencia.ObterContaPorId(J.IdConta)
+        if not Conta:
+            continue
+        Pontos = int(Conta.get("pontos_ranqueada", 0))
+        Venceu = J.IdJogador == Sala.VencedorId
+        Saida.append(
+            ResultadoRanqueada(
+                IdConta=J.IdConta,
+                Nick=Conta["nick"],
+                PontosAntes=Pontos,
+                PontosDepois=Pontos,
+                Delta=0,
+                EloAntes=EloDePontos(Pontos),
+                EloDepois=EloDePontos(Pontos),
+                Venceu=Venceu,
+            )
+        )
+    return Saida
+
+
+def ReconstruirResultadosRanqueadaPartida(IdPartida: str) -> list[dict] | None:
+    """Reidrata resultados após reinício do servidor (a partir do histórico)."""
+    Linhas = persistencia.ListarHistoricoRanqueadaPorPartida(IdPartida)
+    if not Linhas:
+        return None
+    PorConta: dict[str, dict] = {}
+    for L in Linhas:
+        PorConta[L["id_conta"]] = {
+            "idConta": L["id_conta"],
+            "nick": L["nick"],
+            "delta": int(L["delta"]),
+            "pontosAntes": int(L["pontos_antes"]),
+            "pontosDepois": int(L["pontos_depois"]),
+            "eloAntes": EloDePontos(int(L["pontos_antes"])),
+            "eloDepois": EloDePontos(int(L["pontos_depois"])),
+            "venceu": bool(L["venceu"]),
+        }
+    return list(PorConta.values()) if PorConta else None
+
+
+def GarantirResultadosRanqueadaSala(Sala) -> None:
+    if not getattr(Sala.Configuracao, "Ranqueada", False):
+        return
+    if not Sala.PartidaEncerrada or Sala.ResultadosRanqueada:
+        return
+    IdPartida = getattr(Sala, "IdPartida", None)
+    if not IdPartida:
+        return
+    Reconstruido = ReconstruirResultadosRanqueadaPartida(IdPartida)
+    if Reconstruido:
+        Sala.ResultadosRanqueada = Reconstruido
+
+
 def ProcessarFimSalaRanqueada(Sala) -> list[ResultadoRanqueada] | None:
     if not getattr(Sala.Configuracao, "Ranqueada", False):
         return None
+    if getattr(Sala.Configuracao, "TreinoRanqueado", False):
+        return MontarResultadosTreinoRanqueado(Sala)
     if not Sala.VencedorId or Sala.VencedorId not in Sala.Jogadores:
         return None
 
@@ -332,6 +439,7 @@ def ProcessarFimSalaRanqueada(Sala) -> list[ResultadoRanqueada] | None:
             PontosBot,
             Sala.CodigoSala,
             getattr(Sala, "IdPartida", None),
+            IdJogadorBot=Bot.IdJogador,
         )
 
     if len(Reais) != 2:

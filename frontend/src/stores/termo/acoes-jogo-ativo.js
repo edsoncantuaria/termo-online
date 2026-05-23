@@ -9,6 +9,7 @@ import {
 import { JogoAtivoDeSessaoLocal } from "../../utils/jogo-ativo.js";
 import { ObterSessao, LimparSessao, PersistirSessao } from "../../utils/sessao.js";
 import { DiariaJaJogadaLocal } from "../../utils/stats.js";
+import { PartidaOnlineEmAndamento } from "../../utils/jogo.js";
 import { entrarNaSalaRanqueada } from "./acoes-ranqueada.js";
 
 let intervaloJogoAtivoHome = null;
@@ -183,7 +184,24 @@ export async function reconectarJogoAtivo() {
         estado = await R.json();
       }
       if (J.tipo === "ranqueada") {
-        entrarNaSalaRanqueada.call(this, estado, J);
+        if (estado.partidaEncerrada) {
+          entrarNaSalaRanqueada.call(this, estado, J, {
+            exibirResultadoEncerrada: true,
+          });
+          await this.carregarRankingRanqueado().catch(() => {});
+          await this.carregarHistoricoRanqueado().catch(() => {});
+          if (this.conta?.idConta && !this.conta?.ehVisitante) {
+            await api.contaLimparJogoAtivo().catch(() => {});
+          }
+          LimparSessao();
+        } else if (PartidaOnlineEmAndamento(estado)) {
+          entrarNaSalaRanqueada.call(this, estado, J, {
+            exibirResultadoEncerrada: false,
+          });
+          this.mostrarDialogoRetomadaRanqueada(estado);
+        } else {
+          entrarNaSalaRanqueada.call(this, estado, J);
+        }
       } else if (J.tipo === "arena") {
         this.entrarNaSala(estado);
         if (estado.partidaEncerrada) {

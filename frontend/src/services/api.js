@@ -163,8 +163,18 @@ export const api = {
 
   ranqueadaElos: () => fetch(UrlApi("/api/ranqueada/elos")).then((r) => r.json()),
 
-  ranqueadaEntrarFila: () =>
-    fetchAuth(UrlApi("/api/ranqueada/fila"), { method: "POST" }).then(JsonOuErro),
+  ranqueadaEntrarFila: (treino = false) =>
+    fetchAuth(UrlApi("/api/ranqueada/fila"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ treino: !!treino }),
+    }).then(JsonOuErro),
+
+  ranqueadaHistorico: (limite = 20) =>
+    fetchAuth(UrlApi(`/api/ranqueada/historico?limite=${limite}`)).then(JsonOuErro),
+
+  ranqueadaTemporada: () =>
+    fetchAuth(UrlApi("/api/ranqueada/temporada")).then(JsonOuErro),
 
   ranqueadaSairFila: () =>
     fetchAuth(UrlApi("/api/ranqueada/fila"), { method: "DELETE" }).then(JsonOuErro),

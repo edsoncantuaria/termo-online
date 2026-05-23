@@ -186,12 +186,82 @@ BOTS: list[BotRanqueado] = _GerarBots()
 _BOTS_POR_ID: dict[str, BotRanqueado] = {B.Id: B for B in BOTS}
 _BotsReservados: set[str] = set()
 _BotsEmPartida: set[str] = set()
+_PontosVivos: dict[str, int] = {B.Id: B.Pontos for B in BOTS}
+_PartidasBots: dict[str, int] = {}
+_VitoriasBots: dict[str, int] = {}
+_EstadoBotsCarregado = False
+
+
+def InicializarEstadoBotsRanqueados() -> None:
+    """Carrega RP dos bots do SQLite (chamar após ``InicializarBanco``)."""
+    global _EstadoBotsCarregado
+    if _EstadoBotsCarregado:
+        return
+    from . import persistencia
+
+    Salvo = persistencia.ListarEstadoBotsRanqueados()
+    for B in BOTS:
+        Row = Salvo.get(B.Id)
+        if Row:
+            _PontosVivos[B.Id] = max(0, min(RP_MAXIMO_BOTS, int(Row["pontos"])))
+            _PartidasBots[B.Id] = max(0, int(Row["partidas"]))
+            _VitoriasBots[B.Id] = max(0, int(Row["vitorias"]))
+        else:
+            _PontosVivos.setdefault(B.Id, B.Pontos)
+    _EstadoBotsCarregado = True
+
+
+def _PersistirBot(IdBot: str) -> None:
+    if IdBot not in _BOTS_POR_ID:
+        return
+    from . import persistencia
+
+    persistencia.SalvarEstadoBotRanqueado(
+        IdBot,
+        PontosBotAtual(IdBot),
+        _PartidasBots.get(IdBot, 0),
+        _VitoriasBots.get(IdBot, 0),
+    )
+
+
+def _IdBotInterno(IdJogador: str) -> str | None:
+    if IdJogador.startswith("bot-"):
+        return IdJogador[4:]
+    if IdJogador.startswith("bot_"):
+        return IdJogador
+    return None
+
+
+def PontosBotAtual(IdBot: str) -> int:
+    if not _EstadoBotsCarregado:
+        InicializarEstadoBotsRanqueados()
+    return _PontosVivos.get(IdBot, _BOTS_POR_ID[IdBot].Pontos if IdBot in _BOTS_POR_ID else 0)
+
+
+def EstatisticasBot(IdBot: str) -> tuple[int, int]:
+    return _PartidasBots.get(IdBot, 0), _VitoriasBots.get(IdBot, 0)
+
+
+def AplicarResultadoDueloBot(IdJogador: str, PontosHumano: int, VenceuBot: bool) -> None:
+    """Atualiza RP do bot após duelo (evolui como jogador real)."""
+    IdBot = _IdBotInterno(IdJogador)
+    if not IdBot or IdBot not in _BOTS_POR_ID:
+        return
+    from .ranqueada import CalcularDelta
+
+    PontosBot = PontosBotAtual(IdBot)
+    Delta = CalcularDelta(PontosBot, int(PontosHumano), VenceuBot)
+    _PontosVivos[IdBot] = max(0, min(RP_MAXIMO_BOTS, PontosBot + Delta))
+    _PartidasBots[IdBot] = _PartidasBots.get(IdBot, 0) + 1
+    if VenceuBot:
+        _VitoriasBots[IdBot] = _VitoriasBots.get(IdBot, 0) + 1
+    _PersistirBot(IdBot)
 
 
 def ContarBotsPorElo() -> dict[str, int]:
     Contagem = {Id: 0 for Id, _, _ in ELOS}
     for B in BOTS:
-        Contagem[EloDePontos(B.Pontos)] += 1
+        Contagem[EloDePontos(PontosBotAtual(B.Id))] += 1
     return Contagem
 
 
@@ -246,18 +316,24 @@ def EscolherBotParaPontos(
         for B in BOTS
         if B.Id not in _BotsReservados
         and B.Id not in _BotsEmPartida
-        and B.Pontos <= RP_MAXIMO_BOTS
-        and EloDePontos(B.Pontos) in ELOS_COM_BOTS
+        and PontosBotAtual(B.Id) <= RP_MAXIMO_BOTS
+        and EloDePontos(PontosBotAtual(B.Id)) in ELOS_COM_BOTS
     ]
     if not Livres:
         return None
     EloJogador = EloDePontos(PontosJogador)
     Proximos = sorted(
-        Livres, key=lambda B: abs(B.Pontos - PontosJogador)
+        Livres, key=lambda B: abs(PontosBotAtual(B.Id) - PontosJogador)
     )
     JanelaRp = JanelaRpBot(PontosJogador, SegundosEspera)
-    Janela = [B for B in Proximos if abs(B.Pontos - PontosJogador) <= JanelaRp]
-    MesmoElo = [B for B in (Janela or Proximos) if EloDePontos(B.Pontos) == EloJogador]
+    Janela = [
+        B for B in Proximos if abs(PontosBotAtual(B.Id) - PontosJogador) <= JanelaRp
+    ]
+    MesmoElo = [
+        B
+        for B in (Janela or Proximos)
+        if EloDePontos(PontosBotAtual(B.Id)) == EloJogador
+    ]
     Pool = (MesmoElo or Janela or Proximos)[:12]
     if not Pool and Proximos:
         Pool = Proximos[:12]
@@ -272,33 +348,40 @@ def ListarBotsProximos(Pontos: int, Limite: int = 12) -> list[BotRanqueado]:
         for B in BOTS
         if B.Id not in _BotsReservados
         and B.Id not in _BotsEmPartida
-        and B.Pontos <= RP_MAXIMO_BOTS
+        and PontosBotAtual(B.Id) <= RP_MAXIMO_BOTS
+        and EloDePontos(PontosBotAtual(B.Id)) in ELOS_COM_BOTS
     ]
     EloJogador = EloDePontos(Pontos)
-    Ordenados = sorted(Livres, key=lambda B: abs(B.Pontos - Pontos))
-    MesmoElo = [B for B in Ordenados if EloDePontos(B.Pontos) == EloJogador]
+    Ordenados = sorted(Livres, key=lambda B: abs(PontosBotAtual(B.Id) - Pontos))
+    MesmoElo = [
+        B for B in Ordenados if EloDePontos(PontosBotAtual(B.Id)) == EloJogador
+    ]
     if MesmoElo:
         return MesmoElo[:Limite]
     return Ordenados[:Limite]
 
 
 def BotParaRanking(B: BotRanqueado, Posicao: int) -> dict:
-    Elo = EloDePontos(B.Pontos)
+    Pontos = PontosBotAtual(B.Id)
+    Elo = EloDePontos(Pontos)
+    Partidas, Vitorias = EstatisticasBot(B.Id)
     return {
         "posicao": Posicao,
         "nick": B.Nick,
-        "pontos": B.Pontos,
+        "pontos": Pontos,
         "elo": Elo,
         "eloNome": NomeEloExibicao(Elo),
-        "partidas": 0,
-        "vitorias": 0,
+        "partidas": Partidas,
+        "vitorias": Vitorias,
         "ehBot": True,
         "souEu": False,
     }
 
 
 def PontosBotPorIdJogador(IdJogador: str) -> int:
-    if not IdJogador.startswith("bot-"):
+    IdBot = _IdBotInterno(IdJogador)
+    if not IdBot:
         return 1000
-    Bot = ObterBot(IdJogador[4:])
-    return Bot.Pontos if Bot else 1000
+    if IdBot in _BOTS_POR_ID:
+        return PontosBotAtual(IdBot)
+    return 1000

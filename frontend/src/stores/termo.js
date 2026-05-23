@@ -22,7 +22,11 @@ import {
   ValidarRegistro,
   NormalizarNick,
 } from "../utils/validacao-auth.js";
-import { EhModoSalaOnline } from "../utils/modos.js";
+import {
+  EhModoSalaOnline,
+  PartidaArenaEmRodada,
+  PartidaRanqueadaAtiva,
+} from "../utils/modos.js";
 import {
   NormalizarTentativa,
   RegistrarLetrasNoTeclado,
@@ -88,6 +92,7 @@ import { TocarSom, prepararSons } from "../lib/som.js";
 import {
   LimparCacheAplicacao,
   LimparCachesPwa,
+  LimparLocalStorageCompleto,
 } from "../utils/cache-local.js";
 import { AgendarFimAnimacao, DURACAO_FLIP_LINHA } from "../utils/animacao.js";
 
@@ -176,6 +181,9 @@ export const useTermoStore = defineStore("termo", {
     minhaPosicaoRanqueada: null,
     totalRanqueados: 0,
     rankingRanqueado: [],
+    historicoRanqueado: [],
+    temporadaRanqueada: null,
+    filaUltimoContagemNaFila: 0,
     bannerReconexao: false,
     ultimaPartidaResultadoExibida: null,
     wsConectado: false,
@@ -335,6 +343,8 @@ export const useTermoStore = defineStore("termo", {
     emLobby: (s) => s.view === "arenaLobby",
     modoJogoArena: (s) => s.view === "jogo" && EhModoSalaOnline(s.modo),
     modoJogoRanqueada: (s) => s.view === "jogo" && s.modo === "ranqueada",
+    partidaRanqueadaAtiva: (s) => PartidaRanqueadaAtiva(s),
+    partidaArenaEmRodada: (s) => PartidaArenaEmRodada(s),
     modoMulti: (s) => (s.tabuleiros?.length || 0) > 1,
     mostrarGradePrincipal: (s) =>
       s.emJogo && (!s.modoMulti || EhModoSalaOnline(s.modo)) && !s.espectador,
@@ -688,7 +698,9 @@ export const useTermoStore = defineStore("termo", {
     },
 
     confirmarVoltarInicio() {
-      if (this.view === "inicio") return Promise.resolve();
+      if (this.view === "inicio" && !this.partidaRanqueadaAtiva) {
+        return Promise.resolve();
+      }
       let titulo = "Sair?";
       let mensagem = null;
       let dica = null;
@@ -700,25 +712,34 @@ export const useTermoStore = defineStore("termo", {
         titulo = "Abandonar partida?";
         mensagem = "O progresso desta partida solo será perdido.";
       } else if (
-        this.view === "jogo" &&
-        EhModoSalaOnline(this.modo) &&
-        !this.espectador
+        ((this.view === "jogo" && EhModoSalaOnline(this.modo)) ||
+          this.partidaRanqueadaAtiva ||
+          this.partidaArenaEmRodada) &&
+        !this.espectador &&
+        !this.dadosSala?.partidaEncerrada
       ) {
-        titulo = "Voltar ao início?";
-        mensagem =
-          this.modo === "ranqueada"
-            ? "O duelo ranqueado continua ativo. Reconecte pela tela inicial."
-            : "A partida na arena continua ativa. Reconecte pela tela inicial.";
-        dica = "Use «Abandonar partida» no banner da home se quiser sair de vez.";
+        const ehRanq = this.modo === "ranqueada";
+        titulo = ehRanq ? "Abandonar duelo ranqueado?" : "Sair da partida?";
+        if (ehRanq) {
+          const rp = this.conta?.pontosRanqueada ?? 0;
+          const perda = Math.min(12, Math.max(8, 10));
+          mensagem = `Você perderá o duelo e cerca de ${perda} pontos de RP (${rp} → ~${Math.max(0, rp - perda)}).`;
+        } else {
+          mensagem =
+            "Você será removido desta partida e não poderá continuar nesta rodada.";
+        }
+        dica = ehRanq
+          ? "O oponente vence a série. Para só pausar, feche a aba e use «Reconectar» na home."
+          : null;
         return new Promise((resolve) => {
           this.mostrarConfirmacao({
             titulo,
             mensagem,
             dica,
-            textoConfirmar: "Ir ao início",
+            textoConfirmar: "Abandonar e ir ao início",
             textoCancelar: "Continuar jogando",
             aoConfirmar: () => {
-              this.voltarInicioPreservandoPartida().finally(resolve);
+              this.desistirPartida().finally(resolve);
             },
             aoCancelar: () => resolve(),
           });
@@ -939,12 +960,98 @@ export const useTermoStore = defineStore("termo", {
       return false;
     },
 
-    authSair() {
-      this.pararFilaRanqueada();
-      LimparAuthLocal();
+    zerarEstadoPosLogout() {
       this.conta = null;
       this.token = null;
+      this.modo = null;
+      this.idPartida = null;
+      this.tokenPartida = null;
+      this.tokenSessao = null;
+      this.codigoSala = null;
+      this.idJogador = null;
+      this.souCriador = false;
+      this.espectador = false;
+      this.espectadorEntrada = false;
+      this.configArena = null;
+      this.estadoSalaArena = null;
+      this.dadosSala = null;
+      this.jogoAtivo = null;
+      this.carregandoJogoAtivo = false;
+      this.encerrada = false;
+      this.bannerReconexao = false;
+      this.wsConectado = false;
+      this.ultimaPartidaResultadoExibida = null;
+      this.arenaTentativas = [];
+      this.arenaTentativasExibidas = 0;
+      this.arenaRodadaSync = null;
+      this.tentativa = 0;
+      this.letras = LetrasVazias();
+      this.indiceCursor = 0;
+      this.teclado = {};
+      this.tentativasHist = [];
+      this.tabuleiros = null;
+      this.gradesMulti = [];
+      this.carregandoChute = false;
+      this.linhaShake = null;
+      this.countdownSegundos = null;
+      this.toastVitoriaRodada = "";
+      this.filaRanqueada = false;
+      this.filaSegundos = null;
+      this.filaFase = null;
+      this.filaMensagem = "";
+      this.nick = "Jogador";
+      this.codigoEntrada = "";
+      this.senhaEntrada = "";
+      this.statsLocais = {};
+      this.preferencias = ObterPreferencias();
+      AplicarDaltonismo(this.preferencias.daltonismo);
+      AplicarTema(this.preferencias);
+    },
+
+    authSair() {
+      const tokenAntes = this.token;
+      const contaRegistrada =
+        !!this.conta?.podeRanqueada && !this.conta?.ehVisitante;
+      const codigo = this.codigoSala;
+      const idJ = this.idJogador;
+      const eraOnline = EhModoSalaOnline(this.modo);
+
+      this.pararFilaRanqueada();
+      PararIntervaloPausa();
+      PararIntervaloCountdown();
+      this.pararCronometro();
+      this.limparChat();
       this.fecharDialogs();
+      this.fecharSocketSala();
+      this.pararLobbyWs();
+
+      if (
+        (this.partidaRanqueadaAtiva || this.partidaArenaEmRodada) &&
+        this.idPartida &&
+        idJ &&
+        this.tokenSessao
+      ) {
+        api
+          .partidaDesistir(this.idPartida, {
+            idJogador: idJ,
+            tokenSessao: this.tokenSessao,
+          })
+          .catch(() => {});
+      } else if (eraOnline && codigo && idJ) {
+        api.salaSair({ codigoSala: codigo, idJogador: idJ }).catch(() => {});
+      }
+      if (contaRegistrada && tokenAntes) {
+        api.contaLimparJogoAtivo().catch(() => {});
+      }
+
+      this.zerarEstadoPosLogout();
+      LimparLocalStorageCompleto();
+      this.irParaView("inicio");
+      this.mostrarToast(
+        "Você saiu. Dados locais foram apagados para não retomar partida antiga.",
+        false,
+        true
+      );
     },
 
     abrirConta(modo = "entrada", opcoes = {}) {
@@ -1910,7 +2017,7 @@ export const useTermoStore = defineStore("termo", {
       this.mostrarToast(Inst.texto, false, true);
     },
 
-    atualizarArena(D) {
+    atualizarArena(D, Opcoes = {}) {
       const eu = D.jogadores?.find((j) => j.souEu);
       if (
         this.idJogador &&
@@ -2130,16 +2237,22 @@ export const useTermoStore = defineStore("termo", {
         this.pararCronometro();
         this.encerrada = true;
         const ehArena = this.modo === "arena";
-        const IdPartida = D.idPartida || this.idPartida;
+        const exibirResultado = Opcoes.exibirResultadoEncerrada !== false;
 
         if (ehArena && !D.partidaCancelada) {
           this.irParaView("arenaLobby");
           this.persistir();
-          if (IdPartida && this.ultimaPartidaResultadoExibida !== IdPartida) {
-            this.ultimaPartidaResultadoExibida = IdPartida;
+          if (exibirResultado) {
             const campeao = D.placar?.[0];
             const venci = D.vencedorId === this.idJogador;
-            setTimeout(() => this.mostrarResultadoArena(D, venci, campeao), 300);
+            const IdPartida = D.idPartida || this.idPartida;
+            if (IdPartida && this.ultimaPartidaResultadoExibida !== IdPartida) {
+              this.ultimaPartidaResultadoExibida = IdPartida;
+              setTimeout(
+                () => this.mostrarResultadoArena(D, venci, campeao),
+                300
+              );
+            }
           }
         } else {
           acoesArena.fecharSocketSala();
@@ -2147,10 +2260,17 @@ export const useTermoStore = defineStore("termo", {
           LimparSessao();
           if (D.partidaCancelada) {
             this.mostrarToast("Partida encerrada — nada foi registrado.");
-          } else {
+          } else if (exibirResultado) {
             const campeao = D.placar?.[0];
             const venci = D.vencedorId === this.idJogador;
-            setTimeout(() => this.mostrarResultadoArena(D, venci, campeao), 300);
+            const IdPartida = D.idPartida || this.idPartida;
+            if (IdPartida && this.ultimaPartidaResultadoExibida !== IdPartida) {
+              this.ultimaPartidaResultadoExibida = IdPartida;
+              setTimeout(
+                () => this.mostrarResultadoArena(D, venci, campeao),
+                300
+              );
+            }
           }
           if (this.modo === "ranqueada") {
             this.modo = null;
@@ -2316,10 +2436,15 @@ export const useTermoStore = defineStore("termo", {
         return;
       }
       try {
+        const eraRanq = this.modo === "ranqueada";
+        const idJogadorLocal = this.idJogador;
         const Resposta = await api.partidaDesistir(this.idPartida, {
           idJogador: this.idJogador,
           tokenSessao: this.tokenSessao,
         });
+        const Estado = Resposta?.estado;
+        const SemRegistro =
+          Resposta?.semPenalidade || Resposta?.partidaCancelada;
         this.fecharSocketSala();
         LimparSessao();
         this.modo = null;
@@ -2330,13 +2455,29 @@ export const useTermoStore = defineStore("termo", {
         this.dadosSala = null;
         this.estadoSalaArena = null;
         this.irParaView("inicio");
-        const SemRegistro =
-          Resposta?.semPenalidade || Resposta?.partidaCancelada;
-        this.mostrarToast(
-          SemRegistro
-            ? "Você saiu da partida. Nada foi registrado no histórico."
-            : "Você desistiu da partida."
-        );
+        if (
+          eraRanq &&
+          Estado?.partidaEncerrada &&
+          !SemRegistro &&
+          Estado.idPartida
+        ) {
+          this.modo = "ranqueada";
+          const venci = Estado.vencedorId === idJogadorLocal;
+          const campeao = Estado.placar?.[0];
+          if (this.ultimaPartidaResultadoExibida !== Estado.idPartida) {
+            this.ultimaPartidaResultadoExibida = Estado.idPartida;
+            setTimeout(() => {
+              this.mostrarResultadoArena(Estado, venci, campeao);
+              this.modo = null;
+            }, 300);
+          }
+        } else {
+          this.mostrarToast(
+            SemRegistro
+              ? "Você saiu da partida. Nada foi registrado no histórico."
+              : "Você desistiu da partida."
+          );
+        }
         if (this.conta?.idConta && !this.conta?.ehVisitante) {
           await api.contaLimparJogoAtivo().catch(() => {});
         }
@@ -2347,6 +2488,21 @@ export const useTermoStore = defineStore("termo", {
     },
 
     async voltarInicio() {
+      if (this.partidaRanqueadaAtiva || this.partidaArenaEmRodada) {
+        await this.desistirPartida();
+        return;
+      }
+      if (
+        this.view === "jogo" &&
+        EhModoSalaOnline(this.modo) &&
+        !this.espectador &&
+        this.idPartida &&
+        this.idJogador &&
+        !this.dadosSala?.partidaEncerrada
+      ) {
+        await this.desistirPartida();
+        return;
+      }
       PararIntervaloPausa();
       this.pararFilaRanqueada();
       this.pararCronometro();
@@ -2402,17 +2558,23 @@ export const useTermoStore = defineStore("termo", {
             D = await R.json();
           }
           if (D.partidaEncerrada) {
-            this.modo = modo;
-            this.codigoSala = S.codigoSala;
-            this.idJogador = S.idJogador;
-            this.aplicarCredenciaisPartida({ ...S, ...D });
-            this.dadosSala = D;
-            if (modo === "arena") {
-              this.fecharDialogs();
-              this.conectarWs();
-              this.irParaView("arenaLobby");
+            if (modo === "ranqueada") {
+              entrarNaSalaRanqueada.call(this, { ...S, ...D }, S, {
+                exibirResultadoEncerrada: true,
+              });
+            } else {
+              this.modo = modo;
+              this.codigoSala = S.codigoSala;
+              this.idJogador = S.idJogador;
+              this.aplicarCredenciaisPartida({ ...S, ...D });
+              this.dadosSala = D;
+              if (modo === "arena") {
+                this.fecharDialogs();
+                this.conectarWs();
+                this.irParaView("arenaLobby");
+              }
+              this.atualizarArena(D);
             }
-            this.atualizarArena(D);
             return { ok: true, invalida: false };
           }
           this.modo = modo;
@@ -2547,6 +2709,7 @@ export const useTermoStore = defineStore("termo", {
             })
             .catch(() => {}),
           this.carregarRankingRanqueado(),
+          this.carregarHistoricoRanqueado(),
           api
             .stats(this.nickJogo)
             .then((d) => {

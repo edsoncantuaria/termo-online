@@ -107,6 +107,9 @@ def InicializarBanco() -> None:
         _AplicarMigracoesContas(C)
         _AplicarMigracoesProgresso(C)
         _AplicarMigracoesPartida(C)
+        _AplicarMigracoesBots(C)
+        _AplicarMigracoesMeta(C)
+        GarantirTemporadaRanqueadaAtual()
         LimparRankingVisitantesEPontosZero()
 
 
@@ -1620,6 +1623,171 @@ def ListarContasRanqueamento() -> list[dict]:
             """
         ).fetchall()
     return [dict(L) for L in Linhas]
+
+
+def _AplicarMigracoesBots(C: sqlite3.Connection) -> None:
+    C.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS bots_ranqueados_estado (
+            id_bot TEXT PRIMARY KEY,
+            pontos INTEGER NOT NULL,
+            partidas INTEGER NOT NULL DEFAULT 0,
+            vitorias INTEGER NOT NULL DEFAULT 0,
+            atualizado_em TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        """
+    )
+
+
+def _AplicarMigracoesMeta(C: sqlite3.Connection) -> None:
+    C.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS meta_sistema (
+            chave TEXT PRIMARY KEY,
+            valor TEXT NOT NULL,
+            atualizado_em TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        """
+    )
+
+
+def ObterMetaSistema(Chave: str) -> str | None:
+    with Conexao() as C:
+        Linha = C.execute(
+            "SELECT valor FROM meta_sistema WHERE chave = ?",
+            (Chave,),
+        ).fetchone()
+    return str(Linha["valor"]) if Linha else None
+
+
+def DefinirMetaSistema(Chave: str, Valor: str) -> None:
+    with Conexao() as C:
+        C.execute(
+            """
+            INSERT INTO meta_sistema (chave, valor, atualizado_em)
+            VALUES (?, ?, datetime('now'))
+            ON CONFLICT(chave) DO UPDATE SET
+                valor = excluded.valor,
+                atualizado_em = datetime('now')
+            """,
+            (Chave, Valor),
+        )
+
+
+def GarantirTemporadaRanqueadaAtual() -> None:
+    """Zera partidas/vitórias da temporada ao virar o mês (RP total mantido)."""
+    from .temporada_ranqueada import IdTemporadaAtual
+
+    Id = IdTemporadaAtual()
+    if ObterMetaSistema("temporada_ranqueada_id") == Id:
+        return
+    ResetarEstatisticasTemporadaRanqueada()
+    DefinirMetaSistema("temporada_ranqueada_id", Id)
+
+
+def ListarHistoricoRanqueadaPorPartida(IdPartida: str) -> list[dict]:
+    with Conexao() as C:
+        Linhas = C.execute(
+            """
+            SELECT h.id_conta, h.delta, h.pontos_antes, h.pontos_depois, h.venceu,
+                   c.nick
+            FROM historico_ranqueada h
+            LEFT JOIN contas c ON c.id = h.id_conta
+            WHERE h.id_partida = ?
+            ORDER BY h.venceu DESC
+            """,
+            (IdPartida,),
+        ).fetchall()
+    return [dict(L) for L in Linhas]
+
+
+def ListarHistoricoRanqueadaConta(IdConta: str, Limite: int = 20) -> list[dict]:
+    with Conexao() as C:
+        Linhas = C.execute(
+            """
+            SELECT
+                h.id,
+                h.id_oponente,
+                h.codigo_sala,
+                h.id_partida,
+                h.delta,
+                h.pontos_antes,
+                h.pontos_depois,
+                h.venceu,
+                h.data_hora,
+                c.nick AS nick_oponente
+            FROM historico_ranqueada h
+            LEFT JOIN contas c ON c.id = h.id_oponente
+            WHERE h.id_conta = ?
+            ORDER BY h.data_hora DESC
+            LIMIT ?
+            """,
+            (IdConta, int(Limite)),
+        ).fetchall()
+    Saida: list[dict] = []
+    for L in Linhas:
+        Oponente = L["nick_oponente"]
+        if not Oponente and L["id_oponente"]:
+            if str(L["id_oponente"]).startswith("bot"):
+                Oponente = "Bot"
+            else:
+                Oponente = "Jogador"
+        elif not Oponente:
+            Oponente = "Bot"
+        Saida.append(
+            {
+                "id": L["id"],
+                "nickOponente": Oponente,
+                "codigoSala": L["codigo_sala"],
+                "idPartida": L["id_partida"],
+                "delta": int(L["delta"]),
+                "pontosAntes": int(L["pontos_antes"]),
+                "pontosDepois": int(L["pontos_depois"]),
+                "venceu": bool(L["venceu"]),
+                "dataHora": L["data_hora"],
+            }
+        )
+    return Saida
+
+
+def ListarEstadoBotsRanqueados() -> dict[str, dict]:
+    """RP e estatísticas persistidos dos bots (sobrevivem reinício do servidor)."""
+    with Conexao() as C:
+        Linhas = C.execute(
+            """
+            SELECT id_bot, pontos, partidas, vitorias
+            FROM bots_ranqueados_estado
+            """
+        ).fetchall()
+    return {
+        str(L["id_bot"]): {
+            "pontos": int(L["pontos"]),
+            "partidas": int(L["partidas"]),
+            "vitorias": int(L["vitorias"]),
+        }
+        for L in Linhas
+    }
+
+
+def SalvarEstadoBotRanqueado(
+    IdBot: str,
+    Pontos: int,
+    Partidas: int,
+    Vitorias: int,
+) -> None:
+    with Conexao() as C:
+        C.execute(
+            """
+            INSERT INTO bots_ranqueados_estado (id_bot, pontos, partidas, vitorias, atualizado_em)
+            VALUES (?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(id_bot) DO UPDATE SET
+                pontos = excluded.pontos,
+                partidas = excluded.partidas,
+                vitorias = excluded.vitorias,
+                atualizado_em = datetime('now')
+            """,
+            (IdBot, int(Pontos), int(Partidas), int(Vitorias)),
+        )
 
 
 def ListarSalasAtivas() -> list[str]:

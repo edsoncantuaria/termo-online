@@ -17,7 +17,11 @@ from servidor.aplicacao import CriarAplicacao
 @pytest.fixture
 def cliente(tmp_path, monkeypatch):
     monkeypatch.setattr(persistencia, "CaminhoBanco", tmp_path / "api_impl.db")
+    monkeypatch.delenv("TERM0_REDIS_URL", raising=False)
     persistencia.InicializarBanco()
+    from servidor.estado_global import GerenciadorVersus
+
+    GerenciadorVersus.Salas.clear()
     return TestClient(CriarAplicacao())
 
 

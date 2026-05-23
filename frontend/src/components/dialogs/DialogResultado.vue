@@ -5,6 +5,7 @@ import { useDialogoNativo } from "../../composables/useDialogoNativo.js";
 import BtnFecharDialog from "./BtnFecharDialog.vue";
 import GradeCompartilhar from "../ui/GradeCompartilhar.vue";
 import ConfeteAnimado from "../ui/ConfeteAnimado.vue";
+import EloPill from "../ui/EloPill.vue";
 
 const store = useTermoStore();
 const r = computed(() => store.resultado);
@@ -39,6 +40,16 @@ const temConteudo = computed(
 const deltaPositivo = computed(
   () => (r.value.ranqueadaResumo?.delta ?? 0) >= 0
 );
+
+const resumoRanq = computed(() => r.value.ranqueadaResumo);
+
+const mostrarPromocaoElo = computed(
+  () => !!resumoRanq.value?.subiuElo && resumoRanq.value?.nomeEloDepois
+);
+
+const mostrarDemocaoElo = computed(
+  () => !!resumoRanq.value?.caiuElo && resumoRanq.value?.nomeEloAntes
+);
 </script>
 
 <template>
@@ -65,27 +76,83 @@ const deltaPositivo = computed(
 
     <div class="dialog-scroll dialog-scroll-resultado">
       <section
-        v-if="r.ranqueadaResumo"
+        v-if="resumoRanq"
         class="resultado-ranqueada"
         aria-label="Resumo ranqueado"
       >
+        <div
+          v-if="mostrarPromocaoElo"
+          class="resultado-elo-promocao"
+          role="status"
+        >
+          <span class="resultado-elo-promocao-icone" aria-hidden="true">✦</span>
+          <p class="resultado-elo-promocao-titulo">Você subiu de elo!</p>
+          <div class="resultado-elo-promocao-pills">
+            <EloPill
+              v-if="resumoRanq.nomeEloAntes"
+              :rotulo="resumoRanq.nomeEloAntes"
+              :elo="resumoRanq.eloAntes"
+              grande
+            />
+            <span class="resultado-elo-promocao-seta" aria-hidden="true">→</span>
+            <EloPill
+              :rotulo="resumoRanq.nomeEloDepois"
+              :elo="resumoRanq.eloDepois"
+              grande
+            />
+          </div>
+        </div>
+
+        <div
+          v-else-if="mostrarDemocaoElo"
+          class="resultado-elo-democao"
+          role="status"
+        >
+          <span class="resultado-elo-democao-icone" aria-hidden="true">▼</span>
+          <p class="resultado-elo-democao-titulo">Você caiu de elo</p>
+          <div class="resultado-elo-promocao-pills">
+            <EloPill
+              :rotulo="resumoRanq.nomeEloAntes"
+              :elo="resumoRanq.eloAntes"
+              grande
+            />
+            <span class="resultado-elo-promocao-seta" aria-hidden="true">→</span>
+            <EloPill
+              :rotulo="resumoRanq.nomeEloDepois"
+              :elo="resumoRanq.eloDepois"
+              grande
+            />
+          </div>
+        </div>
+
+        <div
+          v-else-if="resumoRanq.nomeEloDepois"
+          class="resultado-elo-atual"
+        >
+          <span class="resultado-elo-atual-legenda">Seu elo</span>
+          <EloPill
+            :rotulo="resumoRanq.nomeEloDepois"
+            :elo="resumoRanq.eloDepois"
+            grande
+          />
+        </div>
+
         <p
           class="resultado-ranqueada-delta"
           :class="deltaPositivo ? 'resultado-ranqueada-delta--ganho' : 'resultado-ranqueada-delta--perda'"
         >
-          {{ r.ranqueadaResumo.delta >= 0 ? "+" : "" }}{{ r.ranqueadaResumo.delta }}
-          pontos
+          {{ resumoRanq.delta >= 0 ? "+" : "" }}{{ resumoRanq.delta }} RP neste duelo
         </p>
         <p class="resultado-ranqueada-rp">
-          <span>{{ r.ranqueadaResumo.pontosAntes }}</span>
+          <span>{{ resumoRanq.pontosAntes }}</span>
           <span aria-hidden="true">→</span>
-          <span>{{ r.ranqueadaResumo.pontosDepois }} RP</span>
+          <span>{{ resumoRanq.pontosDepois }} RP</span>
         </p>
-        <p v-if="r.ranqueadaResumo.placarSerie" class="resultado-ranqueada-serie">
-          Série {{ r.ranqueadaResumo.placarSerie }}
+        <p v-if="resumoRanq.placarSerie" class="resultado-ranqueada-serie">
+          Série {{ resumoRanq.placarSerie }}
         </p>
         <p class="resultado-ranqueada-record">
-          {{ r.ranqueadaResumo.vitorias }} vitórias · {{ r.ranqueadaResumo.derrotas }} derrotas
+          {{ resumoRanq.vitorias }} vitórias · {{ resumoRanq.derrotas }} derrotas no ranqueado
         </p>
       </section>
 
@@ -143,7 +210,7 @@ const deltaPositivo = computed(
           {{
             r.ehArena
               ? "Voltar à sala"
-              : r.ehDiaria
+              : r.ehDiaria || r.ehRanqueada
                 ? "Voltar ao início"
                 : "Continuar"
           }}

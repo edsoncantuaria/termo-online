@@ -445,17 +445,44 @@ html {
   flex-shrink: 0;
 }
 
-.legenda-mini--online {
-  gap: 0.35rem;
+.hero-legenda {
+  display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
+  gap: 0.5rem 0.85rem;
+  margin: 0.15rem 0 0;
+  padding: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
 }
 
-.legenda-mini--online .tile.demo {
-  width: 34px;
-  height: 34px;
-  font-size: 0.82rem;
-  border-radius: 8px;
+.hero-legenda-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.hero-legenda-swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+.hero-legenda-swatch.correto {
+  background: var(--correto);
+}
+
+.hero-legenda-swatch.presente {
+  background: var(--presente);
+}
+
+.hero-legenda-swatch.ausente {
+  background: var(--ausente);
 }
 
 .tile.preto,
@@ -562,11 +589,9 @@ html {
   font-size: 1.5rem;
 }
 
-.inicio-hero-compacto .legenda-mini {
+.inicio-hero-compacto .legenda-mini,
+.inicio-hero-compacto .hero-legenda {
   margin: 0 auto;
-}
-
-.inicio-hero-compacto .legenda-mini--online {
   max-width: 100%;
 }
 

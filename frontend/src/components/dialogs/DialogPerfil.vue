@@ -143,6 +143,29 @@ async function onSalvarAvatar(id) {
         Ganho hoje: {{ progresso.xpGanhoHoje }} / {{ progresso.xpCapDiario }} XP
         · Eficiência no nível {{ progresso.nivel }}: {{ progresso.multiplicadorXpPct }}%
       </p>
+      <details
+        v-if="store.historicoRanqueado?.length"
+        class="perfil-colapsavel"
+        open
+      >
+        <summary class="perfil-colapsavel-resumo">
+          Últimos duelos ranqueados
+        </summary>
+        <ul class="perfil-colapsavel-corpo perfil-duelos-lista">
+          <li
+            v-for="(h, i) in store.historicoRanqueado"
+            :key="h.id || `${h.dataHora}-${i}`"
+            :class="h.venceu ? 'perfil-duelo--v' : 'perfil-duelo--d'"
+          >
+            <span class="perfil-duelo-oponente">{{ h.nickOponente }}</span>
+            <span class="perfil-duelo-delta">
+              {{ h.delta >= 0 ? `+${h.delta}` : h.delta }} RP
+            </span>
+            <span class="perfil-duelo-rp">{{ h.pontosDepois }} RP</span>
+          </li>
+        </ul>
+      </details>
+
       <details v-if="barrasHistorico.length" class="perfil-colapsavel">
         <summary class="perfil-colapsavel-resumo">Últimos 7 dias</summary>
         <div class="perfil-colapsavel-corpo perfil-historico">
