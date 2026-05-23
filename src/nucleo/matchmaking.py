@@ -314,7 +314,7 @@ class FilaMatchmaking:
     ) -> None:
         Config = self._ConfigRanqueada()
         Sala, J1 = Gerenciador.CriarSala(A.Nick, Config, IdConta=A.IdConta)
-        J2, Erro = Gerenciador.EntrarSala(
+        _Sala2, J2, Erro = Gerenciador.EntrarSala(
             Sala.CodigoSala,
             B.Nick,
             None,
@@ -323,7 +323,7 @@ class FilaMatchmaking:
         )
         if Erro or not J2:
             return
-        Gerenciador.TentarInicioAutomatico(Sala)
+        Gerenciador.IniciarDueloRanqueado(Sala)
         Sala = Gerenciador.ObterSala(Sala.CodigoSala) or Sala
         Gerenciador.PersistirSala(Sala)
         self._RegistrarMatch(A, B, Sala, J1, J2, oponente_eh_bot=False)
@@ -345,7 +345,8 @@ class FilaMatchmaking:
         )
         Sala.Jogadores[IdBotJogador] = J2
         MarcarBotEmPartida(Bot.Id)
-        Gerenciador.TentarInicioAutomatico(Sala)
+        J2.Pronto = True
+        Gerenciador.IniciarDueloRanqueado(Sala)
         Sala = Gerenciador.ObterSala(Sala.CodigoSala) or Sala
         Gerenciador.PersistirSala(Sala)
         self._RegistrarMatch(

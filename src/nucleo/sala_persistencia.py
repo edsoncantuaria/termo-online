@@ -18,6 +18,7 @@ def ExportarSnapshot(Sala: SalaJogo) -> dict:
         "idJogadorPausado": getattr(Sala, "IdJogadorPausado", None),
         "timersCongelados": getattr(Sala, "TimersCongelados", None) or {},
         "partidaEncerrada": Sala.PartidaEncerrada,
+        "partidaCancelada": getattr(Sala, "PartidaCancelada", False),
         "vencedorId": Sala.VencedorId,
         "palavraSecreta": Sala.PalavraSecreta,
         "palavraComAcento": Sala.PalavraComAcento,
@@ -131,6 +132,7 @@ def ImportarSnapshot(Dados: dict) -> SalaJogo | None:
             PalavraComAcento=Dados.get("palavraComAcento"),
             Jogadores=Jogadores,
             PartidaEncerrada=Dados.get("partidaEncerrada", False),
+            PartidaCancelada=Dados.get("partidaCancelada", False),
             VencedorId=Dados.get("vencedorId"),
             RodadaAtual=Dados.get("rodadaAtual", 0),
             HistoricoRodadas=Dados.get("historicoRodadas", []),
@@ -164,8 +166,15 @@ def PersistirSala(Gerenciador, Sala: SalaJogo | None) -> None:
     if not Sala:
         return
     if Sala.PartidaEncerrada or not Sala.Jogadores:
+        from . import sessao_jogo_conta
+
+        for J in list(Sala.Jogadores.values()):
+            sessao_jogo_conta.LimparSessaoContaJogador(J.IdConta)
         persistencia.RemoverSala(Sala.CodigoSala)
         _DispararNotificacaoLobby()
         return
     persistencia.SalvarSalaSnapshot(Sala.CodigoSala, ExportarSnapshot(Sala))
+    from . import sessao_jogo_conta
+
+    sessao_jogo_conta.SincronizarSessoesContaDaSala(Gerenciador, Sala)
     _DispararNotificacaoLobby()

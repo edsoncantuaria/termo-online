@@ -182,6 +182,24 @@ def test_finalizar_ausentes_rodada_atual():
     assert Sala.Jogadores[J2.IdJogador].Finalizou
 
 
+def test_matchmaking_inicia_duelo_em_jogando():
+    from nucleo.matchmaking import EntradaFila, FilaMatchmaking
+
+    G = GerenciadorSalas()
+    Fila = FilaMatchmaking()
+    Fila.Fila["c1"] = EntradaFila(IdConta="c1", Nick="alfa", Pontos=500)
+    Fila.Fila["c2"] = EntradaFila(IdConta="c2", Nick="beta", Pontos=520)
+    Fila.Processar(G)
+    assert "c1" not in Fila.Fila
+    Match = Fila.UltimoMatch.get("c1")
+    assert Match
+    Sala = G.ObterSala(Match["codigoSala"])
+    assert Sala is not None
+    assert Sala.EstadoSala == "jogando"
+    assert Match["idPartida"]
+    assert Match["tokenSessao"]
+
+
 def test_matchmaking_config_ranqueada_ver_outros_false():
     Fila = FilaMatchmaking()
     Config = Fila._ConfigRanqueada()

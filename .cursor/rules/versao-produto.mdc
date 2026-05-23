@@ -1,0 +1,30 @@
+# Versão do Termo Online
+
+## Onde alterar
+
+Sempre atualizar **os três** ao subir versão:
+
+1. `src/nucleo/versao.py` — `VERSAO` (fonte de verdade da API)
+2. `frontend/src/config/versao.js` — `VERSAO_NUMERO` (badge no topo)
+3. `frontend/index.html` — meta `termo-version` e `<title>`
+
+Opcional: `frontend/package.json` (`version`) no mesmo número.
+
+## Política
+
+| Tipo de mudança | Exemplo | Versão |
+|-----------------|---------|--------|
+| Significativa no jogo (regras, UX importante, modo, persistência, fluxo online) | Hero de partida ativa, desistir sem pontuar | **+0.1** → 1.1, 1.2, 1.3… |
+| Funcionalidade **grande** ou marco de produto | Novo modo principal, refactor de plataforma | **2.0**, 3.0… |
+| Bugfix (correção sem feature nova) | hotfix de desistência, CSS quebrado | **+0.0.1** → `1.1.1`, `1.1.2`… |
+
+- **Rótulo na UI**:
+  - release (`patch == 0`): `v{major}.{minor}` — ex. `1.1.0` → **v1.1**
+  - bugfix (`patch > 0`): `v{major}.{minor}.{patch}` — ex. `1.1.1` → **v1.1.1**
+- **Semver completo** em `VERSAO`: `major.minor.patch` (sempre nos três arquivos e na meta `termo-version`).
+
+## Checklist ao entregar feature significativa
+
+- [ ] Subir `VERSAO` em `versao.py` e espelhar no frontend
+- [ ] Rodar `pytest tests/test_versao.py`
+- [ ] Mencionar a versão no PR/commit se for release visível ao jogador

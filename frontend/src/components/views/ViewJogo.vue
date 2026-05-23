@@ -21,11 +21,26 @@ function encerrarSessao() {
   });
 }
 
+function semPontuacaoNaSessao() {
+  const meu = store.dadosSala?.placar?.find(
+    (j) => j.idJogador === store.idJogador
+  );
+  const pts = meu?.pontosAcumulados ?? 0;
+  const vit = meu?.vitoriasRodada ?? 0;
+  const chutes =
+    store.arenaTentativas?.length ||
+    store.dadosSala?.jogadores?.find((j) => j.idJogador === store.idJogador)
+      ?.tentativas?.length;
+  return pts === 0 && vit === 0 && !chutes;
+}
+
 function confirmarDesistencia() {
+  const semPontos = semPontuacaoNaSessao();
   store.mostrarConfirmacao({
     titulo: "Desistir da partida?",
-    mensagem:
-      store.modoJogoRanqueada
+    mensagem: semPontos
+      ? "Você voltará ao início. Como ainda não pontuou, nada será registrado no histórico nem em XP."
+      : store.modoJogoRanqueada
         ? "Você perderá o duelo ranqueado e os pontos serão aplicados."
         : "Você sairá da partida em andamento.",
     textoConfirmar: "Desistir",

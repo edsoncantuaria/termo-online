@@ -45,6 +45,9 @@ def ObterPartida(IdPartida: str) -> PartidaSolo | None:
 def SalvarPartida(Partida: PartidaSolo) -> None:
     PartidasSolo[Partida.IdPartida] = Partida
     persistencia.SalvarPartidaSolo(Partida)
+    from nucleo.sessao_jogo_conta import SincronizarSoloConta
+
+    SincronizarSoloConta(Partida)
 
 
 def MontarRespostaPartida(Partida: PartidaSolo) -> dict:

@@ -4751,3 +4751,90 @@ html.tema-claro .vitoria-rodada-toast {
     transition: none;
   }
 }
+
+/* --- Hero: partida em andamento (home) --- */
+
+.hero-jogo-ativo {
+  grid-column: 1 / -1;
+  padding: 1.1rem 1.25rem;
+  border-radius: var(--raio-lg, 14px);
+  border: 1px solid color-mix(in srgb, var(--cor-destaque, #6aaa64) 45%, transparent);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--cor-destaque, #6aaa64) 12%, var(--superficie-card, #1a1a1b)),
+    var(--superficie-card, #1a1a1b)
+  );
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+}
+
+.hero-jogo-ativo-cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.hero-jogo-ativo-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--superficie-elevada, #252528);
+  color: var(--texto-secundario, #a0a0a5);
+}
+
+.hero-jogo-ativo-badge--pausa {
+  background: color-mix(in srgb, #c9a227 25%, transparent);
+  color: #e8c96a;
+}
+
+.hero-jogo-ativo-badge--jogo {
+  background: color-mix(in srgb, var(--cor-destaque, #6aaa64) 22%, transparent);
+  color: var(--cor-destaque, #6aaa64);
+}
+
+.hero-jogo-ativo-badge--aguardo {
+  background: color-mix(in srgb, #5b8def 20%, transparent);
+  color: #8eb4f5;
+}
+
+.hero-jogo-ativo-titulo {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.hero-jogo-ativo-estado {
+  margin: 0 0 0.35rem;
+  color: var(--texto-secundario, #a0a0a5);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.hero-jogo-ativo-codigo {
+  margin: 0 0 0.85rem;
+  font-size: 0.88rem;
+  color: var(--texto-secundario, #a0a0a5);
+}
+
+.hero-jogo-ativo-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.hero-jogo-ativo-acoes .btn-largo {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+.hero-jogo-ativo-dica {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--texto-terciario, #6b6b70);
+  line-height: 1.4;
+}

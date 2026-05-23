@@ -51,6 +51,7 @@ import {
   SalvarAvatarLocal,
 } from "../utils/avatares.js";
 import { acoesRanqueada } from "./termo/acoes-ranqueada.js";
+import { acoesJogoAtivo } from "./termo/acoes-jogo-ativo.js";
 import { acoesSolo } from "./termo/acoes-solo.js";
 import { acoesResultado } from "./termo/acoes-resultado.js";
 import {
@@ -166,6 +167,8 @@ export const useTermoStore = defineStore("termo", {
     filaPreview: [],
     filaBusca: null,
     filaPodeCancelar: true,
+    jogoAtivo: null,
+    carregandoJogoAtivo: false,
     minhaPosicaoRanqueada: null,
     totalRanqueados: 0,
     rankingRanqueado: [],
@@ -641,14 +644,25 @@ export const useTermoStore = defineStore("termo", {
         EhModoSalaOnline(this.modo) &&
         !this.espectador
       ) {
-        titulo =
-          this.modo === "ranqueada"
-            ? "Sair do duelo ranqueado?"
-            : "Sair da partida?";
+        titulo = "Voltar ao início?";
         mensagem =
           this.modo === "ranqueada"
-            ? "Você abandonará o duelo e sairá da fila."
-            : "Você será removido da sala.";
+            ? "O duelo ranqueado continua ativo. Reconecte pela tela inicial."
+            : "A partida na arena continua ativa. Reconecte pela tela inicial.";
+        dica = "Use «Abandonar partida» no banner da home se quiser sair de vez.";
+        return new Promise((resolve) => {
+          this.mostrarConfirmacao({
+            titulo,
+            mensagem,
+            dica,
+            textoConfirmar: "Ir ao início",
+            textoCancelar: "Continuar jogando",
+            aoConfirmar: () => {
+              this.voltarInicioPreservandoPartida().finally(resolve);
+            },
+            aoCancelar: () => resolve(),
+          });
+        });
       }
       if (!mensagem) return this.voltarInicio();
       return new Promise((resolve) => {
@@ -901,6 +915,7 @@ export const useTermoStore = defineStore("termo", {
     },
 
     ...acoesRanqueada,
+    ...acoesJogoAtivo,
     ...acoesSolo,
     ...acoesResultado,
 
@@ -910,6 +925,7 @@ export const useTermoStore = defineStore("termo", {
         this.codigoEntrada = "";
         this.fecharDialogs();
         this.conectarLobbyWs();
+        this.carregarJogoAtivo();
       } else {
         this.pararLobbyWs();
       }
@@ -2002,12 +2018,16 @@ export const useTermoStore = defineStore("termo", {
       if (D.partidaEncerrada) {
         this.pararCronometro();
         this.encerrada = true;
-        const campeao = D.placar?.[0];
-        const venci = D.vencedorId === this.idJogador;
-        setTimeout(() => this.mostrarResultadoArena(D, venci, campeao), 300);
         acoesArena.fecharSocketSala();
         this.irParaView("inicio");
         LimparSessao();
+        if (D.partidaCancelada) {
+          this.mostrarToast("Partida encerrada — nada foi registrado.");
+        } else {
+          const campeao = D.placar?.[0];
+          const venci = D.vencedorId === this.idJogador;
+          setTimeout(() => this.mostrarResultadoArena(D, venci, campeao), 300);
+        }
         if (this.modo === "ranqueada") {
           this.modo = null;
           this.codigoSala = null;
@@ -2165,7 +2185,7 @@ export const useTermoStore = defineStore("termo", {
         return;
       }
       try {
-        await api.partidaDesistir(this.idPartida, {
+        const Resposta = await api.partidaDesistir(this.idPartida, {
           idJogador: this.idJogador,
           tokenSessao: this.tokenSessao,
         });
@@ -2179,7 +2199,17 @@ export const useTermoStore = defineStore("termo", {
         this.dadosSala = null;
         this.estadoSalaArena = null;
         this.irParaView("inicio");
-        this.mostrarToast("Você desistiu da partida.");
+        const SemRegistro =
+          Resposta?.semPenalidade || Resposta?.partidaCancelada;
+        this.mostrarToast(
+          SemRegistro
+            ? "Você saiu da partida. Nada foi registrado no histórico."
+            : "Você desistiu da partida."
+        );
+        if (this.conta?.idConta && !this.conta?.ehVisitante) {
+          await api.contaLimparJogoAtivo().catch(() => {});
+        }
+        await this.carregarJogoAtivo();
       } catch (e) {
         this.mostrarToast(e.message || "Não foi possível desistir", true);
       }
@@ -2347,7 +2377,10 @@ export const useTermoStore = defineStore("termo", {
     async carregarHomePainel() {
       this.carregandoHome = true;
       try {
-        await this.carregarSalasPublicas();
+        await Promise.all([
+          this.carregarSalasPublicas(),
+          this.carregarJogoAtivo(),
+        ]);
       } finally {
         this.carregandoHome = false;
       }
@@ -2527,7 +2560,10 @@ export const useTermoStore = defineStore("termo", {
       await this.carregarFrasesChat();
       this.fecharDialogs();
       this.atualizarStatsUI();
-      const retomou = await this.retomarSessao();
+      const salvo = ObterSessao();
+      const estavaNoJogo =
+        salvo?.ranqueada?.view === "jogo" || salvo?.arena?.view === "jogo";
+      const retomou = estavaNoJogo ? await this.retomarSessao() : false;
       await Promise.all([this.carregarInfoDiaria(), this.carregarHomePainel()]);
       const temConviteSala = !!this.capturarConviteSalaDaUrl();
       this.mostrarTutorial = false;

@@ -41,9 +41,11 @@ async function ProcessarMatchRanqueadoEncontrado(D) {
     D.nickOponente ? `Duelo com ${D.nickOponente}` : "Preparando o duelo…";
   this.filaPreview = [];
   await new Promise((r) => setTimeout(r, 720));
-  LimparEstadoFilaUi(this);
-  this.fecharDialogs();
-  await entrarSalaRanqueada.call(this, D);
+  try {
+    await entrarSalaRanqueada.call(this, D);
+  } finally {
+    LimparEstadoFilaUi(this);
+  }
 }
 
 export async function entrarFilaRanqueada() {
@@ -118,26 +120,15 @@ export function entrarNaSalaRanqueada(D, Credenciais = null) {
   this.modo = "ranqueada";
   this.configArena = D.configuracao;
   this.codigoSala = D.codigoSala;
-  this.idJogador = D.idJogador;
+  this.idJogador = D.idJogador || Credenciais?.idJogador;
   this.aplicarCredenciaisPartida(Credenciais || D);
   this.souCriador = D.souCriador;
   this.codigoEntrada = "";
   this.dadosSala = D;
   this.fecharDialogs();
   this.conectarWs();
-  if (
-    D.estadoSala === "jogando" ||
-    D.estadoSala === "entre_rodadas" ||
-    D.estadoSala === "countdown" ||
-    D.estadoSala === "pausada"
-  ) {
-    this.iniciarTelaJogo("Ranqueado");
-    this.atualizarArena(D);
-  } else if (D.estadoSala === "aguardando") {
-    this.irParaView("inicio");
-  } else {
-    this.irParaView("jogo");
-  }
+  this.iniciarTelaJogo("Ranqueado");
+  this.atualizarArena(D);
   this.persistir();
 }
 

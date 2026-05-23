@@ -23,6 +23,15 @@ def GerarTokenSessao() -> str:
     return secrets.token_urlsafe(16)
 
 
+def JogadorSemPontuacaoNaSessao(Jogador: JogadorSala) -> bool:
+    """Sem chutes e sem pontos/vitórias na sessão — saída não conta no histórico nem em XP."""
+    return (
+        len(Jogador.Tentativas) == 0
+        and getattr(Jogador, "PontosAcumulados", 0) == 0
+        and getattr(Jogador, "VitoriasRodada", 0) == 0
+    )
+
+
 def PartidaEmAndamento(Sala: SalaJogo) -> bool:
     if Sala.PartidaEncerrada:
         return False
@@ -427,11 +436,25 @@ def DesistirPartida(
     Ativos = Gerenciador.JogadoresAtivos(Sala)
     Oponentes = [J for J in Ativos if J.IdJogador != IdJogador]
 
+    SemPenalidade = bool(Jogador and JogadorSemPontuacaoNaSessao(Jogador))
+
     if Sala.Configuracao.Ranqueada and Oponentes:
+        if SemPenalidade:
+            Gerenciador.EncerrarSessaoCancelada(Sala)
+            SalaFinal = Gerenciador.ObterSala(Sala.CodigoSala) or Sala
+            return {
+                "desistiu": True,
+                "semPenalidade": True,
+                "partidaCancelada": True,
+                "partidaEncerrada": True,
+                "codigoSala": Sala.CodigoSala,
+                "estado": Gerenciador.EstadoPublicoSala(SalaFinal, IdJogador),
+            }, None, 200
         Gerenciador.EncerrarSessao(Sala, VencedorForcado=Oponentes[0].IdJogador)
         SalaFinal = Gerenciador.ObterSala(Sala.CodigoSala) or Sala
         return {
             "desistiu": True,
+            "semPenalidade": False,
             "partidaEncerrada": True,
             "codigoSala": Sala.CodigoSala,
             "estado": Gerenciador.EstadoPublicoSala(SalaFinal, IdJogador),
@@ -441,6 +464,7 @@ def DesistirPartida(
     SalaRestante = Gerenciador.ObterSala(Sala.CodigoSala)
     return {
         "desistiu": True,
+        "semPenalidade": SemPenalidade,
         "partidaEncerrada": not SalaRestante or SalaRestante.PartidaEncerrada,
         "codigoSala": Sala.CodigoSala,
     }, None, 200

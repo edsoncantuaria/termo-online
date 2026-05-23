@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { useTermoStore } from "../../stores/termo.js";
 import PainelHomeExtras from "../home/PainelHomeExtras.vue";
+import HeroJogoAtivo from "../home/HeroJogoAtivo.vue";
 
 const store = useTermoStore();
 
@@ -21,6 +22,8 @@ const diariaBloqueada = computed(
           <span class="tile demo ausente">X</span>
         </div>
       </div>
+
+      <HeroJogoAtivo />
 
       <div class="inicio-tres-modos">
         <article

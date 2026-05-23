@@ -112,6 +112,7 @@ class SalaJogo:
     PalavraComAcento: str | None = None
     Jogadores: dict[str, JogadorSala] = field(default_factory=dict)
     PartidaEncerrada: bool = False
+    PartidaCancelada: bool = False
     VencedorId: str | None = None
     RodadaAtual: int = 0
     HistoricoRodadas: list[dict] = field(default_factory=list)
@@ -760,6 +761,25 @@ class GerenciadorSalas:
             )
         return sorted(Resultado, key=lambda I: -I["online"])[:20]
 
+    def EncerrarSessaoCancelada(self, Sala: SalaJogo) -> None:
+        """Encerra sem rodada, ranqueada, XP nem histórico (saída antes de pontuar)."""
+        if Sala.PartidaEncerrada:
+            return
+        Sala.PartidaEncerrada = True
+        Sala.PartidaCancelada = True
+        Sala.EstadoSala = "encerrada"
+        Sala.VencedorId = None
+        if Sala.Configuracao.Ranqueada:
+            from .bots_ranqueados import LiberarBotsDaSala
+
+            LiberarBotsDaSala(Sala)
+        from .sessao_jogo_conta import LimparSessaoContaJogador
+
+        for J in Sala.Jogadores.values():
+            if J.IdConta:
+                LimparSessaoContaJogador(J.IdConta)
+        self.PersistirSala(Sala)
+
     def EncerrarSessao(
         self,
         Sala: SalaJogo,
@@ -791,6 +811,19 @@ class GerenciadorSalas:
                 from .progresso import RecompensaRanqueada
 
                 for R in Resultados:
+                    Jogador = next(
+                        (
+                            J
+                            for J in Sala.Jogadores.values()
+                            if J.IdConta == R.IdConta and not J.Espectador
+                        ),
+                        None,
+                    )
+                    if Jogador:
+                        from .partida_sessao import JogadorSemPontuacaoNaSessao
+
+                        if JogadorSemPontuacaoNaSessao(Jogador):
+                            continue
                     RecompensaRanqueada(R.IdConta, R.Venceu)
                 FilaGlobal.RegistrarFimDueloRanqueado(Sala, Resultados)
                 Sala.ResultadosRanqueada = [
@@ -825,6 +858,18 @@ class GerenciadorSalas:
         self.RemoverJogador(Sala.CodigoSala, IdAlvo)
         return None
 
+    def IniciarDueloRanqueado(self, Sala: SalaJogo) -> bool:
+        """Matchmaking ranqueado: marca prontos e inicia sem lobby manual."""
+        if not Sala.Configuracao.Ranqueada or Sala.EstadoSala != "aguardando":
+            return False
+        for Jogador in self.JogadoresAtivos(Sala):
+            Jogador.Pronto = True
+            Jogador.Conectado = True
+        if self.TentarInicioAutomatico(Sala):
+            return True
+        Erro = self.IniciarPartida(Sala, Sala.CriadorId)
+        return Erro is None
+
     def TentarInicioAutomatico(self, Sala: SalaJogo) -> bool:
         if Sala.EstadoSala != "aguardando":
             return False
@@ -852,6 +897,11 @@ class GerenciadorSalas:
         Sala = self.ObterSala(CodigoSala)
         if not Sala:
             return
+        Jogador = Sala.Jogadores.get(IdJogador)
+        if Jogador and Jogador.IdConta:
+            from .sessao_jogo_conta import LimparSessaoContaJogador
+
+            LimparSessaoContaJogador(Jogador.IdConta)
         Sala.Jogadores.pop(IdJogador, None)
         if not Sala.Jogadores:
             self.Salas.pop(CodigoSala.upper(), None)
@@ -1105,6 +1155,7 @@ class GerenciadorSalas:
             "codigoSala": Sala.CodigoSala,
             "estadoSala": Sala.EstadoSala,
             "partidaEncerrada": Sala.PartidaEncerrada,
+            "partidaCancelada": getattr(Sala, "PartidaCancelada", False),
             "vencedorId": Sala.VencedorId,
             "criadorId": Sala.CriadorId,
             "souCriador": Sala.CriadorId == IdObservador,

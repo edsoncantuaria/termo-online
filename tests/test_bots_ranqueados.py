@@ -42,6 +42,9 @@ def test_fila_entra_bot_apos_14_segundos(monkeypatch):
         def ObterSala(self, c):
             return self.Salas.get(c)
 
+        def IniciarDueloRanqueado(self, s):
+            pass
+
         def TentarInicioAutomatico(self, s):
             pass
 

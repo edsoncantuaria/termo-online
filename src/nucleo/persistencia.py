@@ -183,6 +183,23 @@ def _AplicarMigracoesProgresso(C: sqlite3.Connection) -> None:
             PRIMARY KEY (id_conta, data_dia, indice_tentativa)
         );
 
+        CREATE TABLE IF NOT EXISTS sessao_jogo_conta (
+            id_conta TEXT PRIMARY KEY,
+            tipo TEXT NOT NULL,
+            id_partida TEXT NOT NULL,
+            codigo_sala TEXT,
+            id_jogador TEXT NOT NULL,
+            token_sessao TEXT,
+            token_partida TEXT,
+            modo_solo TEXT,
+            estado_sala TEXT,
+            pausada INTEGER NOT NULL DEFAULT 0,
+            segundos_pausa INTEGER,
+            tempo_limite_segundos INTEGER NOT NULL DEFAULT 0,
+            atualizado_em TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (id_conta) REFERENCES contas(id) ON DELETE CASCADE
+        );
+
         CREATE TABLE IF NOT EXISTS diaria_xp_conclusao (
             id_conta TEXT NOT NULL,
             data_dia TEXT NOT NULL,
@@ -292,6 +309,74 @@ def ObterCodigoSalaPorIdPartida(IdPartida: str) -> str | None:
             (IdPartida,),
         ).fetchone()
     return Linha["codigo_sala"] if Linha else None
+
+
+def SalvarSessaoJogoConta(
+    *,
+    IdConta: str,
+    Tipo: str,
+    IdPartida: str,
+    IdJogador: str,
+    CodigoSala: str | None = None,
+    TokenSessao: str | None = None,
+    TokenPartida: str | None = None,
+    ModoSolo: str | None = None,
+    EstadoSala: str | None = None,
+    Pausada: bool = False,
+    SegundosPausa: int | None = None,
+    TempoLimiteSegundos: int = 0,
+) -> None:
+    with Conexao() as C:
+        C.execute(
+            """
+            INSERT INTO sessao_jogo_conta (
+                id_conta, tipo, id_partida, codigo_sala, id_jogador,
+                token_sessao, token_partida, modo_solo, estado_sala,
+                pausada, segundos_pausa, tempo_limite_segundos, atualizado_em
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(id_conta) DO UPDATE SET
+                tipo = excluded.tipo,
+                id_partida = excluded.id_partida,
+                codigo_sala = excluded.codigo_sala,
+                id_jogador = excluded.id_jogador,
+                token_sessao = COALESCE(excluded.token_sessao, sessao_jogo_conta.token_sessao),
+                token_partida = COALESCE(excluded.token_partida, sessao_jogo_conta.token_partida),
+                modo_solo = excluded.modo_solo,
+                estado_sala = excluded.estado_sala,
+                pausada = excluded.pausada,
+                segundos_pausa = excluded.segundos_pausa,
+                tempo_limite_segundos = excluded.tempo_limite_segundos,
+                atualizado_em = datetime('now')
+            """,
+            (
+                IdConta,
+                Tipo,
+                IdPartida,
+                CodigoSala.upper() if CodigoSala else None,
+                IdJogador,
+                TokenSessao,
+                TokenPartida,
+                ModoSolo,
+                EstadoSala,
+                int(Pausada),
+                SegundosPausa,
+                TempoLimiteSegundos,
+            ),
+        )
+
+
+def LimparSessaoJogoConta(IdConta: str) -> None:
+    with Conexao() as C:
+        C.execute("DELETE FROM sessao_jogo_conta WHERE id_conta = ?", (IdConta,))
+
+
+def ObterSessaoJogoConta(IdConta: str) -> dict | None:
+    with Conexao() as C:
+        Linha = C.execute(
+            "SELECT * FROM sessao_jogo_conta WHERE id_conta = ?",
+            (IdConta,),
+        ).fetchone()
+    return dict(Linha) if Linha else None
 
 
 def RegistrarEventoPartida(

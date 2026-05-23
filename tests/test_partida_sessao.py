@@ -180,12 +180,57 @@ def test_reconexao_limpa_ausente_continua(GerenciadorDesafio):
 
 def test_desistir_partida_ranqueada(Gerenciador):
     G, Sala, J1, J2 = Gerenciador
+    J1.Tentativas.append(
+        {
+            "palavra": "TESTE",
+            "letras": list("TESTE"),
+            "estados": ["ausente"] * 5,
+        }
+    )
     Dados, Erro, Status = DesistirPartida(
         G, Sala.IdPartida, J1.IdJogador, J1.TokenSessao
     )
     assert Status == 200
     assert Erro is None
     assert Dados["desistiu"] is True
+    assert Dados.get("semPenalidade") is False
     Sala = G.ObterSala(Sala.CodigoSala)
     assert Sala.PartidaEncerrada
     assert Sala.VencedorId == J2.IdJogador
+
+
+def test_desistir_ranqueada_sem_pontos_cancela(Gerenciador):
+    G, Sala, J1, J2 = Gerenciador
+    Dados, Erro, Status = DesistirPartida(
+        G, Sala.IdPartida, J1.IdJogador, J1.TokenSessao
+    )
+    assert Status == 200
+    assert Dados["semPenalidade"] is True
+    assert Dados["partidaCancelada"] is True
+    Sala = G.ObterSala(Sala.CodigoSala)
+    assert Sala.PartidaEncerrada
+    assert Sala.PartidaCancelada
+    assert Sala.VencedorId is None
+    assert Sala.ResultadosRanqueada is None
+
+
+def test_desistir_arena_sem_pontos_remove_sem_encerrar(Gerenciador):
+    G, Sala, J1, J2 = Gerenciador
+    from nucleo.arena_rodadas import ModoPontos
+    from nucleo.gerenciador_salas import ConfiguracaoSala
+
+    Config = ConfiguracaoSala(MaximoJogadores=4, ModoSessao=ModoPontos)
+    Sala2, J1a = G.CriarSala("A", Config, IdConta="c1")
+    _S, J2a, Erro = G.EntrarSala(Sala2.CodigoSala, "B", IdConta="c2")
+    assert Erro is None
+    G.IniciarPartida(Sala2, J1a.IdJogador)
+    Sala2 = G.ObterSala(Sala2.CodigoSala)
+    Dados, Erro, Status = DesistirPartida(
+        G, Sala2.IdPartida, J1a.IdJogador, J1a.TokenSessao
+    )
+    assert Status == 200
+    assert Dados["semPenalidade"] is True
+    Sala2 = G.ObterSala(Sala2.CodigoSala)
+    assert Sala2 is not None
+    assert not Sala2.PartidaEncerrada
+    assert J1a.IdJogador not in Sala2.Jogadores

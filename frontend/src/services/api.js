@@ -138,6 +138,14 @@ export const api = {
 
   authEu: () => fetchAuth(UrlApi("/api/auth/eu")).then(JsonOuErro),
 
+  contaJogoAtivo: () =>
+    fetchAuth(UrlApi("/api/conta/jogo-ativo")).then(JsonOuErro),
+
+  contaLimparJogoAtivo: () =>
+    fetchAuth(UrlApi("/api/conta/jogo-ativo"), { method: "DELETE" }).then(
+      JsonOuErro
+    ),
+
   authAtualizarAvatar: (avatarId) =>
     fetchAuth(UrlApi("/api/auth/avatar"), {
       method: "PATCH",

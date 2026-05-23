@@ -9,6 +9,7 @@ from nucleo.contas import (
     RegistrarConta,
 )
 from servidor.dependencias_auth import ContaOpcional, ContaRegistrada
+from servidor.estado_global import GerenciadorVersus
 from servidor.rotas.schemas import (
     AuthLoginRequest,
     AuthRegistroRequest,
@@ -54,6 +55,23 @@ def RegistrarRotasAuth(Roteador: APIRouter) -> None:
     @Roteador.get("/auth/avatares")
     def ListarAvatares():
         return {"avatares": list(AVATARES)}
+
+    @Roteador.get("/conta/jogo-ativo")
+    def JogoAtivoConta(Perfil=Depends(ContaRegistrada)):
+        from nucleo.sessao_jogo_conta import MontarJogoAtivoParaConta
+
+        GerenciadorVersus.RestaurarSalasAtivas()
+        Jogo = MontarJogoAtivoParaConta(GerenciadorVersus, Perfil["idConta"])
+        if not Jogo:
+            return {"ativo": False}
+        return Jogo
+
+    @Roteador.delete("/conta/jogo-ativo")
+    def LimparJogoAtivoConta(Perfil=Depends(ContaRegistrada)):
+        from nucleo.sessao_jogo_conta import LimparSessaoContaJogador
+
+        LimparSessaoContaJogador(Perfil["idConta"])
+        return {"limpo": True}
 
     @Roteador.patch("/auth/avatar")
     def AtualizarAvatar(Corpo: AvatarRequest, Perfil=Depends(ContaRegistrada)):
