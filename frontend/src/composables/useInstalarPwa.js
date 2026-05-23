@@ -1,4 +1,4 @@
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch, unref } from "vue";
 import {
   AoPromptInstalacaoPronto,
   BarraInstalarMinimizada,
@@ -11,8 +11,9 @@ import {
 
 /**
  * Faixa de instalação PWA (Android: prompt nativo; iOS: Safari / tela de início).
+ * @param {import('vue').Ref<boolean>|import('vue').ComputedRef<boolean>|(() => boolean)} EstaNoMenuPrincipal
  */
-export function useInstalarPwa() {
+export function useInstalarPwa(EstaNoMenuPrincipal = ref(true)) {
   const instalado = ref(EhInstaladoComoApp());
   const minimizada = ref(BarraInstalarMinimizada());
   const temPromptAndroid = ref(!!ObterPromptInstalacao());
@@ -20,10 +21,18 @@ export function useInstalarPwa() {
 
   const plataforma = computed(() => PlataformaInstalacao());
 
-  const podeMostrar = computed(() => {
+  const noMenuPrincipal = computed(() => !!unref(EstaNoMenuPrincipal));
+
+  const podeInstalar = computed(() => {
     if (instalado.value) return false;
-    return !!plataforma.value && plataforma.value !== "instalado";
+    const P = plataforma.value;
+    return !!P && P !== "instalado";
   });
+
+  /** Só na home — nunca em partida, arena ou diálogos de jogo. */
+  const podeMostrar = computed(
+    () => noMenuPrincipal.value && podeInstalar.value
+  );
 
   const ehAndroid = computed(() => plataforma.value === "android");
   const ehIosSafari = computed(() => plataforma.value === "ios-safari");
@@ -32,8 +41,8 @@ export function useInstalarPwa() {
   const textoPrincipal = computed(() => {
     if (ehAndroid.value) {
       return temPromptAndroid.value
-        ? "Instale o Termo como app — abre rápido e funciona melhor offline na prática."
-        : "Instale o Termo: no menu do Chrome (⋮), toque em “Instalar app” ou “Adicionar à tela inicial”.";
+        ? "Instale o Termo como app — abre rápido na tela inicial."
+        : "Instale o Termo: menu ⋮ do Chrome → Instalar app ou Adicionar à tela inicial.";
     }
     if (ehIosSafari.value) {
       return "Adicione à Tela de Início pelo Safari — ícone na home, tela cheia.";
@@ -41,14 +50,14 @@ export function useInstalarPwa() {
     if (ehIosInApp.value) {
       return "Para instalar, abra esta página no Safari (navegador do iPhone).";
     }
-    return "Instale o jogo no seu celular para acesso rápido.";
+    return "Instale o jogo no celular para acesso rápido.";
   });
 
   const rotuloBotao = computed(() => {
     if (ehAndroid.value && temPromptAndroid.value) return "Instalar jogo";
     if (ehIosSafari.value) return "Como instalar";
-    if (ehIosInApp.value) return "Abrir no Safari";
-    return "Instalar jogo";
+    if (ehIosInApp.value) return "Ver como instalar";
+    return "Como instalar";
   });
 
   function atualizarEstado() {
@@ -58,6 +67,16 @@ export function useInstalarPwa() {
 
   let removerListenerPrompt = null;
   let aoInstalado = null;
+  let aoEscape = null;
+
+  function fecharDialogo() {
+    dialogoAberto.value = false;
+  }
+
+  function abrirDialogo() {
+    if (!podeInstalar.value) return;
+    dialogoAberto.value = true;
+  }
 
   onMounted(() => {
     atualizarEstado();
@@ -66,22 +85,35 @@ export function useInstalarPwa() {
     });
     aoInstalado = () => {
       instalado.value = true;
-      dialogoAberto.value = false;
+      fecharDialogo();
     };
     window.addEventListener("termo-pwa-instalado", aoInstalado);
     window.addEventListener("visibilitychange", atualizarEstado);
+
+    aoEscape = (e) => {
+      if (e.key === "Escape" && dialogoAberto.value) {
+        e.stopPropagation();
+        fecharDialogo();
+      }
+    };
+    window.addEventListener("keydown", aoEscape, true);
   });
 
   onUnmounted(() => {
     removerListenerPrompt?.();
     window.removeEventListener("termo-pwa-instalado", aoInstalado);
     window.removeEventListener("visibilitychange", atualizarEstado);
+    window.removeEventListener("keydown", aoEscape, true);
+  });
+
+  watch(noMenuPrincipal, (NoMenu) => {
+    if (!NoMenu) fecharDialogo();
   });
 
   function minimizar() {
     minimizada.value = true;
     DefinirBarraInstalarMinimizada(true);
-    dialogoAberto.value = false;
+    fecharDialogo();
   }
 
   function expandir() {
@@ -89,29 +121,26 @@ export function useInstalarPwa() {
     DefinirBarraInstalarMinimizada(false);
   }
 
-  function abrirDialogo() {
-    dialogoAberto.value = true;
-  }
-
-  function fecharDialogo() {
-    dialogoAberto.value = false;
-  }
-
   async function acaoPrincipal() {
-    if (ehIosInApp.value) {
-      abrirDialogo();
-      return;
-    }
-    if (ehIosSafari.value) {
-      abrirDialogo();
-      return;
-    }
+    if (!podeMostrar.value) return;
+
     if (ehAndroid.value && temPromptAndroid.value) {
       const R = await DispararPromptInstalacaoAndroid();
       if (R.ok && R.aceito) instalado.value = true;
       else if (R.motivo === "sem-prompt") abrirDialogo();
       return;
     }
+
+    if (ehIosSafari.value || ehIosInApp.value) {
+      abrirDialogo();
+      return;
+    }
+
+    if (ehAndroid.value) {
+      abrirDialogo();
+      return;
+    }
+
     abrirDialogo();
   }
 
@@ -127,6 +156,7 @@ export function useInstalarPwa() {
 
   return {
     podeMostrar,
+    podeInstalar,
     minimizada,
     dialogoAberto,
     plataforma,

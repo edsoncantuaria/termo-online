@@ -6635,6 +6635,7 @@ body:has(.pwa-fab-instalar) .principal {
   padding: 0.75rem;
   padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
   background: rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
 }
 
 .pwa-dialog-card {
@@ -6662,6 +6663,18 @@ body:has(.pwa-fab-instalar) .principal {
 
 .pwa-dialog-corpo {
   padding: 0.35rem 1rem 1rem;
+}
+
+.pwa-dialog-rodape {
+  padding: 0 1rem 1rem;
+}
+
+.pwa-dialog-cabecalho .btn-fechar-dialog {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .pwa-passos {

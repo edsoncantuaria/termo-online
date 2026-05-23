@@ -1,50 +1,76 @@
 <script setup>
+import { computed } from "vue";
 import { useTermoStore } from "../../stores/termo.js";
 import { useInstalarPwa } from "../../composables/useInstalarPwa.js";
+import BtnFecharDialog from "../dialogs/BtnFecharDialog.vue";
 
 const store = useTermoStore();
-const P = useInstalarPwa();
+
+const estaNoMenuPrincipal = computed(
+  () =>
+    store.view === "inicio" &&
+    !store.deveExibirTutorial &&
+    !store.dialogAberto
+);
+
+const {
+  podeMostrar,
+  minimizada,
+  dialogoAberto,
+  ehAndroid,
+  ehIosSafari,
+  ehIosInApp,
+  temPromptAndroid,
+  textoPrincipal,
+  rotuloBotao,
+  minimizar,
+  expandir,
+  fecharDialogo,
+  acaoPrincipal,
+  copiarLinkSafari,
+} = useInstalarPwa(estaNoMenuPrincipal);
 
 function toast(texto, erro) {
   store.mostrarToast(texto, erro);
+}
+
+async function instalarAndroidNoDialogo() {
+  await acaoPrincipal();
+  fecharDialogo();
 }
 </script>
 
 <template>
   <Teleport to="body">
     <button
-      v-if="P.podeMostrar && P.minimizada"
+      v-if="podeMostrar && minimizada"
       type="button"
       class="pwa-fab-instalar"
       aria-label="Instalar jogo no celular"
-      @click="P.expandir()"
+      @click="expandir"
     >
       <span class="pwa-fab-icone" aria-hidden="true">📲</span>
       Instalar jogo
     </button>
 
     <aside
-      v-else-if="P.podeMostrar"
+      v-else-if="podeMostrar"
       class="pwa-faixa-instalar"
       role="region"
       aria-label="Instalar aplicativo"
     >
       <div class="pwa-faixa-corpo">
         <span class="pwa-faixa-icone" aria-hidden="true">📲</span>
-        <p class="pwa-faixa-texto">{{ P.textoPrincipal }}</p>
+        <p class="pwa-faixa-texto">{{ textoPrincipal }}</p>
         <div class="pwa-faixa-acoes">
           <button
             type="button"
             class="btn-modo btn-modo-destaque pwa-faixa-btn-principal"
-            @click="P.acaoPrincipal()"
+            @click="acaoPrincipal"
           >
-            {{ P.rotuloBotao }}
+            {{ rotuloBotao }}
           </button>
-          <button
-            type="button"
-            class="pwa-faixa-btn-sec"
-            @click="P.minimizar()"
-          >
+          <button type="button" class="pwa-faixa-btn-sec" @click="minimizar">
             Agora não
           </button>
         </div>
@@ -52,28 +78,21 @@ function toast(texto, erro) {
     </aside>
 
     <div
-      v-if="P.dialogoAberto"
+      v-if="dialogoAberto"
       class="pwa-dialog-overlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby="pwa-instalar-titulo"
-      @click.self="P.fecharDialogo()"
+      @click.self="fecharDialogo"
     >
-      <div class="pwa-dialog-card">
+      <div class="pwa-dialog-card" @click.stop>
         <header class="pwa-dialog-cabecalho">
           <h2 id="pwa-instalar-titulo">Instalar Termo no celular</h2>
-          <button
-            type="button"
-            class="btn-fechar-dialog"
-            aria-label="Fechar"
-            @click="P.fecharDialogo()"
-          >
-            ×
-          </button>
+          <BtnFecharDialog :ao-fechar="fecharDialogo" />
         </header>
 
         <div class="pwa-dialog-corpo">
-          <template v-if="P.ehIosSafari">
+          <template v-if="ehIosSafari">
             <ol class="pwa-passos">
               <li>
                 Toque em <strong>Compartilhar</strong>
@@ -90,9 +109,10 @@ function toast(texto, erro) {
             </p>
           </template>
 
-          <template v-else-if="P.ehIosInApp">
+          <template v-else-if="ehIosInApp">
             <p class="pwa-dica">
-              Abra esta página no <strong>Safari</strong> (navegador do iPhone):
+              Este app (Chrome, Instagram, etc.) não instala PWAs. Use o
+              <strong>Safari</strong>:
             </p>
             <ol class="pwa-passos">
               <li>Copie o link abaixo.</li>
@@ -102,15 +122,16 @@ function toast(texto, erro) {
             <button
               type="button"
               class="btn-modo btn-modo-destaque btn-largo"
-              @click="P.copiarLinkSafari(toast)"
+              @click="copiarLinkSafari(toast)"
             >
               Copiar link do jogo
             </button>
           </template>
 
-          <template v-else-if="P.ehAndroid">
-            <p v-if="P.temPromptAndroid" class="pwa-dica">
-              O Android vai pedir confirmação para instalar o app.
+          <template v-else-if="ehAndroid">
+            <p v-if="temPromptAndroid" class="pwa-dica">
+              Toque em <strong>Instalar jogo</strong> — o Android mostra a
+              confirmação nativa.
             </p>
             <ol v-else class="pwa-passos">
               <li>Menu <strong>⋮</strong> do Chrome (canto superior).</li>
@@ -121,15 +142,21 @@ function toast(texto, erro) {
               <li>Confirme na gaveta de apps.</li>
             </ol>
             <button
-              v-if="P.temPromptAndroid"
+              v-if="temPromptAndroid"
               type="button"
               class="btn-modo btn-modo-destaque btn-largo"
-              @click="P.acaoPrincipal(); P.fecharDialogo()"
+              @click="instalarAndroidNoDialogo"
             >
               Instalar jogo
             </button>
           </template>
         </div>
+
+        <footer class="pwa-dialog-rodape">
+          <button type="button" class="btn-modo btn-modo-sec btn-largo" @click="fecharDialogo">
+            Fechar
+          </button>
+        </footer>
       </div>
     </div>
   </Teleport>

@@ -37,23 +37,42 @@ export function EhInstaladoComoApp() {
   );
 }
 
-export function EhAndroid() {
-  return /android/i.test(navigator.userAgent);
+function UserAgent() {
+  return typeof navigator !== "undefined" ? navigator.userAgent : "";
 }
 
+/** iPhone, iPad (incl. iPadOS com UA de Mac) e iPod. */
 export function EhIos() {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const Ua = UserAgent();
+  if (/iphone|ipad|ipod/i.test(Ua)) return true;
+  return (
+    typeof navigator !== "undefined" &&
+    navigator.platform === "MacIntel" &&
+    navigator.maxTouchPoints > 1
+  );
 }
 
-/** Safari no iOS (não Chrome/Firefox/Edge no iPhone). */
+export function EhAndroid() {
+  const Ua = UserAgent();
+  if (/android/i.test(Ua)) return true;
+  const Dados = navigator.userAgentData;
+  if (Dados?.platform && /android/i.test(Dados.platform)) return true;
+  return false;
+}
+
+/** Safari no iOS (não Chrome, Firefox, Edge, Opera, WebViews de apps). */
 export function EhIosSafari() {
   if (!EhIos()) return false;
-  const Ua = navigator.userAgent;
-  if (/crios|fxios|edgios|opr\//i.test(Ua)) return false;
-  return /safari/i.test(Ua);
+  const Ua = UserAgent();
+  if (/crios|fxios|edgios|edg\/|opr\/|opt\/|gsa\//i.test(Ua)) return false;
+  if (/fbav|fban|fbios|instagram|line\/|twitter|linkedinapp|wv\)/i.test(Ua)) {
+    return false;
+  }
+  if (/safari/i.test(Ua)) return true;
+  return !window.chrome && !/crios/i.test(Ua);
 }
 
-/** Instagram, Facebook, etc. — precisa abrir no Safari. */
+/** Instagram, Facebook, Chrome no iPhone, etc. */
 export function EhIosNavegadorEmbutido() {
   return EhIos() && !EhIosSafari();
 }
@@ -62,6 +81,9 @@ export function EhMobileOuTablet() {
   return EhAndroid() || EhIos();
 }
 
+/**
+ * @returns {"instalado"|"ios-safari"|"ios-inapp"|"android"|"ios-outro"|null}
+ */
 export function PlataformaInstalacao() {
   if (EhInstaladoComoApp()) return "instalado";
   if (EhIosNavegadorEmbutido()) return "ios-inapp";
@@ -69,10 +91,6 @@ export function PlataformaInstalacao() {
   if (EhAndroid()) return "android";
   if (EhIos()) return "ios-outro";
   return null;
-}
-
-export function UrlAbrirNoSafari() {
-  return window.location.href;
 }
 
 export async function DispararPromptInstalacaoAndroid() {
