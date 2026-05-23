@@ -13,6 +13,9 @@ async function iniciarModo(page, nomeBotao) {
     .getByRole("banner")
     .getByRole("button", { name: "Entrar" })
     .click({ force: true });
+  await expect(page.locator("dialog.dialog-conta")).toBeVisible({
+    timeout: 10_000,
+  });
   await garantirNickVisitante(page, nick);
   await escolherModoJogar(page, nomeBotao);
   const aviso = page.getByRole("dialog").filter({ hasText: /Dueto|Quarteto/i });

@@ -55,14 +55,17 @@ export async function definirNick(page, nick) {
   await dispensarTutorial(page);
 }
 
-export async function garantirNickVisitante(page, nick = "E2EJogador") {
-  const btn = page.getByRole("button", { name: /Entrar como visitante/i });
-  if (!(await btn.isVisible().catch(() => false))) return;
-  await page.getByPlaceholder(/maria/i).fill(nick);
+export async function garantirNickVisitante(page, nick = "e2ejogador") {
+  const dialog = page.locator("dialog.dialog-conta");
+  if (!(await dialog.isVisible().catch(() => false))) return;
+  const btn = dialog.getByRole("button", { name: /Entrar como visitante/i });
+  await dialog.getByPlaceholder(/maria/i).fill(nick);
   await btn.click({ force: true });
-  await expect(page.locator("dialog.dialog-conta")).toBeHidden({
-    timeout: 25_000,
-  });
+  await expect(btn).toBeHidden({ timeout: 25_000 });
+  if (await dialog.isVisible().catch(() => false)) {
+    await dialog.getByRole("button", { name: "Fechar" }).click({ force: true });
+  }
+  await expect(dialog).toBeHidden({ timeout: 10_000 });
 }
 
 export async function criarSalaViaApi(request, nick) {
