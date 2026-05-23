@@ -6,7 +6,7 @@ import hashlib
 import random
 
 from . import persistencia
-from .bots_ranqueados import BOTS
+from .bots_ranqueados import BOTS, RP_MAXIMO_BOTS
 from .ranqueada import EloDePontos, NomeEloExibicao
 
 TOP_EXIBIDO = 20
@@ -77,7 +77,7 @@ def _GerarPopulacaoPassiva() -> list[dict]:
         if len(Nick) < 3 or Nick in Vistos:
             continue
         Vistos.add(Nick)
-        Pontos = int(Rng.betavariate(2.0, 5.0) * 2800)
+        Pontos = int(Rng.betavariate(2.0, 5.0) * RP_MAXIMO_BOTS)
         Partidas, Vitorias = _StatsExibicaoPassivo(f"pass_{I}")
         Lista.append(
             {

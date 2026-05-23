@@ -1924,6 +1924,12 @@ def ListarUltimasPartidasConta(IdConta: str, Limite: int = LIMITE_ULTIMAS_PARTID
     return Itens[:Lim]
 
 
+def LimparEstadoBotsRanqueados() -> int:
+    """Remove RP/partidas persistidos dos bots (reset pré-produção)."""
+    with Conexao() as C:
+        return C.execute("DELETE FROM bots_ranqueados_estado").rowcount
+
+
 def ListarEstadoBotsRanqueados() -> dict[str, dict]:
     """RP e estatísticas persistidos dos bots (sobrevivem reinício do servidor)."""
     with Conexao() as C:

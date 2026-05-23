@@ -192,6 +192,22 @@ _VitoriasBots: dict[str, int] = {}
 _EstadoBotsCarregado = False
 
 
+def ResetarBotsRanqueadosParaPadrao() -> int:
+    """Zera evolução dos bots no banco e na memória (valores iniciais de lançamento)."""
+    global _EstadoBotsCarregado, _PontosVivos, _PartidasBots, _VitoriasBots
+
+    from . import persistencia
+
+    Removidos = persistencia.LimparEstadoBotsRanqueados()
+    _PontosVivos = {B.Id: B.Pontos for B in BOTS}
+    _PartidasBots.clear()
+    _VitoriasBots.clear()
+    _BotsReservados.clear()
+    _BotsEmPartida.clear()
+    _EstadoBotsCarregado = True
+    return Removidos
+
+
 def InicializarEstadoBotsRanqueados() -> None:
     """Carrega RP dos bots do SQLite (chamar após ``InicializarBanco``)."""
     global _EstadoBotsCarregado

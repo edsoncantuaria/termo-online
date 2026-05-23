@@ -1,4 +1,4 @@
-.PHONY: help install install-dev install-python install-frontend frontend-build dev run run-prod stop stop-vite restart clean test backup-db dicionario dicionario-db
+.PHONY: help install install-dev install-python install-frontend frontend-build dev run run-prod stop stop-vite restart clean test backup-db reset-fakes dicionario dicionario-db
 
 PORT ?= 8000
 VITE_PORT ?= 5173
@@ -18,6 +18,7 @@ help:
 	@echo "  make frontend-build — gera src/static/dist/"
 	@echo "  make test           — pytest"
 	@echo "  make backup-db      — cópia de data/termo.db"
+	@echo "  make reset-fakes    — zera bots fake no banco (pré-produção)"
 	@echo "  make dicionario     — alias para dicionario-db"
 	@echo "  make dicionario-db  — gera src/dicionario.txt a partir de dicionario/dicionario.db"
 
@@ -96,6 +97,10 @@ backup-db:
 	@test -f data/termo.db || (echo "data/termo.db não existe." && exit 1)
 	cp data/termo.db "data/backups/termo-$$(date +%Y%m%d-%H%M%S).db"
 	@echo "Backup em data/backups/"
+
+reset-fakes:
+	@test -x $(PYTHON) || (echo "Rode: make install-dev" && exit 1)
+	$(PYTHON) scripts/reset_fakes_producao.py
 
 dicionario: dicionario-db
 
