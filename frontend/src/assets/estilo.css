@@ -63,26 +63,6 @@ html {
   flex-direction: column;
 }
 
-.app-versao-canto {
-  position: fixed;
-  right: max(0.45rem, env(safe-area-inset-right, 0px));
-  bottom: max(0.35rem, env(safe-area-inset-bottom, 0px));
-  z-index: 4;
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  opacity: 0.5;
-  pointer-events: none;
-  user-select: none;
-}
-
-html:has(.app.modo-jogo) .app-versao-canto {
-  bottom: max(11rem, calc(10.5rem + env(safe-area-inset-bottom, 0px)));
-  opacity: 0.42;
-}
-
 /* --- Topo desktop --- */
 .topo {
   display: grid;

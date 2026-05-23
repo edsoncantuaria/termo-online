@@ -6,6 +6,7 @@ import { AvatarEfetivo } from "../../utils/avatares.js";
 import PerfilNivelAnel from "../ui/PerfilNivelAnel.vue";
 import CloudiveMarcaTopo from "@cloudive-brand/components/CloudiveMarcaTopo.vue";
 import { marcaCloudiveAtiva } from "../../utils/marca.js";
+import { VERSAO_ROTULO } from "../../config/versao.js";
 
 const store = useTermoStore();
 const cloudive = marcaCloudiveAtiva();
@@ -62,6 +63,7 @@ const mostrarCentro = computed(
     </div>
 
     <div class="topo-direita">
+      <span class="topo-versao" aria-label="Versão do aplicativo">{{ VERSAO_ROTULO }}</span>
       <template v-if="store.conta">
         <button
           type="button"

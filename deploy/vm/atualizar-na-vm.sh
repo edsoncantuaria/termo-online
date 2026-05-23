@@ -61,8 +61,17 @@ else
   echo "Reinicie termo-api e termo-web manualmente."
 fi
 
-sleep 2
-curl -sf http://127.0.0.1:8001/api/health >/dev/null && echo "API OK" || echo "API falhou"
+ApiOk=0
+I=0
+while [ "$I" -lt 15 ]; do
+  if curl -sf http://127.0.0.1:8001/api/health >/dev/null; then
+    ApiOk=1
+    break
+  fi
+  I=$((I + 1))
+  sleep 1
+done
+if [ "$ApiOk" -eq 1 ]; then echo "API OK"; else echo "API falhou (aguarde ou veja logs)"; fi
 curl -sf -o /dev/null http://127.0.0.1:8000/ && echo "Frontend OK" || echo "Frontend falhou"
 
 echo ""

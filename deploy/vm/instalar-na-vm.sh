@@ -112,7 +112,6 @@ else
   echo "    Configure OpenRC ou systemd para persistir após reboot."
 fi
 
-sleep 2
 echo ""
 echo "==> Verificação"
 if command -v systemctl >/dev/null 2>&1 && [ -d /etc/systemd/system ]; then
@@ -121,8 +120,27 @@ elif command -v rc-service >/dev/null 2>&1; then
   rc-service "$SERVICO_API" status 2>/dev/null || true
   rc-service "$SERVICO_WEB" status 2>/dev/null || true
 fi
-curl -sf http://127.0.0.1:8001/api/health && echo "API /api/health OK" || echo "API falhou"
+ApiOk=0
+I=0
+while [ "$I" -lt 15 ]; do
+  if curl -sf http://127.0.0.1:8001/api/health >/dev/null; then
+    ApiOk=1
+    break
+  fi
+  I=$((I + 1))
+  sleep 1
+done
+if [ "$ApiOk" -eq 1 ]; then
+  curl -sf http://127.0.0.1:8001/api/health | head -c 200
+  echo ""
+  echo "API /api/health OK"
+else
+  echo "API falhou — veja: rc-service termo-api status e tail data/termo-api.log"
+fi
 curl -sf -o /dev/null -w "Frontend HTTP %{http_code}\n" http://127.0.0.1:8000/ || echo "Frontend falhou"
+if [ -f src/static/dist/index.html ]; then
+  echo "Build frontend: $(stat -c %y src/static/dist/index.html 2>/dev/null || stat -f %Sm src/static/dist/index.html)"
+fi
 
 echo ""
 echo "Pronto. Confirme no Cloudflare Tunnel:"

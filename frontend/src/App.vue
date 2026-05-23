@@ -4,7 +4,6 @@ import { useTermoStore } from "./stores/termo.js";
 import { marcaCloudiveAtiva } from "./utils/marca.js";
 import CloudiveSplash from "@cloudive-brand/components/CloudiveSplash.vue";
 import AppTopo from "./components/layout/AppTopo.vue";
-import AppVersaoCanto from "./components/layout/AppVersaoCanto.vue";
 import ViewInicio from "./components/views/ViewInicio.vue";
 import ViewArenaLobby from "./components/views/ViewArenaLobby.vue";
 import ViewJogo from "./components/views/ViewJogo.vue";
@@ -109,7 +108,6 @@ onUnmounted(() => {
         <ViewJogo v-else-if="store.view === 'jogo'" />
       </main>
     </div>
-    <AppVersaoCanto />
 
     <DialogPerfil />
     <DialogConta />

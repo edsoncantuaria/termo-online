@@ -196,6 +196,21 @@ body::-webkit-scrollbar-corner,
   overflow: visible;
 }
 
+.topo-versao {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--dourado);
+  line-height: 1;
+  padding: 0.22rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid rgba(201, 180, 88, 0.4);
+  background: rgba(201, 180, 88, 0.1);
+  flex-shrink: 0;
+  user-select: none;
+}
+
 .topo-v2 .topo-centro {
   flex: 1;
   min-width: 0;
@@ -3514,10 +3529,6 @@ html.tema-claro .resultado-grade-card {
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .app.modo-jogo .principal {
     padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  .app-versao-canto {
-    bottom: calc(0.35rem + env(safe-area-inset-bottom));
   }
 
   .teclado {

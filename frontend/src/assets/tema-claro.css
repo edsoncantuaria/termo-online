@@ -29,7 +29,8 @@ html.tema-claro .toast {
   color: var(--text);
 }
 
-html.tema-claro .app-versao-canto {
-  color: var(--text-muted);
-  opacity: 0.45;
+html.tema-claro .topo-versao {
+  color: #8a7428;
+  background: rgba(201, 180, 88, 0.15);
+  border-color: rgba(201, 180, 88, 0.45);
 }
