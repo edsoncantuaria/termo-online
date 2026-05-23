@@ -125,6 +125,7 @@ onUnmounted(() => {
 <style>
 @import "./assets/estilo.css";
 @import "./assets/polish.css";
+@import "./assets/jogo-mobile.css";
 @import "./assets/elo-cores.css";
 @import "./assets/tema-claro.css";
 @import "@cloudive-brand/theme/marca-cloudive-app.css";

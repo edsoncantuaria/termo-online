@@ -8,11 +8,30 @@ const RotulosSolo = {
   desafio: "Desafio",
 };
 
-function TextoEstadoLocal(tipo, estadoSala, pausada, segundosPausa) {
+function TextoEstadoLocal(
+  tipo,
+  estadoSala,
+  pausada,
+  segundosPausa,
+  segundosAbandono,
+  souJogadorPausado
+) {
   if (pausada) {
+    if (souJogadorPausado) {
+      const Partes = [];
+      if (segundosPausa != null) {
+        Partes.push(`Reconecte em até ${segundosPausa}s`);
+      }
+      if (segundosAbandono != null) {
+        Partes.push(`abandono em ${segundosAbandono}s`);
+      }
+      return Partes.length
+        ? `Partida pausada — ${Partes.join(" · ")}`
+        : "Partida pausada — reconecte agora";
+    }
     return segundosPausa != null
-      ? `Partida pausada — aguardando retorno (até ${segundosPausa}s)`
-      : "Partida pausada — aguardando reconexão";
+      ? `Oponente desconectou — retoma em ${segundosPausa}s`
+      : "Partida pausada — aguardando oponente";
   }
   if (estadoSala === "jogando") {
     return tipo === "ranqueada"
@@ -39,10 +58,19 @@ export function JogoAtivoDeSessaoLocal(salvo) {
       idJogador: S.idJogador,
       tokenSessao: S.tokenSessao,
       estadoSala: S.estadoSala || "jogando",
-      pausada: false,
-      segundosPausaRestantes: null,
-      emTempoDeJogo: S.view === "jogo",
-      textoEstado: TextoEstadoLocal("ranqueada", S.estadoSala, false, null),
+      pausada: !!S.pausada,
+      segundosPausaRestantes: S.segundosPausaRestantes ?? null,
+      segundosAteAbandono: S.segundosAteAbandono ?? null,
+      souJogadorPausado: !!S.souJogadorPausado,
+      emTempoDeJogo: S.view === "jogo" && !S.pausada,
+      textoEstado: TextoEstadoLocal(
+        "ranqueada",
+        S.estadoSala,
+        S.pausada,
+        S.segundosPausaRestantes,
+        S.segundosAteAbandono,
+        S.souJogadorPausado
+      ),
       view: S.view,
     };
   }
@@ -58,10 +86,19 @@ export function JogoAtivoDeSessaoLocal(salvo) {
       idJogador: S.idJogador,
       tokenSessao: S.tokenSessao,
       estadoSala: S.estadoSala || "aguardando",
-      pausada: false,
-      segundosPausaRestantes: null,
-      emTempoDeJogo: S.view === "jogo",
-      textoEstado: TextoEstadoLocal("arena", S.estadoSala, false, null),
+      pausada: !!S.pausada,
+      segundosPausaRestantes: S.segundosPausaRestantes ?? null,
+      segundosAteAbandono: S.segundosAteAbandono ?? null,
+      souJogadorPausado: !!S.souJogadorPausado,
+      emTempoDeJogo: S.view === "jogo" && !S.pausada,
+      textoEstado: TextoEstadoLocal(
+        "arena",
+        S.estadoSala,
+        S.pausada,
+        S.segundosPausaRestantes,
+        S.segundosAteAbandono,
+        S.souJogadorPausado
+      ),
       view: S.view,
     };
   }

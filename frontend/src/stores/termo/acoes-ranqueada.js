@@ -50,6 +50,7 @@ async function ProcessarMatchRanqueadoEncontrado(D) {
 
 export async function entrarFilaRanqueada() {
   if (!this.exigirContaRegistrada()) return;
+  if (!(await this.assegurarSemConflitoJogoAtivo())) return;
   if (this.modo === "arena" && this.codigoSala) {
     this.mostrarToast("Saia da Arena antes de buscar ranqueado", true);
     return;

@@ -194,6 +194,7 @@ export async function enviarChuteSolo(cacheDicionarioSet) {
 }
 
 export async function iniciarModo(modo, opcoes = {}) {
+  if (!(await this.assegurarSemConflitoJogoAtivo())) return;
   this.nick = this.nickJogo;
   SalvarNickLocal(this.nick);
   const dificuldade = opcoes.dificuldade || this.dificuldade;

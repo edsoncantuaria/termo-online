@@ -107,6 +107,43 @@ def _TextoEstado(
     return "Partida em andamento"
 
 
+def _DadosPenalidadeAbandonoRanqueada(Sala: SalaJogo, IdJogador: str, Jogador) -> dict:
+    from . import partida_sessao
+    from .bots_ranqueados import PontosBotPorIdJogador
+    from .ranqueada import CalcularDelta
+
+    Conta = persistencia.ObterContaPorId(Jogador.IdConta) if Jogador.IdConta else None
+    PontosEu = int(Conta["pontos_ranqueada"]) if Conta else 0
+    if partida_sessao.JogadorSemPontuacaoNaSessao(Jogador):
+        return {
+            "penalidadeAbandonoRp": 0,
+            "pontosRanqueadaAtual": PontosEu,
+            "pontosAposAbandonoEstimado": PontosEu,
+        }
+    Oponente = next(
+        (
+            Outro
+            for Outro in Sala.Jogadores.values()
+            if Outro.IdJogador != IdJogador and not Outro.Espectador
+        ),
+        None,
+    )
+    PontosOponente = PontosEu
+    if Oponente:
+        if getattr(Oponente, "EhBot", False):
+            PontosOponente = PontosBotPorIdJogador(Oponente.IdJogador) or PontosEu
+        elif Oponente.IdConta:
+            Co = persistencia.ObterContaPorId(Oponente.IdConta)
+            if Co:
+                PontosOponente = int(Co["pontos_ranqueada"])
+    Delta = CalcularDelta(PontosEu, PontosOponente, False)
+    return {
+        "penalidadeAbandonoRp": abs(int(Delta)),
+        "pontosRanqueadaAtual": PontosEu,
+        "pontosAposAbandonoEstimado": max(0, PontosEu + Delta),
+    }
+
+
 def MontarJogoAtivoParaConta(
     Gerenciador: GerenciadorSalas,
     IdConta: str,
@@ -135,12 +172,15 @@ def MontarJogoAtivoParaConta(
         if J.Espectador or not partida_sessao.PartidaEmAndamento(Sala):
             persistencia.LimparSessaoJogoConta(IdConta)
             return None
-        Pausa = partida_sessao.CamposPausaPublicos(Sala)
+        Pausa = partida_sessao.CamposPausaPublicos(Sala, IdJogador)
         SincronizarSessoesContaDaSala(Gerenciador, Sala)
         Pausada = bool(Pausa.get("pausada"))
         SegundosPausa = Pausa.get("segundosPausaRestantes")
+        SegundosAbandono = Pausa.get("segundosAteAbandono")
+        if SegundosAbandono is None and J.DesconexaoInicioEpoch:
+            SegundosAbandono = partida_sessao.SegundosAteAbandonoJogador(J)
         TempoLimite = Sala.Configuracao.TempoLimiteSegundos or 0
-        return {
+        Resposta = {
             "ativo": True,
             "tipo": Tipo,
             "titulo": _TituloTipo(Tipo),
@@ -151,13 +191,19 @@ def MontarJogoAtivoParaConta(
             "estadoSala": Sala.EstadoSala,
             "pausada": Pausada,
             "segundosPausaRestantes": SegundosPausa,
+            "segundosAteAbandono": SegundosAbandono,
+            "souJogadorPausado": bool(Pausa.get("souJogadorPausado")),
             "tempoLimiteSegundos": TempoLimite,
             "emTempoDeJogo": Sala.EstadoSala == "jogando" and not Pausada,
             "textoEstado": _TextoEstado(
                 Tipo, Sala.EstadoSala, Pausada, SegundosPausa, TempoLimite
             ),
             "souCriador": Sala.CriadorId == IdJogador,
+            "semPenalidade": partida_sessao.JogadorSemPontuacaoNaSessao(J),
         }
+        if Tipo == "ranqueada":
+            Resposta.update(_DadosPenalidadeAbandonoRanqueada(Sala, IdJogador, J))
+        return Resposta
 
     if Tipo == "solo":
         from servidor.partida_solo import ObterPartida

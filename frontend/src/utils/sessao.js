@@ -36,6 +36,7 @@ export function MontarPayloadSessao(Estado) {
     Estado.idJogador &&
     !Estado.dadosSala?.partidaEncerrada;
 
+  const DadosSala = Estado.dadosSala || {};
   const credenciaisOnline = {
     codigoSala: Estado.codigoSala,
     idJogador: Estado.idJogador,
@@ -43,6 +44,11 @@ export function MontarPayloadSessao(Estado) {
     tokenSessao: Estado.tokenSessao,
     souCriador: Estado.souCriador,
     configuracao: Estado.configArena,
+    estadoSala: DadosSala.estadoSala || Estado.estadoSalaArena,
+    pausada: !!(DadosSala.pausada || DadosSala.estadoSala === "pausada"),
+    segundosPausaRestantes: DadosSala.segundosPausaRestantes ?? null,
+    segundosAteAbandono: DadosSala.segundosAteAbandono ?? null,
+    souJogadorPausado: !!DadosSala.souJogadorPausado,
   };
   if (Estado.modo === "ranqueada" && sessaoOnlineAtiva) {
     dados.ranqueada = {

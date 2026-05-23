@@ -118,15 +118,31 @@ def GarantirTokenJogador(Jogador: JogadorSala) -> None:
         Jogador.TokenSessao = GerarTokenSessao()
 
 
-def CamposPausaPublicos(Sala: SalaJogo) -> dict:
+def SegundosAteAbandonoJogador(Jogador: JogadorSala | None) -> int | None:
+    if not Jogador or not Jogador.DesconexaoInicioEpoch:
+        return None
+    return max(
+        0,
+        int(ABANDONO_TOTAL_SEG - (time.time() - Jogador.DesconexaoInicioEpoch)),
+    )
+
+
+def CamposPausaPublicos(Sala: SalaJogo, IdObservador: str | None = None) -> dict:
     if Sala.EstadoSala != "pausada":
-        return {
+        Base = {
             "pausada": False,
             "pausaAteEpoch": None,
             "segundosPausaRestantes": None,
             "idJogadorPausado": None,
             "motivoPausa": None,
+            "segundosAteAbandono": None,
+            "souJogadorPausado": False,
         }
+        if IdObservador and Sala.Configuracao.Ranqueada:
+            Eu = Sala.Jogadores.get(IdObservador)
+            if Eu and Eu.AusenteContinua:
+                Base["segundosAteAbandono"] = SegundosAteAbandonoJogador(Eu)
+        return Base
     Restante = None
     if Sala.PausaAteEpoch:
         Restante = max(0, int(Sala.PausaAteEpoch - time.time()))
@@ -140,12 +156,22 @@ def CamposPausaPublicos(Sala: SalaJogo) -> dict:
         )
     else:
         Motivo = "Jogador desconectou — aguardando retorno…"
+    JogadorPausado = (
+        Sala.Jogadores.get(Sala.IdJogadorPausado)
+        if Sala.IdJogadorPausado
+        else None
+    )
+    SegundosAbandono = SegundosAteAbandonoJogador(JogadorPausado)
     return {
         "pausada": True,
         "pausaAteEpoch": Sala.PausaAteEpoch,
         "segundosPausaRestantes": Restante,
         "idJogadorPausado": Sala.IdJogadorPausado,
         "motivoPausa": Motivo,
+        "segundosAteAbandono": SegundosAbandono,
+        "souJogadorPausado": bool(
+            IdObservador and Sala.IdJogadorPausado == IdObservador
+        ),
     }
 
 

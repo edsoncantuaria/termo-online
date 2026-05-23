@@ -1070,7 +1070,7 @@ export const useTermoStore = defineStore("termo", {
       this.dialogAvatarAberto = false;
     },
 
-    abrirDialog(nome) {
+    async abrirDialog(nome) {
       const anterior = this.dialogAberto;
       if (
         anterior === "jogar" &&
@@ -1079,6 +1079,12 @@ export const useTermoStore = defineStore("termo", {
         nome !== "jogar"
       ) {
         this.pararFilaRanqueada();
+      }
+      if (
+        (nome === "jogar" || nome === "criarSala") &&
+        !(await this.assegurarSemConflitoJogoAtivo())
+      ) {
+        return;
       }
       if (nome !== "aviso") {
         this.aviso.aoConfirmar = null;
@@ -1451,6 +1457,7 @@ export const useTermoStore = defineStore("termo", {
     },
 
     async submeterCriarSala(ev) {
+      if (!(await this.assegurarSemConflitoJogoAtivo())) return;
       ev?.preventDefault?.();
       this.nick = this.nickJogo;
       SalvarNickLocal(this.nick);
@@ -1581,6 +1588,7 @@ export const useTermoStore = defineStore("termo", {
     },
 
     async entrarSala() {
+      if (!(await this.assegurarSemConflitoJogoAtivo())) return;
       const cod = this.codigoEntrada.trim().toUpperCase();
       if (cod.length !== 6) {
         this.mostrarAviso({

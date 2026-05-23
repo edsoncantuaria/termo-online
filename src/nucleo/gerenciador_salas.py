@@ -1268,7 +1268,7 @@ class GerenciadorSalas:
                 for J in Sala.Jogadores.values()
             ],
         }
-        RespostaBase.update(partida_sessao.CamposPausaPublicos(Sala))
+        RespostaBase.update(partida_sessao.CamposPausaPublicos(Sala, IdObservador))
         if Eu and getattr(Eu, "TokenSessao", None):
             RespostaBase["tokenSessao"] = Eu.TokenSessao
         return RespostaBase

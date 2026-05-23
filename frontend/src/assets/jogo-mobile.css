@@ -1,0 +1,364 @@
+/**
+ * Arena / ranqueada no celular: grade + teclado em foco; placar/chat em painel.
+ */
+
+@media (max-width: 720px) {
+  .app.modo-jogo {
+    --tile: clamp(
+      30px,
+      calc((100dvh - var(--topo-h) - 11rem) / 6.8),
+      50px
+    );
+  }
+
+  .app.modo-jogo .principal {
+    padding-left: 0.35rem;
+    padding-right: 0.35rem;
+  }
+
+  .app.modo-jogo-arena,
+  .app.modo-jogo-ranqueada {
+    --topo-h: 52px;
+    --jogo-nav-h: 3.15rem;
+    --tile: clamp(
+      30px,
+      calc((100dvh - var(--topo-h) - var(--jogo-nav-h) - 11.5rem) / 6.8),
+      48px
+    );
+  }
+
+  .app.modo-jogo-arena .topo-centro .topo-pagina-sub,
+  .app.modo-jogo-ranqueada .topo-centro .topo-pagina-sub {
+    display: none;
+  }
+
+  .app.modo-jogo-arena .topo-centro .topo-pagina-titulo,
+  .app.modo-jogo-ranqueada .topo-centro .topo-pagina-titulo {
+    font-size: 0.88rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 42vw;
+  }
+
+  .app.modo-jogo-arena .topo-versao,
+  .app.modo-jogo-ranqueada .topo-versao {
+    display: none;
+  }
+
+  .layout-jogo--mobile {
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: stretch;
+    max-width: 100%;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .layout-jogo--mobile .jogo-principal {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    max-width: 100%;
+    padding-bottom: calc(var(--jogo-nav-h) + env(safe-area-inset-bottom, 0px));
+    justify-content: flex-start;
+  }
+
+  .layout-jogo--mobile .faixa-estado--ativo,
+  .layout-jogo--mobile .faixa-estado--prep,
+  .layout-jogo--mobile .faixa-estado--aguardo {
+    display: none;
+  }
+
+  .layout-jogo--mobile .vitoria-rodada-toast {
+    font-size: 0.78rem;
+    padding: 0.45rem 0.65rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .layout-jogo--mobile .faixa-estado--pausa,
+  .layout-jogo--mobile .faixa-estado--ok {
+    display: inline-flex;
+    margin-bottom: 0.4rem;
+    font-size: 0.72rem;
+    padding: 0.35rem 0.65rem;
+  }
+
+  .layout-jogo--mobile .balao-instigacao-serie {
+    margin: 0 0 0.4rem;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  .layout-jogo--mobile .jogo-meta {
+    margin-bottom: 0.35rem;
+    gap: 0.35rem;
+    max-width: 100%;
+  }
+
+  .layout-jogo--mobile .modo-pill {
+    font-size: 0.62rem;
+    padding: 0.28rem 0.5rem;
+    max-width: 58%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .layout-jogo--mobile .timer-arena {
+    font-size: 0.95rem;
+    padding: 0.2rem 0.45rem;
+  }
+
+  .layout-jogo--mobile .dica-celulas {
+    display: none;
+  }
+
+  .layout-jogo--mobile .btn-desistir-partida--mobile {
+    display: none;
+  }
+
+  .layout-jogo--mobile .grade-wrap {
+    flex: 1 1 auto;
+    min-height: 4.5rem;
+    margin-bottom: 0.1rem;
+  }
+
+  .layout-jogo--mobile .teclado {
+    flex-shrink: 0;
+    margin-top: 0;
+    padding-bottom: calc(0.2rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .layout-jogo--mobile .teclado .tecla {
+    min-height: 2.35rem;
+    font-size: 0.72rem;
+  }
+
+  .layout-jogo--mobile .teclado .tecla.grande {
+    min-height: 2.35rem;
+  }
+
+  .oponente-resumo-mobile {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 0 0.35rem;
+    padding: 0.4rem 0.55rem;
+    border-radius: var(--raio-md);
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.04);
+    font-size: 0.78rem;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .oponente-resumo-mobile:active {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .oponente-resumo-mobile-nome {
+    font-weight: 700;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .oponente-resumo-mobile-status {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--dourado);
+    flex-shrink: 0;
+  }
+
+  .jogo-mobile-backdrop {
+    position: fixed;
+    inset: var(--topo-h) 0 calc(var(--jogo-nav-h) + env(safe-area-inset-bottom, 0px)) 0;
+    z-index: 35;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .layout-jogo--mobile .jogo-lateral {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--jogo-nav-h) + env(safe-area-inset-bottom, 0px));
+    top: auto;
+    z-index: 40;
+    flex: none;
+    width: 100%;
+    max-width: 100%;
+    max-height: min(62dvh, 28rem);
+    margin: 0;
+    padding: 0.65rem 0.75rem 0.85rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 1.1rem 1.1rem 0 0;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    background: var(--bg-elevated, var(--bg-card));
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45);
+    transform: translateY(105%);
+    transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    pointer-events: none;
+    order: unset;
+  }
+
+  .layout-jogo--mobile.layout-jogo--painel-aberto .jogo-lateral {
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .layout-jogo--mobile .jogo-lateral .lateral-titulo {
+    font-size: 0.82rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .layout-jogo--mobile .placar-arena {
+    margin-bottom: 0.65rem;
+  }
+
+  .layout-jogo--mobile .lista-placar-v2 .placar-linha {
+    padding: 0.45rem 0.5rem;
+  }
+
+  .layout-jogo--mobile .chat-arena {
+    margin-top: 0;
+  }
+
+  .layout-jogo--mobile .chat-arena > .lateral-titulo:first-of-type {
+    display: none;
+  }
+
+  .layout-jogo--mobile .chat-botoes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem;
+  }
+
+  .layout-jogo--mobile .btn-chat-frase {
+    font-size: 0.72rem;
+    padding: 0.45rem 0.35rem;
+  }
+
+  .layout-jogo--mobile .outros-jogadores {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .layout-jogo--mobile .entre-rodadas-v2 {
+    margin-bottom: 0.5rem;
+  }
+
+  .jogo-mobile-painel-cabecalho {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.55rem;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .jogo-mobile-painel-cabecalho h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 800;
+  }
+
+  .jogo-mobile-painel-fechar {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .jogo-mobile-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 45;
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    min-height: var(--jogo-nav-h);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--bg-card);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  .jogo-mobile-nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    padding: 0.35rem 0.25rem;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+  }
+
+  .jogo-mobile-nav-btn[aria-current="page"] {
+    color: var(--dourado);
+    background: rgba(201, 180, 88, 0.08);
+  }
+
+  .jogo-mobile-nav-icone {
+    font-size: 1.05rem;
+    line-height: 1;
+  }
+
+  .jogo-mobile-nav-badge {
+    position: absolute;
+    top: 0.2rem;
+    right: 22%;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--verde);
+    box-shadow: 0 0 0 2px var(--bg-card);
+  }
+
+  .jogo-mobile-nav-btn--perigo {
+    color: #e88;
+    flex: 0 0 2.75rem;
+  }
+}
+
+@media (min-width: 721px) {
+  .oponente-resumo-mobile,
+  .jogo-mobile-nav,
+  .jogo-mobile-backdrop,
+  .jogo-mobile-painel-cabecalho {
+    display: none !important;
+  }
+}

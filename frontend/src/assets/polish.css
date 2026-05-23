@@ -4889,6 +4889,7 @@ html.tema-claro .vitoria-rodada-toast {
 /* --- Hero: partida em andamento (home) --- */
 
 .hero-jogo-ativo {
+  position: relative;
   grid-column: 1 / -1;
   padding: 1.1rem 1.25rem;
   border-radius: var(--raio-lg, 14px);
@@ -4899,6 +4900,181 @@ html.tema-claro .vitoria-rodada-toast {
     var(--superficie-card, #1a1a1b)
   );
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+.hero-jogo-ativo-aura {
+  display: none;
+}
+
+.hero-jogo-ativo--pulso {
+  border-color: color-mix(in srgb, var(--dourado, #c9b458) 55%, transparent);
+  background: linear-gradient(
+    148deg,
+    color-mix(in srgb, var(--dourado, #c9b458) 16%, var(--superficie-card, #1a1a1b)),
+    color-mix(in srgb, var(--dourado, #c9b458) 6%, var(--superficie-card, #1a1a1b))
+  );
+  animation: hero-urgencia-pulso 2.2s ease-in-out infinite;
+}
+
+.hero-jogo-ativo--pulso .hero-jogo-ativo-aura {
+  display: block;
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 90% 70% at 50% 0%,
+    color-mix(in srgb, var(--dourado, #c9b458) 22%, transparent),
+    transparent 65%
+  );
+  animation: hero-urgencia-brilho 2.2s ease-in-out infinite;
+}
+
+.hero-jogo-ativo--alerta {
+  border-color: color-mix(in srgb, var(--dourado, #c9b458) 70%, #c47a3a 30%);
+}
+
+.hero-jogo-ativo--critico {
+  border-color: color-mix(in srgb, #c47a3a 55%, var(--dourado, #c9b458) 45%);
+  background: linear-gradient(
+    148deg,
+    color-mix(in srgb, #c47a3a 14%, var(--superficie-card, #1a1a1b)),
+    color-mix(in srgb, var(--dourado, #c9b458) 8%, var(--superficie-card, #1a1a1b))
+  );
+  animation: hero-urgencia-pulso-critico 1.35s ease-in-out infinite;
+}
+
+@keyframes hero-urgencia-pulso {
+  0%,
+  100% {
+    box-shadow:
+      0 8px 28px rgba(0, 0, 0, 0.22),
+      0 0 0 0 color-mix(in srgb, var(--dourado, #c9b458) 0%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 10px 32px rgba(0, 0, 0, 0.28),
+      0 0 0 4px color-mix(in srgb, var(--dourado, #c9b458) 28%, transparent),
+      0 0 28px 2px color-mix(in srgb, var(--dourado, #c9b458) 18%, transparent);
+  }
+}
+
+@keyframes hero-urgencia-pulso-critico {
+  0%,
+  100% {
+    box-shadow:
+      0 8px 28px rgba(0, 0, 0, 0.25),
+      0 0 0 0 color-mix(in srgb, #c47a3a 0%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 12px 36px rgba(0, 0, 0, 0.32),
+      0 0 0 5px color-mix(in srgb, #c47a3a 32%, transparent),
+      0 0 32px 4px color-mix(in srgb, var(--dourado, #c9b458) 22%, transparent);
+  }
+}
+
+@keyframes hero-urgencia-brilho {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+
+.hero-jogo-ativo-chamada {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--dourado, #c9b458);
+  letter-spacing: 0.01em;
+}
+
+.hero-jogo-ativo--critico .hero-jogo-ativo-chamada {
+  color: color-mix(in srgb, #e8a85c 70%, var(--dourado, #c9b458) 30%);
+}
+
+.hero-alerta-rp {
+  margin: 0 0 0.85rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--raio-md, 10px);
+  border: 1px solid color-mix(in srgb, #c47a3a 45%, var(--dourado, #c9b458) 35%);
+  background: color-mix(in srgb, #c47a3a 10%, rgba(0, 0, 0, 0.25));
+  text-align: center;
+}
+
+.hero-alerta-rp-titulo {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--texto-secundario, #a0a0a5);
+}
+
+.hero-alerta-rp-valor {
+  margin: 0 0 0.35rem;
+}
+
+.hero-alerta-rp-perda {
+  font-size: 1.55rem;
+  font-weight: 900;
+  color: color-mix(in srgb, #e88 75%, #c47a3a 25%);
+  text-shadow: 0 0 20px color-mix(in srgb, #c47a3a 35%, transparent);
+}
+
+.hero-alerta-rp-transicao {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--texto-secundario, #a0a0a5);
+}
+
+.hero-alerta-rp-transicao span:first-child {
+  opacity: 0.75;
+}
+
+.hero-alerta-rp-seta {
+  margin: 0 0.35rem;
+  opacity: 0.5;
+}
+
+.hero-alerta-rp-depois {
+  color: color-mix(in srgb, #e88 65%, var(--dourado, #c9b458) 35%);
+}
+
+.hero-btn-reconectar {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--verde, #5fad62) 40%, transparent);
+}
+
+.hero-btn-abandonar {
+  border-color: color-mix(in srgb, #c47a3a 35%, var(--border, rgba(255, 255, 255, 0.12)));
+  color: color-mix(in srgb, #e8a85c 80%, var(--texto-secundario, #a0a0a5) 20%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-jogo-ativo--pulso,
+  .hero-jogo-ativo--critico {
+    animation: none;
+  }
+
+  .hero-jogo-ativo--pulso .hero-jogo-ativo-aura {
+    animation: none;
+    opacity: 0.6;
+  }
+
+  .hero-timer--perigo {
+    animation: none;
+  }
+}
+
+.hero-jogo-ativo > :not(.hero-jogo-ativo-aura) {
+  position: relative;
+  z-index: 1;
 }
 
 .hero-jogo-ativo-cabecalho {
@@ -4946,6 +5122,64 @@ html.tema-claro .vitoria-rodada-toast {
   color: var(--texto-secundario, #a0a0a5);
   font-size: 0.92rem;
   line-height: 1.45;
+}
+
+.hero-jogo-ativo-timers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+}
+
+.hero-timer {
+  flex: 1 1 7.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--raio-md, 10px);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.hero-timer--pausa {
+  border-color: color-mix(in srgb, #c9a227 40%, transparent);
+}
+
+.hero-timer--perigo {
+  border-color: color-mix(in srgb, #c47a3a 55%, var(--dourado, #c9b458) 25%);
+  background: color-mix(in srgb, #c47a3a 14%, rgba(0, 0, 0, 0.22));
+  animation: hero-timer-pulso 1.2s ease-in-out infinite;
+}
+
+@keyframes hero-timer-pulso {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+.hero-timer-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texto-terciario, #6b6b70);
+}
+
+.hero-timer-valor {
+  font-size: 1.35rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--dourado, #c9b458);
+}
+
+.hero-timer--perigo .hero-timer-valor {
+  color: #f08080;
 }
 
 .hero-jogo-ativo-codigo {

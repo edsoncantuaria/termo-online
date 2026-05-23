@@ -1,6 +1,7 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { useTermoStore } from "../../stores/termo.js";
+import { useMediaMax } from "../../composables/useMediaMax.js";
 import GradeTermo from "../jogo/GradeTermo.vue";
 import GradesMulti from "../jogo/GradesMulti.vue";
 import TecladoVirtual from "../jogo/TecladoVirtual.vue";
@@ -8,9 +9,61 @@ import TentativasDots from "../jogo/TentativasDots.vue";
 import JogadorRodadaCard from "../arena/JogadorRodadaCard.vue";
 import EloPill from "../ui/EloPill.vue";
 import { RotuloRankDeJogador } from "../../utils/elos.js";
+import { StatusJogadorRodada } from "../../utils/jogador.js";
 import JogadorAvatar from "../jogo/JogadorAvatar.vue";
 
 const store = useTermoStore();
+const mobile = useMediaMax(720);
+const abaMobile = ref("jogo");
+
+const layoutMobile = computed(
+  () => mobile.value && store.lateralVisivel
+);
+
+const painelMobileAberto = computed(
+  () => layoutMobile.value && abaMobile.value !== "jogo"
+);
+
+const tituloPainelMobile = computed(() => {
+  if (abaMobile.value === "chat") return "Chat rápido";
+  if (abaMobile.value === "sala") return "Placar e oponentes";
+  return "";
+});
+
+const oponentePrincipal = computed(
+  () => store.outrosNaRodada[0] ?? null
+);
+
+const statusOponenteMobile = computed(() => {
+  const j = oponentePrincipal.value;
+  if (!j) return null;
+  return StatusJogadorRodada(j, store.maxTentativas);
+});
+
+function abrirAbaMobile(aba) {
+  abaMobile.value = aba;
+}
+
+function fecharPainelMobile() {
+  abaMobile.value = "jogo";
+}
+
+watch(
+  () =>
+    store.painelEntreRodadas &&
+    mobile.value &&
+    store.lateralVisivel,
+  (aberto) => {
+    if (aberto) abaMobile.value = "sala";
+  }
+);
+
+watch(
+  () => store.view,
+  (v) => {
+    if (v !== "jogo") abaMobile.value = "jogo";
+  }
+);
 
 function encerrarSessao() {
   store.mostrarConfirmacao({
@@ -98,7 +151,71 @@ function avatarPlacar(j) {
       </p>
     </div>
 
-    <div class="layout-jogo">
+    <button
+      v-if="painelMobileAberto"
+      type="button"
+      class="jogo-mobile-backdrop"
+      aria-label="Voltar ao jogo"
+      @click="fecharPainelMobile"
+    />
+
+    <nav
+      v-if="layoutMobile"
+      class="jogo-mobile-nav"
+      aria-label="Seções da partida"
+    >
+      <button
+        type="button"
+        class="jogo-mobile-nav-btn"
+        :aria-current="abaMobile === 'jogo' ? 'page' : undefined"
+        @click="fecharPainelMobile"
+      >
+        <span class="jogo-mobile-nav-icone" aria-hidden="true">▦</span>
+        Jogo
+      </button>
+      <button
+        type="button"
+        class="jogo-mobile-nav-btn"
+        :aria-current="abaMobile === 'sala' ? 'page' : undefined"
+        @click="abrirAbaMobile('sala')"
+      >
+        <span
+          v-if="store.painelEntreRodadas"
+          class="jogo-mobile-nav-badge"
+          aria-hidden="true"
+        />
+        <span class="jogo-mobile-nav-icone" aria-hidden="true">◎</span>
+        Sala
+      </button>
+      <button
+        v-if="store.painelChatVisivel"
+        type="button"
+        class="jogo-mobile-nav-btn"
+        :aria-current="abaMobile === 'chat' ? 'page' : undefined"
+        @click="abrirAbaMobile('chat')"
+      >
+        <span class="jogo-mobile-nav-icone" aria-hidden="true">💬</span>
+        Chat
+      </button>
+      <button
+        v-if="mostrarBotaoDesistir && !store.espectador"
+        type="button"
+        class="jogo-mobile-nav-btn jogo-mobile-nav-btn--perigo"
+        aria-label="Desistir da partida"
+        @click="confirmarDesistencia"
+      >
+        <span class="jogo-mobile-nav-icone" aria-hidden="true">✕</span>
+      </button>
+    </nav>
+
+    <div
+      class="layout-jogo"
+      :class="{
+        'layout-jogo--mobile': layoutMobile,
+        'layout-jogo--painel-aberto': painelMobileAberto,
+      }"
+      :data-aba-mobile="abaMobile"
+    >
       <div class="jogo-principal">
         <div
           v-if="store.badgeEstadoJogo"
@@ -124,6 +241,31 @@ function avatarPlacar(j) {
             {{ store.balaoInstigacaoSerie.texto }}
           </p>
         </Transition>
+
+        <button
+          v-if="layoutMobile && oponentePrincipal"
+          type="button"
+          class="oponente-resumo-mobile"
+          @click="abrirAbaMobile('sala')"
+        >
+          <JogadorAvatar
+            :nome="oponentePrincipal.nomeJogador"
+            :avatar-id="
+              oponentePrincipal.idJogador === store.idJogador
+                ? store.avatarIdEfetivo()
+                : oponentePrincipal.avatarId
+            "
+            pequeno
+          />
+          <span class="oponente-resumo-mobile-nome">{{
+            oponentePrincipal.nomeJogador
+          }}</span>
+          <span
+            v-if="statusOponenteMobile"
+            class="oponente-resumo-mobile-status"
+            >{{ statusOponenteMobile.texto }}</span
+          >
+        </button>
 
         <div class="jogo-meta">
           <span class="modo-pill">{{ store.pillModoTexto }}</span>
@@ -204,7 +346,12 @@ function avatarPlacar(j) {
         </p>
 
         <button
-          v-if="mostrarBotaoDesistir && !store.espectador && !store.dadosSala?.partidaEncerrada"
+          v-if="
+            mostrarBotaoDesistir &&
+            !store.espectador &&
+            !store.dadosSala?.partidaEncerrada &&
+            !layoutMobile
+          "
           type="button"
           class="btn-modo btn-modo-sec btn-desistir-partida"
           @click="confirmarDesistencia"
@@ -215,7 +362,27 @@ function avatarPlacar(j) {
         <TecladoVirtual v-if="!store.espectador" />
       </div>
 
-      <aside v-if="store.lateralVisivel" class="jogo-lateral">
+      <aside
+        v-if="store.lateralVisivel"
+        class="jogo-lateral"
+        :aria-hidden="layoutMobile && abaMobile === 'jogo' ? true : undefined"
+      >
+        <div
+          v-if="layoutMobile"
+          class="jogo-mobile-painel-cabecalho"
+        >
+          <h3>{{ tituloPainelMobile }}</h3>
+          <button
+            type="button"
+            class="jogo-mobile-painel-fechar"
+            aria-label="Fechar painel"
+            @click="fecharPainelMobile"
+          >
+            ×
+          </button>
+        </div>
+
+        <div v-show="!layoutMobile || abaMobile === 'sala'">
         <div
           v-if="store.palavraReveladaArena"
           class="palavra-revelada-bloco"
@@ -341,7 +508,13 @@ function avatarPlacar(j) {
           </div>
         </div>
 
-        <div v-if="store.painelChatVisivel" class="chat-arena">
+        </div>
+
+        <div
+          v-show="!layoutMobile || abaMobile === 'chat'"
+          v-if="store.painelChatVisivel"
+          class="chat-arena"
+        >
           <h3 class="lateral-titulo">Chat rápido</h3>
           <ul class="lista-chat" aria-live="polite">
             <li
@@ -366,9 +539,10 @@ function avatarPlacar(j) {
           </div>
         </div>
 
+        <template v-if="!layoutMobile || abaMobile === 'sala'">
         <h3 class="lateral-titulo titulo-outros">{{ store.tituloOutros }}</h3>
         <p v-if="store.modoJogoRanqueada" class="dica-outros-multi">
-          Modo competitivo: você só vê se o oponente já chutou ou não.
+          Modo competitivo: você só vê quantos chutes o oponente fez.
         </p>
         <p
           v-else-if="store.outrosNaRodada.length >= 2 && verOutros"
@@ -392,6 +566,7 @@ function avatarPlacar(j) {
             :max-tentativas="store.maxTentativas"
           />
         </div>
+        </template>
       </aside>
     </div>
   </section>
