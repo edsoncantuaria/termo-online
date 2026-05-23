@@ -148,3 +148,10 @@ export async function voltarInicioPreservandoPartida() {
   this.irParaView("inicio");
   await carregarJogoAtivo.call(this);
 }
+
+export const acoesJogoAtivo = {
+  carregarJogoAtivo,
+  reconectarJogoAtivo,
+  abandonarJogoAtivo,
+  voltarInicioPreservandoPartida,
+};
