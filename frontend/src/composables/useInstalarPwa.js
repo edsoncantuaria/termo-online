@@ -1,68 +1,146 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
-
-function EhMobile() {
-  return /android|iphone|ipad|ipod/i.test(navigator.userAgent);
-}
-
-function EhIos() {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
-}
-
-function EhInstalado() {
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    window.navigator.standalone === true
-  );
-}
+import {
+  AoPromptInstalacaoPronto,
+  BarraInstalarMinimizada,
+  DefinirBarraInstalarMinimizada,
+  DispararPromptInstalacaoAndroid,
+  EhInstaladoComoApp,
+  PlataformaInstalacao,
+  ObterPromptInstalacao,
+} from "../utils/pwa-instalar.js";
 
 /**
- * Prompt de instalação PWA (Android/Chrome) e dica discreta no iOS.
+ * Faixa de instalação PWA (Android: prompt nativo; iOS: Safari / tela de início).
  */
 export function useInstalarPwa() {
-  const promptEvento = ref(null);
-  const instalado = ref(EhInstalado());
+  const instalado = ref(EhInstaladoComoApp());
+  const minimizada = ref(BarraInstalarMinimizada());
+  const temPromptAndroid = ref(!!ObterPromptInstalacao());
+  const dialogoAberto = ref(false);
+
+  const plataforma = computed(() => PlataformaInstalacao());
 
   const podeMostrar = computed(() => {
-    if (!EhMobile() || instalado.value) return false;
-    if (promptEvento.value) return true;
-    return EhIos();
+    if (instalado.value) return false;
+    return !!plataforma.value && plataforma.value !== "instalado";
   });
 
-  let handler = null;
+  const ehAndroid = computed(() => plataforma.value === "android");
+  const ehIosSafari = computed(() => plataforma.value === "ios-safari");
+  const ehIosInApp = computed(() => plataforma.value === "ios-inapp");
+
+  const textoPrincipal = computed(() => {
+    if (ehAndroid.value) {
+      return temPromptAndroid.value
+        ? "Instale o Termo como app — abre rápido e funciona melhor offline na prática."
+        : "Instale o Termo: no menu do Chrome (⋮), toque em “Instalar app” ou “Adicionar à tela inicial”.";
+    }
+    if (ehIosSafari.value) {
+      return "Adicione à Tela de Início pelo Safari — ícone na home, tela cheia.";
+    }
+    if (ehIosInApp.value) {
+      return "Para instalar, abra esta página no Safari (navegador do iPhone).";
+    }
+    return "Instale o jogo no seu celular para acesso rápido.";
+  });
+
+  const rotuloBotao = computed(() => {
+    if (ehAndroid.value && temPromptAndroid.value) return "Instalar jogo";
+    if (ehIosSafari.value) return "Como instalar";
+    if (ehIosInApp.value) return "Abrir no Safari";
+    return "Instalar jogo";
+  });
+
+  function atualizarEstado() {
+    instalado.value = EhInstaladoComoApp();
+    temPromptAndroid.value = !!ObterPromptInstalacao();
+  }
+
+  let removerListenerPrompt = null;
+  let aoInstalado = null;
 
   onMounted(() => {
-    instalado.value = EhInstalado();
-    handler = (e) => {
-      e.preventDefault();
-      promptEvento.value = e;
+    atualizarEstado();
+    removerListenerPrompt = AoPromptInstalacaoPronto(() => {
+      temPromptAndroid.value = true;
+    });
+    aoInstalado = () => {
+      instalado.value = true;
+      dialogoAberto.value = false;
     };
-    window.addEventListener("beforeinstallprompt", handler);
+    window.addEventListener("termo-pwa-instalado", aoInstalado);
+    window.addEventListener("visibilitychange", atualizarEstado);
   });
 
   onUnmounted(() => {
-    if (handler) {
-      window.removeEventListener("beforeinstallprompt", handler);
-    }
+    removerListenerPrompt?.();
+    window.removeEventListener("termo-pwa-instalado", aoInstalado);
+    window.removeEventListener("visibilitychange", atualizarEstado);
   });
 
-  async function instalar(mostrarToast) {
-    if (EhIos()) {
-      mostrarToast?.(
-        "No Safari: toque em Compartilhar e escolha “Adicionar à Tela de Início”.",
-        false,
-        false
-      );
+  function minimizar() {
+    minimizada.value = true;
+    DefinirBarraInstalarMinimizada(true);
+    dialogoAberto.value = false;
+  }
+
+  function expandir() {
+    minimizada.value = false;
+    DefinirBarraInstalarMinimizada(false);
+  }
+
+  function abrirDialogo() {
+    dialogoAberto.value = true;
+  }
+
+  function fecharDialogo() {
+    dialogoAberto.value = false;
+  }
+
+  async function acaoPrincipal() {
+    if (ehIosInApp.value) {
+      abrirDialogo();
       return;
     }
-    const Ev = promptEvento.value;
-    if (!Ev) return;
-    await Ev.prompt();
-    const { outcome } = await Ev.userChoice;
-    if (outcome === "accepted") {
-      instalado.value = true;
-      promptEvento.value = null;
+    if (ehIosSafari.value) {
+      abrirDialogo();
+      return;
+    }
+    if (ehAndroid.value && temPromptAndroid.value) {
+      const R = await DispararPromptInstalacaoAndroid();
+      if (R.ok && R.aceito) instalado.value = true;
+      else if (R.motivo === "sem-prompt") abrirDialogo();
+      return;
+    }
+    abrirDialogo();
+  }
+
+  async function copiarLinkSafari(mostrarToast) {
+    const Url = window.location.href;
+    try {
+      await navigator.clipboard.writeText(Url);
+      mostrarToast?.("Link copiado. Cole no Safari.", false);
+    } catch {
+      mostrarToast?.(Url, false);
     }
   }
 
-  return { podeMostrar, instalar };
+  return {
+    podeMostrar,
+    minimizada,
+    dialogoAberto,
+    plataforma,
+    ehAndroid,
+    ehIosSafari,
+    ehIosInApp,
+    temPromptAndroid,
+    textoPrincipal,
+    rotuloBotao,
+    minimizar,
+    expandir,
+    abrirDialogo,
+    fecharDialogo,
+    acaoPrincipal,
+    copiarLinkSafari,
+  };
 }

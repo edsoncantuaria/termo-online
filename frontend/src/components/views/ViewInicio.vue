@@ -3,8 +3,6 @@ import { computed } from "vue";
 import { useTermoStore } from "../../stores/termo.js";
 import PainelHomeExtras from "../home/PainelHomeExtras.vue";
 import HeroJogoAtivo from "../home/HeroJogoAtivo.vue";
-import BtnInstalarPwa from "../home/BtnInstalarPwa.vue";
-
 const store = useTermoStore();
 
 const diariaBloqueada = computed(
@@ -142,8 +140,6 @@ const diariaBloqueada = computed(
       </div>
 
       <PainelHomeExtras />
-
-      <BtnInstalarPwa />
     </div>
   </section>
 </template>

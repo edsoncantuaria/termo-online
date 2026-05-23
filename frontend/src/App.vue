@@ -17,6 +17,7 @@ import DialogResultado from "./components/dialogs/DialogResultado.vue";
 import DialogConta from "./components/dialogs/DialogConta.vue";
 import AppToast from "./components/ui/AppToast.vue";
 import TutorialPrimeiraVisita from "./components/ui/TutorialPrimeiraVisita.vue";
+import FaixaInstalarPwa from "./components/home/FaixaInstalarPwa.vue";
 
 const store = useTermoStore();
 const cloudive = marcaCloudiveAtiva();
@@ -119,6 +120,7 @@ onUnmounted(() => {
       @fechar="store.fecharTutorial()"
     />
     <AppToast />
+    <FaixaInstalarPwa />
   </template>
 </template>
 

@@ -1,5 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect width="32" height="32" rx="8" fill="#14111c"/>
-  <rect x="5" y="5" width="22" height="22" rx="5" fill="#5fad62"/>
-  <text x="16" y="22" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" font-weight="800" fill="#14111c">T</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" role="img" aria-label="Termo">
+  <rect width="32" height="32" rx="7" fill="#14111c"/>
+  <rect x="3" y="3" width="26" height="26" rx="5.5" fill="#5fad62"/>
+  <text
+    x="13.5"
+    y="22.5"
+    text-anchor="middle"
+    font-family="Outfit, system-ui, sans-serif"
+    font-size="17"
+    font-weight="800"
+    fill="#14111c"
+  >T</text>
+  <g transform="translate(19.5 16.5)">
+    <circle cx="1.4" cy="2.1" r="1.25" fill="#5fad62"/>
+    <circle cx="3.4" cy="1.1" r="1.25" fill="#7bc47f"/>
+    <circle cx="3.4" cy="2.9" r="1.25" fill="#c9b458"/>
+  </g>
 </svg>
