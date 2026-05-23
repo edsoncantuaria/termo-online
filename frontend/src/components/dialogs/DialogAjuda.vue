@@ -206,7 +206,8 @@ const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
           Limpar cache local
         </button>
         <p class="ajuda-nota">
-          Use se o jogo travar, mensagens repetirem ou a sessão não retomar corretamente.
+          Atualizações do site costumam aplicar sozinhas ao reabrir a aba. Use limpar
+          cache só se travar, mensagens repetirem ou a sessão não retomar.
         </p>
       </section>
     </div>

@@ -34,10 +34,11 @@ const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
 
 function sincronizarModoConta() {
   const forcarRegistro = store.dialogContaForcarRegistro;
+  const irDireto = store.dialogContaIrDiretoForm;
   const modoStore = store.dialogContaModo || "entrada";
-  if (forcarRegistro || modoStore === "registro") {
+  if (irDireto || forcarRegistro || modoStore === "registro") {
     passo.value = "conta";
-    modo.value = "registro";
+    modo.value = forcarRegistro || modoStore === "registro" ? "registro" : "entrada";
   } else {
     passo.value = "visitante";
     modo.value = "entrada";
@@ -68,15 +69,13 @@ watch(aberto, (v) => {
 });
 
 watch(
-  () => store.dialogContaForcarRegistro,
-  (forcar) => {
-    if (forcar && aberto.value) {
-      passo.value = "conta";
-      modo.value = "registro";
-      if (store.dialogContaNickSugerido) {
-        nickForm.value = store.dialogContaNickSugerido;
-      }
-    }
+  () => [
+    store.dialogContaForcarRegistro,
+    store.dialogContaIrDiretoForm,
+    store.dialogContaModo,
+  ],
+  () => {
+    if (aberto.value) sincronizarModoConta();
   }
 );
 
@@ -350,7 +349,7 @@ async function visitante() {
 
         <template v-else>
           <button
-            v-if="!store.dialogContaForcarRegistro"
+            v-if="!store.dialogContaForcarRegistro && !store.dialogContaIrDiretoForm"
             type="button"
             class="auth-voltar"
             @click="voltarPassoVisitante"

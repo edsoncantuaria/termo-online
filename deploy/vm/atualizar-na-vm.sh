@@ -75,5 +75,5 @@ if [ "$ApiOk" -eq 1 ]; then echo "API OK"; else echo "API falhou (aguarde ou vej
 curl -sf -o /dev/null http://127.0.0.1:8000/ && echo "Frontend OK" || echo "Frontend falhou"
 
 echo ""
-echo "Pronto. No navegador: Ctrl+Shift+R (ou limpar cache do PWA)."
-echo "Assets novos ficam em src/static/dist/assets/ com hash no nome."
+echo "Pronto. O app recarrega sozinho quando há build novo (PWA autoUpdate)."
+echo "Se ainda parecer antigo: abra de novo a aba ou use Ajuda → Limpar cache local."

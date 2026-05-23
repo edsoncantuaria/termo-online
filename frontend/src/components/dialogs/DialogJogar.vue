@@ -37,6 +37,7 @@ const totalRanqueadosFmt = computed(() =>
   (store.totalRanqueados ?? 0).toLocaleString("pt-BR")
 );
 
+const contaRegistrada = computed(() => store.contaRegistrada);
 const buscaAtiva = computed(() => store.filaRanqueadaTravada);
 const podeCancelar = computed(() => store.filaRanqueadaPodeCancelar);
 const faseConectando = computed(() => store.filaFase === "conectando");
@@ -98,13 +99,23 @@ function jogarModo(modo) {
   store.iniciarModo(modo, { dificuldade: store.dificuldade });
 }
 
-function jogarDesafio() {
+async function jogarDesafio() {
   const cod = store.codigoDesafio.trim().toUpperCase();
   if (!cod) {
-    store.mostrarToast("Informe o código do desafio", true);
+    store.mostrarToast("Informe o código da sala", true);
     return;
   }
   store.fecharDialogs();
+  if (cod.length === 6) {
+    const R = await store.executarEntradaSala(cod);
+    if (R.ok) return;
+    if (R.precisaSenha) {
+      store.mostrarAvisoSenhaConviteSala(cod);
+      return;
+    }
+    store.tratarErroEntradaSala(R.mensagem);
+    return;
+  }
   store.iniciarModo("desafio", { codigoDesafio: cod });
 }
 
@@ -112,6 +123,11 @@ function buscarRanqueado() {
   if (!store.exigirContaRegistrada()) return;
   aba.value = "ranqueado";
   store.entrarFilaRanqueada();
+}
+
+function clicarAbaRanqueado() {
+  if (buscaAtiva.value) return;
+  aba.value = "ranqueado";
 }
 </script>
 
@@ -154,9 +170,12 @@ function buscarRanqueado() {
       <button
         type="button"
         class="jogar-aba jogar-aba-ranqueado"
-        :class="{ ativa: aba === 'ranqueado' }"
+        :class="{
+          ativa: aba === 'ranqueado',
+          'jogar-aba--bloqueada': !contaRegistrada && !buscaAtiva,
+        }"
         :disabled="buscaAtiva && !faseConectando"
-        @click="mudarAba('ranqueado')"
+        @click="clicarAbaRanqueado"
       >
         <span class="jogar-aba-icone" aria-hidden="true">⚔</span>
         Ranqueado
@@ -212,14 +231,17 @@ function buscarRanqueado() {
       <section v-show="aba === 'ranqueado'" class="jogar-painel" aria-label="Modo ranqueado">
         <article
           class="jogar-ranqueado-card"
-          :class="{ 'jogar-ranqueado-card--busca': buscaAtiva }"
+          :class="{
+            'jogar-ranqueado-card--busca': buscaAtiva,
+            'jogar-ranqueado-card--bloqueado': !contaRegistrada && !buscaAtiva,
+          }"
         >
           <div v-if="!buscaAtiva" class="jogar-ranqueado-topo">
             <div>
-              <h3>Duelo 1v1</h3>
-              <p>Matchmaking por pontos · elo validado no servidor</p>
+              <h3>Duelo 1v1 ranqueado</h3>
+              <p>Matchmaking por RP · partida validada no servidor</p>
             </div>
-            <div v-if="store.conta?.podeRanqueada" class="jogar-ranqueado-stats">
+            <div v-if="contaRegistrada" class="jogar-ranqueado-stats">
               <span class="jogar-elo-pill">{{ eloExibicao }}</span>
               <span class="jogar-rp">{{ pontosExibicao }} RP</span>
               <span v-if="posicaoExibicao && store.totalRanqueados" class="jogar-posicao">
@@ -228,14 +250,37 @@ function buscarRanqueado() {
             </div>
           </div>
 
-          <div v-if="!store.conta?.podeRanqueada" class="jogar-ranqueado-cta">
-            <p>Crie uma conta para ranquear e subir de elo.</p>
-            <button type="button" class="btn-modo btn-largo" @click="store.abrirCriarConta()">
-              Criar conta
-            </button>
+          <div v-if="!contaRegistrada && !buscaAtiva" class="jogar-ranqueado-bloqueado">
+            <p class="modo-explicacao">
+              Você entra na <strong>fila online</strong> e o jogo busca um oponente com
+              pontuação parecida (RP). Cada vitória ou derrota altera seu RP e sua
+              <strong>faixa de elo</strong> (Madeira → Estrela). O histórico fica na sua
+              conta e no ranking global.
+            </p>
+            <ul class="jogar-ranqueado-lista">
+              <li>Vitória: cerca de <strong>+16 a +20 RP</strong></li>
+              <li>Derrota: cerca de <strong>−8 a −12 RP</strong> (conforme o adversário)</li>
+              <li>Visitante não ranqueia — precisa de conta com e-mail</li>
+            </ul>
+            <div class="modo-acoes-conta">
+              <button
+                type="button"
+                class="btn-modo btn-largo"
+                @click="store.abrirLoginConta()"
+              >
+                Entrar
+              </button>
+              <button
+                type="button"
+                class="btn-modo btn-modo-sec btn-largo"
+                @click="store.abrirCriarConta()"
+              >
+                Criar conta
+              </button>
+            </div>
           </div>
 
-          <template v-else>
+          <template v-else-if="contaRegistrada">
             <div
               v-if="buscaAtiva"
               class="jogar-mm"
@@ -264,7 +309,9 @@ function buscarRanqueado() {
 
               <div v-if="!faseConectando" class="jogar-mm-detalhes">
                 <div class="jogar-fila-stats">
-                  <span>{{ store.filaJogadoresOnline }} online</span>
+                  <span v-if="store.filaJogadoresOnline != null">
+                    {{ store.filaJogadoresOnline }} online
+                  </span>
                   <span v-if="store.filaJogadoresNaFila > 0">
                     {{ store.filaJogadoresNaFila }} na fila
                   </span>
@@ -310,7 +357,8 @@ function buscarRanqueado() {
                 Buscar partida ranqueada
               </button>
               <p class="jogar-ranqueado-regras">
-                Vitória <strong>+16~+20 RP</strong> · Derrota <strong>−8~−12 RP</strong> conforme o oponente
+                Vitória <strong>+16~+20 RP</strong> · Derrota <strong>−8~−12 RP</strong> conforme o oponente.
+                Durante o duelo você só vê se o rival já chutou.
               </p>
             </template>
           </template>
@@ -336,7 +384,7 @@ function buscarRanqueado() {
       <section v-show="aba === 'desafio'" class="jogar-painel" aria-label="Desafio com amigos">
         <article class="jogar-desafio-card">
           <h3>Desafio com amigos</h3>
-          <p>Mesma palavra para todos que usarem o código ou o link.</p>
+          <p>Sala para até 4 jogadores — primeiro a 3 vitórias na rodada ganha.</p>
           <div class="desafio-linha">
             <input
               v-model="store.codigoDesafio"

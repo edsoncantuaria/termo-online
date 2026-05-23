@@ -33,6 +33,7 @@ def ExportarSnapshot(Sala: SalaJogo) -> dict:
             "inicioAutoDois": Config.InicioAutoDois,
             "salaPublica": Config.SalaPublica,
             "ranqueada": Config.Ranqueada,
+            "ehDesafio": Config.EhDesafio,
             "modoSessaoTexto": FormatarModoSessao(
                 Config.ModoSessao, Config.MetaVitorias, Config.Ranqueada
             ),
@@ -63,6 +64,8 @@ def ExportarSnapshot(Sala: SalaJogo) -> dict:
                 "idConta": J.IdConta,
                 "pronto": J.Pronto,
                 "tokenSessao": getattr(J, "TokenSessao", None),
+                "ausenteContinua": getattr(J, "AusenteContinua", False),
+                "desconexaoInicioEpoch": getattr(J, "DesconexaoInicioEpoch", None),
             }
             for J in Sala.Jogadores.values()
         ],
@@ -84,6 +87,7 @@ def ImportarSnapshot(Dados: dict) -> SalaJogo | None:
             InicioAutoDois=ConfigDados.get("inicioAutoDois", False),
             SalaPublica=ConfigDados.get("salaPublica", True),
             Ranqueada=ConfigDados.get("ranqueada", False),
+            EhDesafio=ConfigDados.get("ehDesafio", False),
         )
         Jogadores = {}
         for J in Dados.get("jogadores", []):
@@ -107,6 +111,8 @@ def ImportarSnapshot(Dados: dict) -> SalaJogo | None:
                 Pronto=J.get("pronto", False),
                 EhBot=J.get("ehBot", False),
                 TokenSessao=J.get("tokenSessao"),
+                AusenteContinua=J.get("ausenteContinua", False),
+                DesconexaoInicioEpoch=J.get("desconexaoInicioEpoch"),
             )
         from . import partida_sessao
 

@@ -33,6 +33,14 @@ const metasConcluidas = computed(
 const metasTotal = computed(() => progresso.value?.metasSemanais?.length ?? 0);
 const eloExibicao = computed(() => store.conta?.eloNome || "—");
 const pontosRp = computed(() => store.conta?.pontosRanqueada ?? 0);
+const partidasPorModo = computed(
+  () => store.statsServidor?.partidasPorModo || []
+);
+const totalPartidasModos = computed(
+  () =>
+    store.statsServidor?.totalPartidasSolo ??
+    partidasPorModo.value.reduce((s, m) => s + (m.partidas || 0), 0)
+);
 
 const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
   dialogo,
@@ -217,6 +225,42 @@ async function onSalvarAvatar(id) {
         </div>
       </div>
       <p v-if="store.statsExtraTexto" class="perfil-extra">{{ store.statsExtraTexto }}</p>
+    </section>
+
+    <section class="perfil-secao">
+      <h3>Partidas por modo</h3>
+      <p class="dialog-sub perfil-modos-legenda">
+        Contagem de partidas <strong>encerradas</strong> em cada modo solo e no ranqueado.
+        <template v-if="totalPartidasModos > 0">
+          Total solo: {{ totalPartidasModos.toLocaleString("pt-BR") }}.
+        </template>
+      </p>
+      <ul
+        v-if="store.carregandoPerfil"
+        class="perfil-modos-lista lista-loading"
+        aria-busy="true"
+      >
+        <li v-for="n in 6" :key="n" class="skeleton-linha" />
+      </ul>
+      <ul v-else class="perfil-modos-lista">
+        <li
+          v-for="m in partidasPorModo"
+          :key="m.modo"
+          class="perfil-modo-linha"
+          :class="{ 'perfil-modo-linha--vazio': !m.partidas }"
+        >
+          <span class="perfil-modo-nome">{{ m.nome }}</span>
+          <span class="perfil-modo-stats">
+            <strong>{{ m.partidas }}</strong>
+            <span class="perfil-modo-unidade">
+              {{ m.partidas === 1 ? "partida" : "partidas" }}
+            </span>
+            <span v-if="m.partidas > 0" class="perfil-modo-vitorias">
+              · {{ m.vitorias }} {{ m.vitorias === 1 ? "vitória" : "vitórias" }}
+            </span>
+          </span>
+        </li>
+      </ul>
     </section>
 
     <section v-if="store.conta?.podeRanqueada" class="perfil-secao">

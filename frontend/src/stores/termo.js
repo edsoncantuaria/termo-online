@@ -80,7 +80,10 @@ import {
 import { DataHojeIsoBrasil } from "../utils/tempo-brasil.js";
 import * as acoesArena from "./termo/acoes-arena.js";
 import { TocarSom, prepararSons } from "../lib/som.js";
-import { LimparCacheAplicacao } from "../utils/cache-local.js";
+import {
+  LimparCacheAplicacao,
+  LimparCachesPwa,
+} from "../utils/cache-local.js";
 import { AgendarFimAnimacao, DURACAO_FLIP_LINHA } from "../utils/animacao.js";
 
 function JogadorEuNaSala(Estado) {
@@ -159,7 +162,7 @@ export const useTermoStore = defineStore("termo", {
     filaFase: null,
     filaMensagem: "",
     filaJogadoresNaFila: 0,
-    filaJogadoresOnline: 0,
+    filaJogadoresOnline: null,
     filaPreview: [],
     filaBusca: null,
     filaPodeCancelar: true,
@@ -223,6 +226,8 @@ export const useTermoStore = defineStore("termo", {
     dialogAvatarAberto: false,
     dialogContaModo: "entrada",
     dialogContaForcarRegistro: false,
+    /** Abre direto o formulário (login/registro), sem tela de visitante. */
+    dialogContaIrDiretoForm: false,
     dialogContaNickSugerido: "",
     dificuldade: "normal",
     codigoDesafio: "",
@@ -305,6 +310,8 @@ export const useTermoStore = defineStore("termo", {
     filaRanqueadaTravada: (s) => !!s.filaRanqueada,
     filaRanqueadaPodeCancelar: (s) =>
       !!s.filaRanqueada && !!s.filaPodeCancelar && s.filaFase !== "conectando",
+    /** Conta com e-mail (não visitante) — exige diária e ranqueado. */
+    contaRegistrada: (s) => !!(s.conta?.podeRanqueada),
     nickJogo: (s) => {
       const N = (s.conta?.nick || s.nick || "Jogador").trim().slice(0, 24);
       return N || "Jogador";
@@ -703,12 +710,20 @@ export const useTermoStore = defineStore("termo", {
       });
     },
 
-    executarLimparCache() {
+    async executarLimparCache() {
       LimparCacheAplicacao();
+      await LimparCachesPwa().catch(() => {});
       cacheDicionarioSet = null;
       this.conviteSalaCodigo = "";
       this.limparChat();
-      this.mostrarToast("Cache local limpo. Recarregue se algo parecer estranho.", false, true);
+      this.mostrarToast(
+        "Cache local limpo. A página vai recarregar para buscar a versão nova.",
+        false,
+        true
+      );
+      if (typeof window !== "undefined") {
+        setTimeout(() => window.location.reload(), 600);
+      }
     },
 
     definirFiltroSalasPublicas(filtro) {
@@ -846,7 +861,7 @@ export const useTermoStore = defineStore("termo", {
     exigirContaRegistrada() {
       if (this.conta?.podeRanqueada) return true;
       if (this.conta?.ehVisitante) this.abrirCriarConta();
-      else this.abrirConta("registro");
+      else this.abrirLoginConta();
       return false;
     },
 
@@ -858,16 +873,30 @@ export const useTermoStore = defineStore("termo", {
       this.fecharDialogs();
     },
 
-    abrirConta(modo = "entrada") {
+    abrirConta(modo = "entrada", opcoes = {}) {
       this.dialogContaModo = modo;
-      this.dialogContaForcarRegistro = modo === "registro";
+      this.dialogContaForcarRegistro =
+        modo === "registro" || !!opcoes.forcarRegistro;
+      this.dialogContaIrDiretoForm = !!opcoes.irDiretoForm;
+      if (opcoes.nickSugerido != null) {
+        this.dialogContaNickSugerido = opcoes.nickSugerido;
+      }
+      this.abrirDialog("conta");
+    },
+
+    /** Login com e-mail/nick — usado nos modos que exigem conta. */
+    abrirLoginConta() {
+      this.dialogContaModo = "entrada";
+      this.dialogContaForcarRegistro = false;
+      this.dialogContaIrDiretoForm = true;
       this.abrirDialog("conta");
     },
 
     abrirCriarConta() {
       this.dialogContaModo = "registro";
       this.dialogContaForcarRegistro = true;
-      this.dialogContaNickSugerido = this.conta?.nick || "";
+      this.dialogContaIrDiretoForm = true;
+      this.dialogContaNickSugerido = this.conta?.nick || this.nick || "";
       this.abrirDialog("conta");
     },
 
@@ -972,6 +1001,7 @@ export const useTermoStore = defineStore("termo", {
       this.aviso.aoConfirmar = null;
       this.aviso.aoCancelar = null;
       this.dialogContaForcarRegistro = false;
+      this.dialogContaIrDiretoForm = false;
       this.dialogContaNickSugerido = "";
     },
 
@@ -2371,7 +2401,13 @@ export const useTermoStore = defineStore("termo", {
 
     aplicarQueryDesafio() {
       const d = new URLSearchParams(location.search).get("desafio");
-      if (d) this.codigoDesafio = d.toUpperCase();
+      if (!d) return;
+      const cod = d.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (cod.length === 6) {
+        this.conviteSalaCodigo = cod;
+      } else {
+        this.codigoDesafio = cod;
+      }
     },
 
     definirPreferenciaSom(valor) {
@@ -2393,8 +2429,10 @@ export const useTermoStore = defineStore("termo", {
     },
 
     linkDesafio(codigo) {
-      const c = (codigo || this.codigoDesafio || "").trim().toUpperCase();
-      return c ? `${location.origin}/?desafio=${c}` : location.origin;
+      const c = (codigo || this.codigoDesafio || this.codigoSala || "")
+        .trim()
+        .toUpperCase();
+      return c ? `${location.origin}/?sala=${c}` : location.origin;
     },
 
     async copiarTexto(texto, msgOk = "Copiado!") {
@@ -2429,15 +2467,19 @@ export const useTermoStore = defineStore("termo", {
     },
 
     async criarDesafio() {
+      this.nick = this.nickJogo;
+      SalvarNickLocal(this.nick);
       try {
         const D = await api.desafioCriar();
-        this.codigoDesafio = D.codigoDesafio;
+        const cod = D.codigoSala || D.codigoDesafio;
+        this.codigoDesafio = cod;
+        this.entrarNaSala(D);
         await this.copiarTexto(
-          `${location.origin}/?desafio=${D.codigoDesafio}`,
-          `Desafio ${D.codigoDesafio} — link copiado!`
+          `${location.origin}/?sala=${cod}`,
+          `Sala ${cod} — link copiado!`
         );
-      } catch {
-        this.mostrarToast("Erro ao criar desafio", true);
+      } catch (e) {
+        this.mostrarToast(e.message || "Erro ao criar desafio", true);
       }
     },
 
@@ -2502,9 +2544,15 @@ export const useTermoStore = defineStore("termo", {
         await this.processarConviteSala();
       }
       const desafio = new URLSearchParams(location.search).get("desafio");
-      if (desafio && !retomou) {
-        this.codigoDesafio = desafio.toUpperCase();
-        this.abrirDialog("jogar");
+      if (desafio && !retomou && !temConviteSala) {
+        const cod = desafio.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+        if (cod.length === 6) {
+          this.conviteSalaCodigo = cod;
+          await this.processarConviteSala();
+        } else {
+          this.codigoDesafio = cod;
+          this.abrirDialog("jogar");
+        }
       }
     },
   },

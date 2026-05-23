@@ -1134,6 +1134,52 @@ html.tema-claro .btn-modo-conta-destaque:hover {
   filter: drop-shadow(0 0 6px rgba(212, 168, 67, 0.5));
 }
 
+.jogar-aba--bloqueada {
+  opacity: 0.55;
+  filter: grayscale(0.9);
+}
+
+.jogar-aba--bloqueada.ativa {
+  opacity: 0.85;
+  color: var(--text-muted);
+}
+
+.jogar-ranqueado-card--bloqueado {
+  filter: grayscale(0.8);
+  opacity: 0.94;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(
+    160deg,
+    rgba(63, 59, 72, 0.4),
+    rgba(212, 168, 67, 0.04) 55%,
+    transparent
+  );
+}
+
+.jogar-ranqueado-bloqueado {
+  text-align: left;
+}
+
+.jogar-ranqueado-bloqueado .modo-explicacao {
+  margin-bottom: 0.75rem;
+}
+
+.jogar-ranqueado-lista {
+  margin: 0 0 1rem;
+  padding-left: 1.15rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.jogar-ranqueado-lista li {
+  margin-bottom: 0.35rem;
+}
+
+.jogar-ranqueado-bloqueado .modo-acoes-conta {
+  margin-top: 0;
+}
+
 .jogar-corpo {
   padding: 1rem 1.15rem 1.25rem;
   background: var(--bg-card);

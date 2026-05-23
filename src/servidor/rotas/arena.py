@@ -1,6 +1,3 @@
-import random
-import string
-
 from fastapi import APIRouter, Depends, HTTPException
 
 from nucleo.arena_rodadas import ModoPontos, ModoVitorias
@@ -125,9 +122,39 @@ def RegistrarRotasArena(Roteador: APIRouter) -> None:
         return {"salas": GerenciadorVersus.ListarSalasPublicas()}
 
     @Roteador.post("/desafio/criar")
-    def CriarDesafio():
-        Codigo = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
-        return {"codigoDesafio": Codigo, "link": f"/?desafio={Codigo}"}
+    async def CriarDesafio(Perfil=Depends(ContaOpcional)):
+        Admissao = PodeCriarSala(len(GerenciadorVersus.Salas))
+        if not Admissao.Permitido:
+            raise HTTPException(
+                status_code=503,
+                detail=Admissao.Mensagem,
+                headers={"Retry-After": str(Admissao.RetryAfterSegundos)},
+            )
+        Config = ConfiguracaoSala(
+            MesmaPalavra=True,
+            VerOutros=True,
+            MaximoJogadores=4,
+            TempoLimiteSegundos=180,
+            ModoSessao=ModoVitorias,
+            MetaVitorias=3,
+            InicioAutoDois=True,
+            SalaPublica=False,
+            EhDesafio=True,
+        )
+        Nome = "Jogador"
+        IdConta = None
+        if Perfil:
+            Nome = Perfil["nick"][:24]
+            IdConta = Perfil["idConta"]
+        try:
+            Sala, Jogador = GerenciadorVersus.CriarSala(Nome, Config, IdConta=IdConta)
+        except ValueError as Erro:
+            raise HTTPException(status_code=400, detail=str(Erro)) from Erro
+        await BroadcastEstadoSala(Sala)
+        Resposta = MontarRespostaSala(Sala, Jogador)
+        Resposta["codigoDesafio"] = Sala.CodigoSala
+        Resposta["link"] = f"/?sala={Sala.CodigoSala}"
+        return Resposta
 
     @Roteador.get("/arena/frases-chat")
     def FrasesChat():

@@ -10,7 +10,9 @@ from . import persistencia
 from .gerenciador_salas import GerenciadorSalas, JogadorSala, SalaJogo
 
 PAUSA_RANQUEADA_SEG = 60
+PAUSA_DESAFIO_SEG = 30
 PAUSA_ARENA_SEG = 300
+ABANDONO_TOTAL_SEG = 180
 
 
 def GerarIdPartida() -> str:
@@ -35,6 +37,8 @@ def PartidaEmAndamento(Sala: SalaJogo) -> bool:
 def SegundosPausaSala(Sala: SalaJogo) -> int:
     if Sala.Configuracao.Ranqueada:
         return PAUSA_RANQUEADA_SEG
+    if Sala.Configuracao.EhDesafio:
+        return PAUSA_DESAFIO_SEG
     return PAUSA_ARENA_SEG
 
 
@@ -117,11 +121,16 @@ def CamposPausaPublicos(Sala: SalaJogo) -> dict:
     Restante = None
     if Sala.PausaAteEpoch:
         Restante = max(0, int(Sala.PausaAteEpoch - time.time()))
-    Motivo = (
-        "Oponente desconectou — aguardando retorno…"
-        if Sala.Configuracao.Ranqueada
-        else "Jogador desconectou — aguardando retorno…"
-    )
+    Segundos = SegundosPausaSala(Sala)
+    if Sala.Configuracao.Ranqueada:
+        Motivo = "Oponente desconectou — aguardando retorno…"
+    elif Sala.Configuracao.EhDesafio:
+        Motivo = (
+            f"Jogador desconectou — aguardando retorno ({Segundos}s). "
+            "Depois a partida continua sem ele."
+        )
+    else:
+        Motivo = "Jogador desconectou — aguardando retorno…"
     return {
         "pausada": True,
         "pausaAteEpoch": Sala.PausaAteEpoch,
@@ -129,6 +138,15 @@ def CamposPausaPublicos(Sala: SalaJogo) -> dict:
         "idJogadorPausado": Sala.IdJogadorPausado,
         "motivoPausa": Motivo,
     }
+
+
+def _RestaurarTimersCongelados(Sala: SalaJogo) -> None:
+    Agora = time.time()
+    for IdJ, Segundos in (Sala.TimersCongelados or {}).items():
+        J = Sala.Jogadores.get(IdJ)
+        if J and Segundos > 0 and not J.Finalizou:
+            J.TempoFimEpoch = Agora + Segundos
+    Sala.TimersCongelados = {}
 
 
 def IniciarPausaPorDesconexao(
@@ -146,6 +164,9 @@ def IniciarPausaPorDesconexao(
     Ativos = Gerenciador.JogadoresAtivos(Sala)
     if len(Ativos) < 2 and not Sala.Configuracao.Ranqueada:
         return False
+
+    if not Jogador.DesconexaoInicioEpoch:
+        Jogador.DesconexaoInicioEpoch = time.time()
 
     GarantirIdPartidaSala(Sala)
     Sala.EstadoSalaAntesPausa = Sala.EstadoSala if Sala.EstadoSala != "pausada" else (
@@ -186,13 +207,7 @@ def RetomarPausaPorConexao(
     Sala.EstadoSalaAntesPausa = None
     Sala.PausaAteEpoch = None
     Sala.IdJogadorPausado = None
-
-    Agora = time.time()
-    for IdJ, Segundos in (Sala.TimersCongelados or {}).items():
-        J = Sala.Jogadores.get(IdJ)
-        if J and Segundos > 0 and not J.Finalizou:
-            J.TempoFimEpoch = Agora + Segundos
-    Sala.TimersCongelados = {}
+    _RestaurarTimersCongelados(Sala)
 
     RegistrarEventoPartida(
         Sala.IdPartida,
@@ -211,34 +226,75 @@ def LimparEstadoPausa(Sala: SalaJogo) -> None:
     Sala.TimersCongelados = {}
 
 
-def AplicarAbandonoPorPausa(Gerenciador: GerenciadorSalas, Sala: SalaJogo) -> bool:
+def EncerrarPausaSuave(Gerenciador: GerenciadorSalas, Sala: SalaJogo) -> bool:
     if Sala.EstadoSala != "pausada" or not Sala.IdJogadorPausado:
         return False
 
     IdAusente = Sala.IdJogadorPausado
+    Jogador = Sala.Jogadores.get(IdAusente)
     GarantirIdPartidaSala(Sala)
+    if Jogador:
+        if not Jogador.DesconexaoInicioEpoch:
+            Jogador.DesconexaoInicioEpoch = time.time()
+        Jogador.AusenteContinua = True
+
+    EstadoRetorno = Sala.EstadoSalaAntesPausa or "jogando"
+    Sala.EstadoSala = EstadoRetorno
+    LimparEstadoPausa(Sala)
+    _RestaurarTimersCongelados(Sala)
+
     RegistrarEventoPartida(
         Sala.IdPartida,
-        "abandono_pausa_expirada",
+        "pausa_expirada_continua",
         {"idJogador": IdAusente},
         Sala.CodigoSala,
     )
 
+    if Sala.EstadoSala == "jogando":
+        Gerenciador.FinalizarAusentesRodadaAtual(Sala)
+    Gerenciador.PersistirSala(Sala)
+    return True
+
+
+def AplicarAbandonoDefinitivo(
+    Gerenciador: GerenciadorSalas,
+    Sala: SalaJogo,
+    IdJogador: str,
+) -> bool:
+    Jogador = Sala.Jogadores.get(IdJogador)
+    if not Jogador or not Jogador.AusenteContinua:
+        return False
+
+    GarantirIdPartidaSala(Sala)
+    RegistrarEventoPartida(
+        Sala.IdPartida,
+        "abandono_tempo_maximo",
+        {"idJogador": IdJogador},
+        Sala.CodigoSala,
+    )
+
+    if Sala.EstadoSala == "pausada" and Sala.IdJogadorPausado == IdJogador:
+        Retorno = Sala.EstadoSalaAntesPausa or "jogando"
+        LimparEstadoPausa(Sala)
+        Sala.EstadoSala = Retorno
+
     Ativos = [
         J
         for J in Gerenciador.JogadoresAtivos(Sala)
-        if J.IdJogador != IdAusente
+        if J.IdJogador != IdJogador
     ]
-    LimparEstadoPausa(Sala)
 
     if Sala.Configuracao.Ranqueada and Ativos:
-        Vencedor = Ativos[0].IdJogador
-        Gerenciador.EncerrarSessao(Sala, VencedorForcado=Vencedor)
+        Gerenciador.EncerrarSessao(Sala, VencedorForcado=Ativos[0].IdJogador)
         return True
 
-    Gerenciador.RemoverJogador(Sala.CodigoSala, IdAusente, Persistir=True)
+    Gerenciador.RemoverJogador(Sala.CodigoSala, IdJogador, Persistir=True)
     SalaRestante = Gerenciador.ObterSala(Sala.CodigoSala)
-    if SalaRestante and SalaRestante.EstadoSala == "pausada":
+    if (
+        SalaRestante
+        and SalaRestante.EstadoSala == "pausada"
+        and SalaRestante.IdJogadorPausado == IdJogador
+    ):
         SalaRestante.EstadoSala = SalaRestante.EstadoSalaAntesPausa or "jogando"
         LimparEstadoPausa(SalaRestante)
         Gerenciador.PersistirSala(SalaRestante)
@@ -254,8 +310,25 @@ def VerificarPausasExpiradas(Gerenciador: GerenciadorSalas) -> list[SalaJogo]:
             and Sala.PausaAteEpoch
             and Agora >= Sala.PausaAteEpoch
         ):
-            if AplicarAbandonoPorPausa(Gerenciador, Sala):
+            if EncerrarPausaSuave(Gerenciador, Sala):
                 Alteradas.append(Gerenciador.ObterSala(Sala.CodigoSala) or Sala)
+    return Alteradas
+
+
+def VerificarAbandonosProlongados(Gerenciador: GerenciadorSalas) -> list[SalaJogo]:
+    Agora = time.time()
+    Alteradas: list[SalaJogo] = []
+    for Sala in list(Gerenciador.Salas.values()):
+        if Sala.PartidaEncerrada:
+            continue
+        for Jogador in Gerenciador.JogadoresAtivos(Sala):
+            if not Jogador.AusenteContinua or not Jogador.DesconexaoInicioEpoch:
+                continue
+            if Agora - Jogador.DesconexaoInicioEpoch < ABANDONO_TOTAL_SEG:
+                continue
+            if AplicarAbandonoDefinitivo(Gerenciador, Sala, Jogador.IdJogador):
+                Alteradas.append(Gerenciador.ObterSala(Sala.CodigoSala) or Sala)
+                break
     return Alteradas
 
 
@@ -342,7 +415,14 @@ def DesistirPartida(
     )
 
     if Sala.EstadoSala == "pausada" and Sala.IdJogadorPausado == IdJogador:
+        Retorno = Sala.EstadoSalaAntesPausa or "jogando"
         LimparEstadoPausa(Sala)
+        Sala.EstadoSala = Retorno
+
+    Jogador = Sala.Jogadores.get(IdJogador)
+    if Jogador:
+        Jogador.AusenteContinua = False
+        Jogador.DesconexaoInicioEpoch = None
 
     Ativos = Gerenciador.JogadoresAtivos(Sala)
     Oponentes = [J for J in Ativos if J.IdJogador != IdJogador]

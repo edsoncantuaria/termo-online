@@ -69,6 +69,7 @@ class ConfiguracaoSala:
     InicioAutoDois: bool = False
     SalaPublica: bool = True
     Ranqueada: bool = False
+    EhDesafio: bool = False
 
 
 @dataclass
@@ -92,6 +93,8 @@ class JogadorSala:
     Pronto: bool = False
     EhBot: bool = False
     TokenSessao: str | None = None
+    AusenteContinua: bool = False
+    DesconexaoInicioEpoch: float | None = None
 
 
 @dataclass
@@ -141,6 +144,8 @@ class GerenciadorSalas:
         Jogador.Conectado = Conectado
         Jogador.UltimaAtividade = time.time()
         if Conectado:
+            Jogador.AusenteContinua = False
+            Jogador.DesconexaoInicioEpoch = None
             partida_sessao.RetomarPausaPorConexao(self, Sala, IdJogador)
         elif partida_sessao.PartidaEmAndamento(Sala):
             partida_sessao.IniciarPausaPorDesconexao(self, Sala, IdJogador)
@@ -188,7 +193,9 @@ class GerenciadorSalas:
         Removidos = [
             Id
             for Id, J in Sala.Jogadores.items()
-            if not J.Conectado and Agora - J.UltimaAtividade > TempoInativoSegundos
+            if not J.Conectado
+            and not J.AusenteContinua
+            and Agora - J.UltimaAtividade > TempoInativoSegundos
         ]
         for Id in Removidos:
             self.RemoverJogador(Sala.CodigoSala, Id, Persistir=False)
@@ -529,6 +536,21 @@ class GerenciadorSalas:
             Jogador.TempoFimEpoch = None
             Jogador.PalavraSecreta = None
             Jogador.PalavraComAcento = None
+            if Jogador.AusenteContinua:
+                Jogador.Finalizou = True
+
+    def FinalizarAusentesRodadaAtual(self, Sala: SalaJogo) -> bool:
+        if Sala.EstadoSala != "jogando":
+            return False
+        Mudou = False
+        for Jogador in self.JogadoresAtivos(Sala):
+            if Jogador.AusenteContinua and not Jogador.Finalizou:
+                Jogador.Finalizou = True
+                Jogador.Venceu = False
+                Mudou = True
+        if Mudou:
+            self.PersistirSala(Sala)
+        return Mudou
 
     def _IniciarRodadaAtiva(self, Sala: SalaJogo) -> None:
         self._ResetarEstadoRodadaJogadores(Sala)
@@ -934,6 +956,45 @@ class GerenciadorSalas:
             f"{Digesto[16:20]}-{Digesto[20:32]}"
         )
 
+    def _SerializarOponenteRanqueado(
+        self,
+        Sala: SalaJogo,
+        Jogador: JogadorSala,
+    ) -> dict:
+        EmRodada = Sala.EstadoSala == "jogando"
+        JaChutou = bool(Jogador.Tentativas)
+        Dados = {
+            "idJogador": self.IdJogadorPublico(Jogador),
+            "nomeJogador": Jogador.NomeJogador,
+            "avatarId": self.ResolverAvatarJogador(Jogador),
+            "souEu": False,
+            "modoCompetitivo": True,
+            "jaChutou": JaChutou,
+            "finalizou": Jogador.Finalizou,
+            "conectado": Jogador.Conectado,
+            "espectador": Jogador.Espectador,
+            "pronto": Jogador.Pronto,
+            "ausenteContinua": Jogador.AusenteContinua,
+            "tentativas": [],
+            "tentativasUsadas": 0,
+            "pontos": 0,
+            "pontosAcumulados": 0,
+            "pontosUltimaRodada": 0,
+            "vitoriasRodada": 0,
+            "venceu": Jogador.Venceu if not EmRodada else False,
+        }
+        if Jogador.AusenteContinua and Jogador.DesconexaoInicioEpoch:
+            from . import partida_sessao
+
+            Dados["segundosAteAbandono"] = max(
+                0,
+                int(
+                    partida_sessao.ABANDONO_TOTAL_SEG
+                    - (time.time() - Jogador.DesconexaoInicioEpoch)
+                ),
+            )
+        return Dados
+
     def SerializarJogador(
         self,
         Sala: SalaJogo,
@@ -941,7 +1002,11 @@ class GerenciadorSalas:
         IdObservador: str,
         IncluirTentativas: bool,
     ) -> dict:
+        from . import partida_sessao
+
         SouEu = Jogador.IdJogador == IdObservador
+        if Sala.Configuracao.Ranqueada and not SouEu and not Jogador.Espectador:
+            return self._SerializarOponenteRanqueado(Sala, Jogador)
         Dados = {
             "idJogador": self.IdJogadorPublico(Jogador),
             "nomeJogador": Jogador.NomeJogador,
@@ -957,7 +1022,17 @@ class GerenciadorSalas:
             "conectado": Jogador.Conectado,
             "espectador": Jogador.Espectador,
             "pronto": Jogador.Pronto,
+            "ausenteContinua": Jogador.AusenteContinua,
         }
+        if Jogador.AusenteContinua and Jogador.DesconexaoInicioEpoch:
+            RestanteKick = max(
+                0,
+                int(
+                    partida_sessao.ABANDONO_TOTAL_SEG
+                    - (time.time() - Jogador.DesconexaoInicioEpoch)
+                ),
+            )
+            Dados["segundosAteAbandono"] = RestanteKick
         if IncluirTentativas or SouEu:
             Dados["tentativas"] = Jogador.Tentativas
         else:
@@ -1094,6 +1169,7 @@ class GerenciadorSalas:
                 "inicioAutoDois": Config.InicioAutoDois,
                 "salaPublica": Config.SalaPublica,
                 "ranqueada": Config.Ranqueada,
+                "ehDesafio": Config.EhDesafio,
             },
             "jogadoresConectados": len(self.JogadoresAtivos(Sala)),
             "jogadoresOnline": self.JogadoresAtivosConectados(Sala),

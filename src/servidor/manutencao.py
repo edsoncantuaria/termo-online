@@ -2,7 +2,10 @@ import asyncio
 
 from nucleo.bot_jogador import ProcessarBotsNasSalas
 from nucleo.matchmaking import FilaGlobal
-from nucleo.partida_sessao import VerificarPausasExpiradas
+from nucleo.partida_sessao import (
+    VerificarAbandonosProlongados,
+    VerificarPausasExpiradas,
+)
 from servidor.estado_global import GerenciadorVersus as Gerenciador
 from servidor.websocket import BroadcastEstadoSala, VerificarFimRodada
 
@@ -12,6 +15,9 @@ async def TarefaManutencaoSalas() -> None:
         await asyncio.sleep(2)
         FilaGlobal.Processar(Gerenciador)
         for Sala in VerificarPausasExpiradas(Gerenciador):
+            VerificarFimRodada(Sala)
+            await BroadcastEstadoSala(Sala)
+        for Sala in VerificarAbandonosProlongados(Gerenciador):
             VerificarFimRodada(Sala)
             await BroadcastEstadoSala(Sala)
         for Sala in ProcessarBotsNasSalas(Gerenciador):
@@ -30,6 +36,9 @@ async def TarefaManutencaoSalas() -> None:
                     Mudou = True
 
             if Sala.EstadoSala == "jogando":
+                if Gerenciador.FinalizarAusentesRodadaAtual(Sala):
+                    VerificarFimRodada(Sala)
+                    Mudou = True
                 if Gerenciador.VerificarTempoEsgotado(Sala):
                     VerificarFimRodada(Sala)
                     Mudou = True

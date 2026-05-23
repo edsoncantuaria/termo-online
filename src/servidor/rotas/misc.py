@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from nucleo.dicionario import ObterHashDicionario
 from nucleo.estatisticas import ObterEstatisticasJogador
 from nucleo.pontuacao import ObterRanking
+from servidor.dependencias_auth import ContaOpcional
 from servidor.metricas import MontarSnapshotMetricas
 
 
@@ -12,8 +13,13 @@ def RegistrarRotasMisc(Roteador: APIRouter) -> None:
         return {"ranking": ObterRanking()}
 
     @Roteador.get("/stats")
-    def Estatisticas(nick: str = "Jogador"):
-        return ObterEstatisticasJogador(nick)
+    def Estatisticas(nick: str = "Jogador", Perfil=Depends(ContaOpcional)):
+        IdConta = (
+            Perfil["idConta"]
+            if Perfil and not Perfil.get("ehVisitante")
+            else None
+        )
+        return ObterEstatisticasJogador(nick, IdConta=IdConta, Perfil=Perfil)
 
     @Roteador.get("/dicionario/info")
     def InfoDicionario():

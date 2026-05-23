@@ -1,8 +1,13 @@
 <script setup>
+import { computed } from "vue";
 import { useTermoStore } from "../../stores/termo.js";
 import PainelHomeExtras from "../home/PainelHomeExtras.vue";
 
 const store = useTermoStore();
+
+const diariaBloqueada = computed(
+  () => !store.contaRegistrada && !store.diariaFeita
+);
 </script>
 
 <template>
@@ -20,32 +25,65 @@ const store = useTermoStore();
       <div class="inicio-tres-modos">
         <article
           class="modo-card modo-card-principal modo-diaria"
-          :class="{ 'diaria-feita': store.diariaFeita }"
+          :class="{
+            'diaria-feita': store.diariaFeita && store.contaRegistrada,
+            'modo-requer-conta': diariaBloqueada,
+          }"
         >
           <span class="modo-badge">{{ store.diariaBadge }}</span>
           <h2>Palavra do dia</h2>
-          <p>Uma palavra para todos. Jogue uma vez por dia.</p>
-          <p class="diaria-contador">{{ store.proximaDiariaTexto }}</p>
-          <div class="diaria-acoes">
-            <button
-              v-if="!store.diariaFeita"
-              type="button"
-              class="btn-modo btn-largo"
-              @click="store.iniciarModo('diaria')"
-            >
-              {{ store.diariaBtnTexto }}
-            </button>
-            <template v-else>
+
+          <template v-if="diariaBloqueada">
+            <p class="modo-explicacao">
+              Todo dia uma palavra igual para quem joga no Brasil. Até 6 tentativas,
+              <strong>uma partida por conta</strong>. O resultado entra no seu perfil,
+              dá XP, badges e aparece no ranking da diária.
+            </p>
+            <p class="modo-explicacao modo-explicacao-sec">
+              Visitante não conta — entre ou crie conta para jogar.
+            </p>
+            <div class="modo-acoes-conta">
               <button
                 type="button"
-                class="btn-modo btn-largo btn-destaque"
-                @click="store.verResultadoDiaria()"
+                class="btn-modo btn-largo"
+                @click="store.abrirLoginConta()"
               >
-                Ver resultado de hoje
+                Entrar
               </button>
-              <p class="diaria-feita-hint">Você já jogou a palavra de hoje.</p>
-            </template>
-          </div>
+              <button
+                type="button"
+                class="btn-modo btn-modo-sec btn-largo"
+                @click="store.abrirCriarConta()"
+              >
+                Criar conta
+              </button>
+            </div>
+          </template>
+
+          <template v-else>
+            <p>Uma palavra para todos. Jogue uma vez por dia.</p>
+            <p class="diaria-contador">{{ store.proximaDiariaTexto }}</p>
+            <div class="diaria-acoes">
+              <button
+                v-if="!store.diariaFeita"
+                type="button"
+                class="btn-modo btn-largo"
+                @click="store.iniciarModo('diaria')"
+              >
+                {{ store.diariaBtnTexto }}
+              </button>
+              <template v-else>
+                <button
+                  type="button"
+                  class="btn-modo btn-largo btn-destaque"
+                  @click="store.verResultadoDiaria()"
+                >
+                  Ver resultado de hoje
+                </button>
+                <p class="diaria-feita-hint">Você já jogou a palavra de hoje.</p>
+              </template>
+            </div>
+          </template>
         </article>
 
         <article class="modo-card modo-card-principal modo-jogar">

@@ -416,6 +416,59 @@ def CarregarPartidaSolo(IdPartida: str, ClassePartida):
     return _DesserializarEstadoPartida(Linha, ClassePartida)
 
 
+def ContarPartidasSoloPorModo(
+    IdConta: str | None = None, Nick: str | None = None
+) -> dict[str, dict[str, int]]:
+    """Partidas encerradas agrupadas por modo (prática, dueto, etc.)."""
+    from .modos_solo import (
+        ModoDesafio,
+        ModoDiaria,
+        ModoDueto,
+        ModoPratica,
+        ModoQuarteto,
+    )
+
+    ModosOrdem = [ModoDiaria, ModoPratica, ModoDueto, ModoQuarteto, ModoDesafio]
+    Resultado = {M: {"partidas": 0, "vitorias": 0} for M in ModosOrdem}
+    NickNorm = (Nick or "").strip()[:24].lower() or "jogador"
+
+    with Conexao() as C:
+        if IdConta:
+            Linhas = C.execute(
+                """
+                SELECT modo, COUNT(*) AS partidas, COALESCE(SUM(venceu), 0) AS vitorias
+                FROM partidas_solo
+                WHERE encerrada = 1
+                  AND (
+                    id_conta = ?
+                    OR (id_conta IS NULL AND LOWER(COALESCE(nome_jogador, '')) = ?)
+                  )
+                GROUP BY modo
+                """,
+                (IdConta, NickNorm),
+            ).fetchall()
+        else:
+            Linhas = C.execute(
+                """
+                SELECT modo, COUNT(*) AS partidas, COALESCE(SUM(venceu), 0) AS vitorias
+                FROM partidas_solo
+                WHERE encerrada = 1 AND LOWER(COALESCE(nome_jogador, '')) = ?
+                GROUP BY modo
+                """,
+                (NickNorm,),
+            ).fetchall()
+
+    for Linha in Linhas:
+        Modo = Linha["modo"]
+        if Modo not in Resultado:
+            Resultado[Modo] = {"partidas": 0, "vitorias": 0}
+        Resultado[Modo] = {
+            "partidas": int(Linha["partidas"]),
+            "vitorias": int(Linha["vitorias"]),
+        }
+    return Resultado
+
+
 INATIVIDADE_VISITANTE_HORAS = 1
 
 

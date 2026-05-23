@@ -5,8 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 
 from nucleo.dicionario import CarregarDicionario
 from nucleo.versao import VERSAO
@@ -18,6 +17,7 @@ from .middleware_carga import MiddlewareControleCarga
 from .rate_limit import MiddlewareRateLimit
 from .rotas import RegistrarRotas
 from .saude import RoteadorSaude
+from .estatico_cache import RespostaArquivoDist
 from .websocket import RegistrarWebSocket
 
 
@@ -74,13 +74,11 @@ def CriarAplicacao() -> FastAPI:
 
         @Aplicacao.get("/")
         async def PaginaInicial():
-            return FileResponse(CaminhoDist / "index.html")
+            return RespostaArquivoDist(CaminhoDist / "index.html")
 
-        Aplicacao.mount(
-            "/assets",
-            StaticFiles(directory=CaminhoDist / "assets"),
-            name="assets",
-        )
+        @Aplicacao.get("/assets/{caminho:path}")
+        async def AssetsDist(caminho: str):
+            return RespostaArquivoDist(CaminhoDist / "assets" / caminho)
 
         @Aplicacao.get("/{caminho:path}")
         async def SpaFallback(caminho: str):
@@ -88,8 +86,8 @@ def CriarAplicacao() -> FastAPI:
                 raise HTTPException(status_code=404)
             Arquivo = CaminhoDist / caminho
             if Arquivo.is_file():
-                return FileResponse(Arquivo)
-            return FileResponse(CaminhoDist / "index.html")
+                return RespostaArquivoDist(Arquivo)
+            return RespostaArquivoDist(CaminhoDist / "index.html")
     else:
 
         @Aplicacao.get("/")

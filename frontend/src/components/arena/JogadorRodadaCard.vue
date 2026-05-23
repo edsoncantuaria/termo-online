@@ -18,6 +18,8 @@ const props = defineProps({
   maxTentativas: { type: Number, default: 6 },
   /** Vários adversários na lateral — resumo compacto com expansão. */
   modoMultiplo: { type: Boolean, default: false },
+  /** Ranqueado 1v1: só indica se o oponente já chutou. */
+  modoCompetitivo: { type: Boolean, default: false },
 });
 
 const expandido = ref(false);
@@ -146,6 +148,11 @@ watch(
       </button>
     </div>
 
+    <div v-else-if="modoCompetitivo && !jogador.espectador" class="jogador-rodada-corpo">
+      <p class="jogador-rodada-hint jogador-rodada-hint--competitivo">
+        {{ status.texto }}
+      </p>
+    </div>
     <div v-else class="jogador-rodada-corpo">
       <GradeTermo
         v-if="mostrarGradeCompleta"

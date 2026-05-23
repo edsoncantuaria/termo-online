@@ -312,8 +312,11 @@ function avatarPlacar(j) {
         </div>
 
         <h3 class="lateral-titulo titulo-outros">{{ store.tituloOutros }}</h3>
+        <p v-if="store.modoJogoRanqueada" class="dica-outros-multi">
+          Modo competitivo: você só vê se o oponente já chutou ou não.
+        </p>
         <p
-          v-if="store.outrosNaRodada.length >= 2 && verOutros"
+          v-else-if="store.outrosNaRodada.length >= 2 && verOutros"
           class="dica-outros-multi"
         >
           Resumo da melhor tentativa — toque para ver o tabuleiro completo.
@@ -329,6 +332,7 @@ function avatarPlacar(j) {
             :key="j.idJogador"
             :jogador="j"
             :ver-outros="verOutros"
+            :modo-competitivo="store.modoJogoRanqueada"
             :modo-multiplo="store.outrosNaRodada.length >= 2"
             :max-tentativas="store.maxTentativas"
           />

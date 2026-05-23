@@ -47,6 +47,12 @@ export function TextoStatusLobby(D) {
 }
 
 export function StatusJogadorRodada(j, maxTentativas = 6) {
+  if (j.modoCompetitivo && !j.espectador) {
+    if (j.finalizou)
+      return { texto: "Encerrou a rodada", classe: "status-fim" };
+    if (j.jaChutou) return { texto: "Já chutou", classe: "status-jogando" };
+    return { texto: "Sem chute ainda", classe: "status-aguardo" };
+  }
   if (j.espectador)
     return { texto: "Espectador", classe: "status-espectador" };
   if (j.venceu) return { texto: "Venceu a rodada", classe: "status-venceu" };

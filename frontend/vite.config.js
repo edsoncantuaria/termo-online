@@ -3,11 +3,26 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { VitePWA } from "vite-plugin-pwa";
 
+const BuildId = process.env.VITE_BUILD_ID || String(Date.now());
+
 export default defineConfig({
+  define: {
+    __TERM0_BUILD_ID__: JSON.stringify(BuildId),
+  },
   plugins: [
     vue(),
+    {
+      name: "termo-build-id",
+      transformIndexHtml(html) {
+        return html.replace(
+          'name="termo-build" content="dev"',
+          `name="termo-build" content="${BuildId}"`
+        );
+      },
+    },
     VitePWA({
       registerType: "autoUpdate",
+      injectRegister: false,
       includeAssets: ["favicon.svg", "sounds/*.ogg"],
       manifest: {
         name: "Termo Online · Cloudive",
@@ -27,7 +42,24 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,svg,ogg,woff2}"],
+        globPatterns: ["**/*.{js,css,ico,svg,ogg,woff2}"],
+        globIgnores: ["**/index.html"],
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
+        navigateFallback: "/index.html",
+        navigateFallbackDenylist: [/^\/api/, /^\/ws/],
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "termo-paginas",
+              networkTimeoutSeconds: 4,
+              expiration: { maxEntries: 2, maxAgeSeconds: 60 },
+            },
+          },
+        ],
       },
     }),
   ],

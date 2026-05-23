@@ -189,6 +189,56 @@ html {
   line-height: 1.45;
 }
 
+.perfil-modos-legenda {
+  margin: 0 0 0.75rem;
+}
+
+.perfil-modos-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.perfil-modo-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--raio-md);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.perfil-modo-linha--vazio {
+  opacity: 0.55;
+}
+
+.perfil-modo-nome {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.perfil-modo-stats {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.perfil-modo-stats strong {
+  font-size: 1rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.perfil-modo-vitorias {
+  color: var(--verde);
+}
+
 .lista-ranking-perfil {
   max-height: 200px;
   overflow-y: auto;
@@ -667,6 +717,49 @@ html {
 
 .modo-diaria.diaria-feita {
   border-color: rgba(95, 173, 98, 0.25);
+}
+
+.modo-card-principal.modo-requer-conta {
+  background: linear-gradient(
+    160deg,
+    rgba(63, 59, 72, 0.35),
+    var(--bg-card)
+  );
+  border-color: rgba(255, 255, 255, 0.08);
+  filter: grayscale(0.75);
+  opacity: 0.92;
+}
+
+.modo-card-principal.modo-requer-conta:hover {
+  transform: none;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.modo-card-principal.modo-requer-conta .modo-badge {
+  background: var(--cinza);
+  color: var(--text-muted);
+}
+
+.modo-explicacao {
+  margin: 0 0 0.65rem;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.modo-explicacao-sec {
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.modo-acoes-conta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+  margin-top: auto;
 }
 
 .grade-wrap {

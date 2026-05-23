@@ -20,7 +20,7 @@ function LimparEstadoFilaUi(store) {
   store.filaFase = null;
   store.filaMensagem = "";
   store.filaJogadoresNaFila = 0;
-  store.filaJogadoresOnline = 0;
+  store.filaJogadoresOnline = null;
   store.filaPreview = [];
   store.filaBusca = null;
 }
@@ -78,7 +78,8 @@ export async function pollFilaRanqueada() {
       this.filaFase = D.fase ?? null;
       this.filaMensagem = D.mensagem ?? "";
       this.filaJogadoresNaFila = D.jogadoresNaFila ?? 0;
-      this.filaJogadoresOnline = D.jogadoresOnline ?? D.jogadoresNaFila ?? 0;
+      this.filaJogadoresOnline =
+        D.jogadoresOnline != null ? D.jogadoresOnline : null;
       this.filaPreview = D.filaPreview ?? [];
       this.filaBusca = D.busca ?? null;
     }

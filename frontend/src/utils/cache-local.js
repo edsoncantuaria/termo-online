@@ -20,3 +20,15 @@ export function LimparCacheAplicacao() {
   localStorage.removeItem(CHAVE_TUTORIAL_MULTI);
   localStorage.removeItem(CHAVE_CODIGO_SALA);
 }
+
+/** Service worker + Cache API (PWA) — uso ao “Limpar cache local”. */
+export async function LimparCachesPwa() {
+  if (typeof caches !== "undefined") {
+    const Chaves = await caches.keys();
+    await Promise.all(Chaves.map((c) => caches.delete(c)));
+  }
+  if ("serviceWorker" in navigator) {
+    const Registros = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(Registros.map((r) => r.unregister()));
+  }
+}

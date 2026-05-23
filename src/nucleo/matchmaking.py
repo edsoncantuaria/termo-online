@@ -24,8 +24,11 @@ from .matchmaking_competitivo import (
     ScoreQualidadePar,
     SegundosNaFila,
 )
+from .controle_carga import ContarConexoesWsLobby, ContarConexoesWsSala
 from .persistencia import ContarPartidasRanqueadasConta
 from .ranqueada import EloDePontos, NomeEloExibicao
+
+MIN_JOGADORES_ONLINE_EXIBIR = 50
 
 
 @dataclass
@@ -35,6 +38,14 @@ class EntradaFila:
     Pontos: int
     EntrouEm: float = field(default_factory=time.time)
     BotReservadoId: str | None = None
+
+
+def JogadoresOnlineParaCliente() -> int | None:
+    """Só exibe contagem pública quando há massa crítica de jogadores reais (WS)."""
+    Total = ContarConexoesWsLobby() + ContarConexoesWsSala()
+    if Total < MIN_JOGADORES_ONLINE_EXIBIR:
+        return None
+    return Total
 
 
 class FilaMatchmaking:
@@ -86,7 +97,7 @@ class FilaMatchmaking:
             "estado": "aguardando",
             "segundos": Seg,
             "jogadoresNaFila": ReaisNaFila,
-            "jogadoresOnline": ReaisNaFila + ContarBotsDisponiveis(),
+            "jogadoresOnline": JogadoresOnlineParaCliente(),
             "fase": FaseCliente,
             "mensagem": Mensagem,
             "filaPreview": Preview,
@@ -143,7 +154,7 @@ class FilaMatchmaking:
             Bot = ObterBot(Eu.BotReservadoId)
             if Bot:
                 Itens.append(
-                    self._ItemPreview(Bot.Nick, Bot.Pontos, naFila=True, destacado=True)
+                    self._ItemPreview(Bot.Nick, Bot.Pontos, naFila=True, destacado=False)
                 )
         for Outro in self.Fila.values():
             if Outro.IdConta == Eu.IdConta:
@@ -350,7 +361,7 @@ class FilaMatchmaking:
     def _ConfigRanqueada(self) -> ConfiguracaoSala:
         return ConfiguracaoSala(
             MesmaPalavra=True,
-            VerOutros=True,
+            VerOutros=False,
             MaximoJogadores=2,
             Senha=None,
             TempoLimiteSegundos=180,

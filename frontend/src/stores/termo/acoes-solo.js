@@ -201,11 +201,8 @@ export async function iniciarModo(modo, opcoes = {}) {
 
   if (modo === "diaria") {
     if (!this.conta?.podeRanqueada) {
-      this.mostrarToast(
-        "Crie uma conta para jogar a palavra do dia (uma vez por dia).",
-        true
-      );
-      this.abrirCriarConta();
+      if (this.conta?.ehVisitante) this.abrirCriarConta();
+      else this.abrirLoginConta();
       return;
     }
     try {

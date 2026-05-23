@@ -45,8 +45,8 @@ export const api = {
     }).then(JsonOuErro),
   dicionarioPalavras: () => fetch(UrlApi("/api/dicionario/palavras")).then(JsonOuErro),
   stats: (nick) =>
-    fetch(UrlApi(`/api/stats?nick=${encodeURIComponent(nick)}`)).then((r) =>
-      r.json()
+    fetchAuth(UrlApi(`/api/stats?nick=${encodeURIComponent(nick)}`)).then(
+      JsonOuErro
     ),
   historicoDiaria: () => fetchAuth(UrlApi("/api/diaria/historico")).then(JsonOuErro),
   salasPublicas: () => fetch(UrlApi("/api/salas/publicas")).then((r) => r.json()),
