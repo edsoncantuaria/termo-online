@@ -29,7 +29,7 @@ def test_cap_diario_xp(tmp_path, monkeypatch):
     persistencia.InicializarBanco()
     from nucleo.contas import RegistrarConta
 
-    Perfil, _ = RegistrarConta("cap_xp", "cap@test.com", "senha123")
+    Perfil, _, _ = RegistrarConta("cap_xp", "cap@test.com", "senha123")
     Id = Perfil["idConta"]
     persistencia.AdicionarXpConta(Id, 500_000)
     persistencia.RegistrarXpGanhoDiario(Id, CAP_XP_DIARIO - 1)
@@ -47,7 +47,7 @@ def test_diaria_xp_uma_vez_por_tentativa(tmp_path, monkeypatch):
     persistencia.InicializarBanco()
     from nucleo.contas import RegistrarConta
 
-    Perfil, _ = RegistrarConta("xp_test", "xp@test.com", "senha123")
+    Perfil, _, _ = RegistrarConta("xp_test", "xp@test.com", "senha123")
     Id = Perfil["idConta"]
     Data = "2099-01-15"
     Partida = "part-1"

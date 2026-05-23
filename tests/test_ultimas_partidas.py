@@ -45,7 +45,7 @@ def test_listar_ultimas_partidas_mescla_solo_e_ranqueado(tmp_path, monkeypatch):
 def test_api_ultimas_partidas_limite_20(tmp_path, monkeypatch):
     monkeypatch.setattr(persistencia, "CaminhoBanco", tmp_path / "apiult.db")
     persistencia.InicializarBanco()
-    _, Token = RegistrarConta("apihist", "apihist@test.com", "senha123")
+    _, Token, _ = RegistrarConta("apihist", "apihist@test.com", "senha123")
     Cliente = TestClient(CriarAplicacao())
 
     R = Cliente.get(

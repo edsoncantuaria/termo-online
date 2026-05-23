@@ -41,9 +41,9 @@ def test_validar_email_invalido():
 
 
 def test_visitante_escolhe_nick(banco_contas):
-    Perfil, _ = EntrarComoVisitante("maria")
+    Perfil, _, _ = EntrarComoVisitante("maria")
     assert Perfil["nick"] == "maria"
-    Perfil2, _ = EntrarComoVisitante("maria")
+    Perfil2, _, _ = EntrarComoVisitante("maria")
     assert Perfil2["nick"] == "maria1"
 
 
@@ -53,7 +53,7 @@ def test_reservar_nick_invalido():
 
 
 def test_visitante_recebe_nick_amigavel(banco_contas):
-    Perfil, _ = EntrarComoVisitante()
+    Perfil, _, _ = EntrarComoVisitante()
     assert Perfil["ehVisitante"] is True
     Base = Perfil["nick"].rstrip("0123456789")
     assert Base in NOMES_BASE_VISITANTE or Perfil["nick"].startswith("jogador")
@@ -73,7 +73,7 @@ def test_registro_toma_nick_de_visitante(banco_contas):
     IdVisitante = persistencia.CriarConta(
         "maria1", "", "", EhVisitante=True, Email=None
     )
-    Perfil, _ = RegistrarConta("maria1", "nova@email.com", "senha12")
+    Perfil, _, _ = RegistrarConta("maria1", "nova@email.com", "senha12")
     assert Perfil["nick"] == "maria1"
     assert Perfil["ehVisitante"] is False
     Visitante = persistencia.ObterContaPorId(IdVisitante)
@@ -111,26 +111,26 @@ def _MarcarVisitanteInativo(IdConta: str) -> None:
 
 
 def test_visitante_inativo_libera_nick(banco_contas):
-    Perfil1, _ = EntrarComoVisitante("maria")
+    Perfil1, _, _ = EntrarComoVisitante("maria")
     assert Perfil1["nick"] == "maria"
     _MarcarVisitanteInativo(Perfil1["idConta"])
-    Perfil2, _ = EntrarComoVisitante("maria")
+    Perfil2, _, _ = EntrarComoVisitante("maria")
     assert Perfil2["nick"] == "maria"
     assert Perfil2["idConta"] != Perfil1["idConta"]
     assert persistencia.ObterContaPorId(Perfil1["idConta"]) is None
 
 
 def test_visitante_ativo_mantem_nick(banco_contas):
-    Perfil1, _ = EntrarComoVisitante("maria")
-    Perfil2, _ = EntrarComoVisitante("maria")
+    Perfil1, _, _ = EntrarComoVisitante("maria")
+    Perfil2, _, _ = EntrarComoVisitante("maria")
     assert Perfil2["nick"] == "maria1"
 
 
 def test_sessao_visitante_renova_atividade(banco_contas):
-    Perfil, Token = EntrarComoVisitante("lucas")
+    Perfil, Token, _ = EntrarComoVisitante("lucas")
     _MarcarVisitanteInativo(Perfil["idConta"])
     assert ResolverSessao(Token) is not None
     Conta = persistencia.ObterContaPorId(Perfil["idConta"])
     assert not persistencia.VisitanteEstaInativo(Conta)
-    Perfil2, _ = EntrarComoVisitante("lucas")
+    Perfil2, _, _ = EntrarComoVisitante("lucas")
     assert Perfil2["nick"] == "lucas1"

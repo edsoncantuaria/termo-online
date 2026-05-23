@@ -17,6 +17,26 @@ def cliente(tmp_path, monkeypatch):
     return TestClient(CriarAplicacao())
 
 
+def test_chute_palavra_inexistente_rejeitada_no_servidor(cliente):
+    I = cliente.post(
+        "/api/jogar/iniciar",
+        json={"nomeJogador": "teste", "modo": "dueto"},
+    )
+    Corpo = I.json()
+    R = cliente.post(
+        "/api/jogar/chute",
+        json={
+            "idPartida": Corpo["idPartida"],
+            "tokenPartida": Corpo["tokenPartida"],
+            "palavra": "xxxxx",
+            "nomeJogador": "teste",
+        },
+    )
+    assert R.status_code == 200
+    assert R.json()["valido"] is False
+    assert "dicionário" in R.json()["mensagem"].lower()
+
+
 def test_chute_repetido_invalido(cliente):
     I = cliente.post(
         "/api/jogar/iniciar",

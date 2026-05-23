@@ -24,3 +24,24 @@ def SemanaIsoBrasil() -> str:
     D = DataHojeBrasil()
     Ano, Semana, _ = D.isocalendar()
     return f"{Ano}-W{Semana:02d}"
+
+
+def SegundosAteMeiaNoiteBrasil() -> int:
+    Agora = AgoraBrasil()
+    Proxima = datetime.combine(
+        Agora.date() + timedelta(days=1),
+        datetime.min.time(),
+        tzinfo=_FUSO_BR,
+    )
+    return max(0, int((Proxima - Agora).total_seconds()))
+
+
+def InfoTempoServidor() -> dict:
+    """Referência de data/hora para o cliente (não usar relógio local na diária)."""
+    AgoraUtc = datetime.now(timezone.utc)
+    return {
+        "dataDiaBrasil": DataHojeIsoBrasil(),
+        "segundosAteMeiaNoiteBrasil": SegundosAteMeiaNoiteBrasil(),
+        "utc": AgoraUtc.isoformat(),
+        "fuso": "America/Sao_Paulo",
+    }

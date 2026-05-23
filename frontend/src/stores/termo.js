@@ -11,6 +11,7 @@ import {
   DURACAO_TOAST_MS,
   CHAVE_TUTORIAL_VISTO,
   CHAVE_TUTORIAL_MULTI,
+  CHAVE_SESSAO,
 } from "../utils/constantes.js";
 import { TextoProximaDiaria } from "../utils/diaria.js";
 import {
@@ -26,6 +27,7 @@ import {
 } from "../utils/validacao-auth.js";
 import {
   EhModoSalaOnline,
+  EhJogoAtivoOnline,
   PartidaArenaEmRodada,
   PartidaRanqueadaAtiva,
 } from "../utils/modos.js";
@@ -72,6 +74,7 @@ import {
   ObterSessao,
   LimparSessao,
   PersistirSessao,
+  RegistrarListenerSessaoOutrasAbas,
   LimparCodigoSala,
   CarregarNickLocal,
   SalvarNickLocal,
@@ -79,7 +82,6 @@ import {
 import {
   ObterStats,
   SalvarStats,
-  DiariaJaJogadaLocal,
 } from "../utils/stats.js";
 import {
   ObterPreferencias,
@@ -88,11 +90,13 @@ import {
   AplicarTema,
   ObservarTemaSistema,
 } from "../lib/extras.js";
+import { GarantirCacheDicionario } from "../utils/dicionario-cache.js";
 import {
-  GarantirCacheDicionario,
-  PalavraNoCache,
-} from "../utils/dicionario-cache.js";
-import { DataHojeIsoBrasil } from "../utils/tempo-brasil.js";
+  AplicarTempoServidor,
+  DataDiaServidor,
+  SincronizarTempoServidor,
+} from "../utils/tempo-servidor.js";
+import { SalvarInstanciaLocal } from "../utils/auth.js";
 import * as acoesArena from "./termo/acoes-arena.js";
 import { TocarSom, prepararSons } from "../lib/som.js";
 import {
@@ -136,6 +140,8 @@ const chavesChatVistas = new Set();
 let intervaloCountdown = null;
 let intervaloPausa = null;
 let cacheDicionarioSet = null;
+let listenerSessaoOutraAba = null;
+let listenerVisibilidadeApp = null;
 
 function PararIntervaloCountdown() {
   if (intervaloCountdown) {
@@ -708,6 +714,7 @@ export const useTermoStore = defineStore("termo", {
     tratarChuteInvalido(mensagem) {
       const online = EhModoSalaOnline(this.modo);
       if (online) {
+        acoesArena.cancelarTimeoutChuteOnline();
         this.carregandoChute = false;
       } else {
         this.letras = LetrasVazias();
@@ -872,10 +879,11 @@ export const useTermoStore = defineStore("termo", {
       }
     },
 
-    aplicarSessaoConta(conta, token) {
+    aplicarSessaoConta(conta, token, instanciaCliente) {
       this.conta = conta;
       this.token = token;
-      SalvarAuthLocal(token, conta);
+      SalvarAuthLocal(token, conta, instanciaCliente);
+      if (instanciaCliente) SalvarInstanciaLocal(instanciaCliente);
       if (conta?.nick) {
         this.nick = conta.nick;
         SalvarNickLocal(conta.nick);
@@ -916,7 +924,7 @@ export const useTermoStore = defineStore("termo", {
       }
       try {
         const D = await api.authLogin(identificador, senha);
-        this.aplicarSessaoConta(D.conta, D.token);
+        this.aplicarSessaoConta(D.conta, D.token, D.instanciaCliente);
         this.fecharDialogs();
         this.mostrarToast(
           `Bem-vindo, ${NickExibicao(D.conta.nick)}!`,
@@ -937,7 +945,7 @@ export const useTermoStore = defineStore("termo", {
       }
       try {
         const D = await api.authRegistrar(V.nick, email, senha);
-        this.aplicarSessaoConta(D.conta, D.token);
+        this.aplicarSessaoConta(D.conta, D.token, D.instanciaCliente);
         this.fecharDialogs();
         this.mostrarToast("Conta criada com sucesso!", false, true);
       } catch (e) {
@@ -962,7 +970,7 @@ export const useTermoStore = defineStore("termo", {
       }
       try {
         const D = await api.authVisitante(V.nick);
-        this.aplicarSessaoConta(D.conta, D.token);
+        this.aplicarSessaoConta(D.conta, D.token, D.instanciaCliente);
         this.fecharDialogs();
         const exib = NickExibicao(D.conta.nick);
         const sufixo =
@@ -1018,6 +1026,7 @@ export const useTermoStore = defineStore("termo", {
       this.tentativasHist = [];
       this.tabuleiros = null;
       this.gradesMulti = [];
+      acoesArena.cancelarTimeoutChuteOnline();
       this.carregandoChute = false;
       this.linhaShake = null;
       this.countdownSegundos = null;
@@ -1213,10 +1222,11 @@ export const useTermoStore = defineStore("termo", {
       if (
         this.dialogAberto === "jogar" &&
         this.filaRanqueada &&
-        this.filaPodeCancelar &&
-        this.filaFase !== "conectando"
+        this.filaPodeCancelar
       ) {
-        this.pararFilaRanqueada();
+        this.pararFilaRanqueada(
+          this.filaFase === "conectando" ? { forcar: true } : {}
+        );
       }
       this.dialogAberto = null;
       this.dialogAvatarAberto = false;
@@ -1327,6 +1337,7 @@ export const useTermoStore = defineStore("termo", {
     },
 
     prepararNovaRodadaArena() {
+      acoesArena.cancelarTimeoutChuteOnline();
       this.arenaTentativas = [];
       this.arenaTentativasExibidas = 0;
       this.tentativa = 0;
@@ -1419,7 +1430,9 @@ export const useTermoStore = defineStore("termo", {
           day: "numeric",
           month: "short",
         });
-        if (D.jaJogou || DiariaJaJogadaLocal()) {
+        AplicarTempoServidor(D);
+        this.diariaDataDia = D.dataDia;
+        if (D.jaJogou) {
           this.diariaFeita = true;
           this.diariaBtnTexto = "Já jogou hoje";
           if (D.resultado?.gradeTexto) {
@@ -1451,7 +1464,7 @@ export const useTermoStore = defineStore("termo", {
       S.vitorias = (S.vitorias || 0) + (venceu ? 1 : 0);
       S.sequencia = venceu ? (S.sequencia || 0) + 1 : 0;
       if (modo === "diaria") {
-        S.ultimaDiaria = this.dataDia || DataHojeIsoBrasil();
+        S.ultimaDiaria = this.dataDia || DataDiaServidor() || "";
         S.diariaVenceu = venceu;
         S.ultimaTentativas = tentativas;
       }
@@ -1533,6 +1546,10 @@ export const useTermoStore = defineStore("termo", {
         const sock = acoesArena.obterSocketSala();
         if (sock?.readyState === WebSocket.OPEN) {
           this.carregandoChute = true;
+          acoesArena.iniciarTimeoutChuteOnline(
+            this,
+            tentativasAnteriores.length
+          );
           sock.send(
             JSON.stringify({
               tipo: "chute",
@@ -1555,7 +1572,7 @@ export const useTermoStore = defineStore("termo", {
         return enviarChutePraticaLocal.call(this, cacheDicionarioSet);
       }
 
-      return acoesSolo.enviarChuteSolo.call(this, cacheDicionarioSet);
+      return acoesSolo.enviarChuteSolo.call(this);
     },
 
     mostrarAviso({
@@ -2163,6 +2180,7 @@ export const useTermoStore = defineStore("termo", {
         this.arenaTentativasExibidas = total;
         this.encerrada = !!eu.finalizou;
         if (linhaNova) {
+          acoesArena.cancelarTimeoutChuteOnline();
           this.carregandoChute = false;
           this.letras = LetrasVazias();
           this.indiceCursor = 0;
@@ -2284,7 +2302,9 @@ export const useTermoStore = defineStore("termo", {
         this.aplicarProgressoResposta(D.progressoEvento);
       }
 
-      this.persistir();
+      if (!D.partidaEncerrada) {
+        this.persistir();
+      }
 
       if (D.partidaEncerrada) {
         this.pararCronometro();
@@ -2294,7 +2314,11 @@ export const useTermoStore = defineStore("termo", {
 
         if (ehArena && !D.partidaCancelada) {
           this.irParaView("arenaLobby");
-          this.persistir();
+          LimparSessao();
+          if (this.conta?.idConta && !this.conta?.ehVisitante) {
+            api.contaLimparJogoAtivo().catch(() => {});
+          }
+          this.jogoAtivo = null;
           if (exibirResultado) {
             const campeao = D.placar?.[0];
             const venci = D.vencedorId === this.idJogador;
@@ -2646,12 +2670,7 @@ export const useTermoStore = defineStore("termo", {
               S.idJogador
             );
           } else {
-            const R = await api.salaEstado(S.codigoSala, S.idJogador);
-            if (!R.ok) {
-              const invalida = R.status === 404 || R.status === 410;
-              return { ok: false, invalida };
-            }
-            D = await R.json();
+            D = await api.salaEstado(S.codigoSala, S.idJogador);
           }
           if (D.partidaEncerrada || D.somenteResultado) {
             if (modo === "ranqueada") {
@@ -2664,16 +2683,14 @@ export const useTermoStore = defineStore("termo", {
               this.idJogador = S.idJogador;
               this.aplicarCredenciaisPartida({ ...S, ...D });
               this.dadosSala = D;
-              if (modo === "arena") {
-                this.fecharDialogs();
-                this.conectarWs();
-                this.irParaView("arenaLobby");
-              }
-              this.atualizarArena(D);
+              this.fecharDialogs();
+              this.irParaView("arenaLobby");
+              this.atualizarArena(D, { exibirResultadoEncerrada: true });
             }
             if (this.conta?.idConta && !this.conta?.ehVisitante) {
               await api.contaLimparJogoAtivo().catch(() => {});
             }
+            LimparSessao();
             this.jogoAtivo = null;
             return { ok: true, invalida: false };
           }
@@ -2718,8 +2735,13 @@ export const useTermoStore = defineStore("termo", {
             );
           }
           return { ok: true, invalida: false };
-        } catch {
-          return { ok: false, invalida: false };
+        } catch (e) {
+          const invalida = e?.status === 404 || e?.status === 410;
+          return {
+            ok: false,
+            invalida,
+            erro: e?.message || "Não foi possível retomar a partida.",
+          };
         }
       };
 
@@ -2732,7 +2754,13 @@ export const useTermoStore = defineStore("termo", {
           } else {
             LimparSessao();
           }
+          return;
         }
+        this.mostrarToast(
+          resultado?.erro ||
+            "Não foi possível retomar — verifique a conexão e toque em Reconectar no início.",
+          true
+        );
       };
 
       if (salvo.ranqueada) {
@@ -2757,9 +2785,17 @@ export const useTermoStore = defineStore("termo", {
           LimparSessao();
           return false;
         }
-        if (salvo.solo.modo === "diaria" && DiariaJaJogadaLocal()) {
-          LimparSessao();
-          return false;
+        if (salvo.solo.modo === "diaria") {
+          try {
+            const info = await api.diariaInfo(this.nickJogo);
+            AplicarTempoServidor(info);
+            if (info.jaJogou) {
+              LimparSessao();
+              return false;
+            }
+          } catch {
+            /* segue para jogarEstado */
+          }
         }
         try {
           const D = await api.jogarEstado(
@@ -2794,8 +2830,11 @@ export const useTermoStore = defineStore("termo", {
       try {
         const D = await api.salasPublicas();
         this.salasPublicas = D.salas || [];
-      } catch {
+      } catch (e) {
         this.salasPublicas = [];
+        if (e?.status === 503 || e?.status === 429) {
+          this.mostrarToast(e.message, true);
+        }
       }
     },
 
@@ -2987,10 +3026,52 @@ export const useTermoStore = defineStore("termo", {
         }
       };
       window.addEventListener("pagehide", listenerPersistirPagina);
+
+      if (listenerSessaoOutraAba) return;
+      listenerSessaoOutraAba = (e) => {
+        if (e.key !== CHAVE_SESSAO || e.newValue == null) return;
+        if (!EhModoSalaOnline(this.modo) && this.view !== "jogo") return;
+        this.mostrarToast(
+          "Outra aba atualizou sua sessão — sincronizando…",
+          false
+        );
+        this.retomarSessao().catch(() => {});
+      };
+      window.addEventListener("storage", listenerSessaoOutraAba);
+      RegistrarListenerSessaoOutrasAbas(() => {
+        if (!EhModoSalaOnline(this.modo) && this.view !== "jogo") return;
+        this.mostrarToast("Outra aba atualizou a partida — sincronizando…", false);
+        this.retomarSessao().catch(() => {});
+      });
+    },
+
+    registrarSincronizarAoVoltar() {
+      if (listenerVisibilidadeApp) return;
+      const store = this;
+      listenerVisibilidadeApp = () => {
+        if (document.visibilityState !== "visible") return;
+        if (store.view === "inicio") {
+          store.carregarJogoAtivo();
+          store.carregarSalasPublicas();
+          if (!store.lobbyWsConectado) store.conectarLobbyWs();
+          return;
+        }
+        if (EhModoSalaOnline(store.modo) && store.codigoSala && store.idJogador) {
+          acoesArena.sincronizarArenaHttp(store);
+          if (!store.wsConectado && store.view !== "inicio") {
+            store.conectarWs();
+          }
+          if (store.jogoAtivo?.ativo) {
+            store.carregarJogoAtivo();
+          }
+        }
+      };
+      document.addEventListener("visibilitychange", listenerVisibilidadeApp);
     },
 
     async inicializar() {
       this.registrarPersistenciaAoRecarregar();
+      this.registrarSincronizarAoVoltar();
       LimparCodigoSala();
       this.codigoEntrada = "";
       this.aplicarQueryDesafio();
@@ -3007,12 +3088,33 @@ export const useTermoStore = defineStore("termo", {
         }
       });
       cacheDicionarioSet = await GarantirCacheDicionario();
+      await SincronizarTempoServidor();
       if (this.token) {
         try {
           const D = await api.authEu();
-          this.aplicarSessaoConta(D.conta, this.token);
-        } catch {
-          this.authSair();
+          const Local = CarregarAuthLocal();
+          if (
+            D.instanciaCliente &&
+            Local.instanciaCliente &&
+            D.instanciaCliente !== Local.instanciaCliente
+          ) {
+            this.mostrarToast(
+              "Esta conta foi aberta em outro lugar. Entre novamente.",
+              true
+            );
+            this.authSair();
+          } else {
+            this.aplicarSessaoConta(
+              D.conta,
+              this.token,
+              D.instanciaCliente || Local.instanciaCliente
+            );
+          }
+        } catch (e) {
+          if (e?.status === 401 || e?.status === 409) {
+            if (e.status === 409) this.mostrarToast(e.message, true);
+            this.authSair();
+          }
         }
       }
       await this.carregarFrasesChat();
@@ -3022,15 +3124,32 @@ export const useTermoStore = defineStore("termo", {
       await this.carregarJogoAtivo();
 
       let retomou = false;
+      if (await this.sincronizarFilaRanqueadaInicial()) {
+        retomou = true;
+      }
+
       const J = this.jogoAtivo;
-      if (J?.ativo && (J.somenteResultado || J.resultadoPendente)) {
+      if (!retomou && J?.ativo && (J.somenteResultado || J.resultadoPendente)) {
         await this.reconectarJogoAtivo();
         retomou = true;
-      } else {
+      } else if (!retomou) {
         const estavaNoJogo =
           salvo?.ranqueada?.view === "jogo" || salvo?.arena?.view === "jogo";
-        if (estavaNoJogo) {
+        const partidaVivaNoHero =
+          J?.ativo &&
+          EhJogoAtivoOnline(J) &&
+          !J.somenteResultado &&
+          !J.resultadoPendente &&
+          !J.partidaEncerrada;
+        if (estavaNoJogo || partidaVivaNoHero) {
           retomou = await this.retomarSessao();
+          if (!retomou && partidaVivaNoHero) {
+            await this.reconectarJogoAtivo();
+            retomou =
+              this.view === "jogo" ||
+              PartidaRanqueadaAtiva(this) ||
+              (this.modo === "arena" && !!this.codigoSala);
+          }
         }
       }
 

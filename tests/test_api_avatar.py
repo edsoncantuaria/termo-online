@@ -19,7 +19,7 @@ def cliente(tmp_path, monkeypatch):
 
 
 def test_patch_avatar(cliente):
-    Perfil, Token = RegistrarConta("api_av", "apiav@test.com", "senha123")
+    Perfil, Token, _ = RegistrarConta("api_av", "apiav@test.com", "senha123")
     R = cliente.patch(
         "/api/auth/avatar",
         json={"avatarId": "abelha"},

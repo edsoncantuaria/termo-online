@@ -9,7 +9,7 @@ def test_meta_semanal_arena(tmp_path, monkeypatch):
     persistencia.InicializarBanco()
     from nucleo.contas import RegistrarConta
 
-    Perfil, _ = RegistrarConta("meta_a", "meta@test.com", "senha123")
+    Perfil, _, _ = RegistrarConta("meta_a", "meta@test.com", "senha123")
     Id = Perfil["idConta"]
     Meta = next(M for M in METAS_SEMANAIS if M["id"] == "arena_5")
     for I in range(Meta["meta"]):

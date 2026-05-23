@@ -43,32 +43,35 @@ def RegistrarRotasAuth(Roteador: APIRouter) -> None:
                 detail="Muitas tentativas com este nick. Aguarde alguns minutos.",
             )
         try:
-            Perfil, Token = RegistrarConta(Corpo.nick, Corpo.email, Corpo.senha)
+            Perfil, Token, Instancia = RegistrarConta(
+                Corpo.nick, Corpo.email, Corpo.senha
+            )
         except ValueError as Erro:
             raise HTTPException(status_code=400, detail=str(Erro)) from Erro
-        return {"conta": Perfil, "token": Token}
+        return {"conta": Perfil, "token": Token, "instanciaCliente": Instancia}
 
     @Roteador.post("/auth/login")
     def AuthLogin(Corpo: AuthLoginRequest):
         try:
-            Perfil, Token = LoginConta(Corpo.identificador, Corpo.senha)
+            Perfil, Token, Instancia = LoginConta(Corpo.identificador, Corpo.senha)
         except ValueError as Erro:
             raise HTTPException(status_code=401, detail=str(Erro)) from Erro
-        return {"conta": Perfil, "token": Token}
+        return {"conta": Perfil, "token": Token, "instanciaCliente": Instancia}
 
     @Roteador.post("/auth/visitante")
     def AuthVisitante(Corpo: AuthVisitanteRequest = AuthVisitanteRequest()):
         try:
-            Perfil, Token = EntrarComoVisitante(Corpo.nick)
+            Perfil, Token, Instancia = EntrarComoVisitante(Corpo.nick)
         except ValueError as Erro:
             raise HTTPException(status_code=400, detail=str(Erro)) from Erro
-        return {"conta": Perfil, "token": Token}
+        return {"conta": Perfil, "token": Token, "instanciaCliente": Instancia}
 
     @Roteador.get("/auth/eu")
     def AuthEu(Perfil=Depends(ContaOpcional)):
         if not Perfil:
             raise HTTPException(status_code=401, detail="Não autenticado.")
-        return {"conta": Perfil}
+        Instancia = persistencia.ObterInstanciaAtivaConta(Perfil["idConta"])
+        return {"conta": Perfil, "instanciaCliente": Instancia}
 
     @Roteador.get("/auth/avatares")
     def ListarAvatares():

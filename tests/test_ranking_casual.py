@@ -7,12 +7,12 @@ def test_visitante_nao_entra_ranking_casual(tmp_path, monkeypatch):
     persistencia.InicializarBanco()
     from nucleo.contas import EntrarComoVisitante, RegistrarConta
 
-    V, _ = EntrarComoVisitante("teste2")
+    V, _, _ = EntrarComoVisitante("teste2")
     assert V["ehVisitante"]
     assert RegistrarPontuacao("teste2", 0, "pratica", 6, False) is None
     assert RegistrarPontuacao("teste2", 500, "pratica", 3, True) is None
 
-    Perfil, _ = RegistrarConta("real_rank", "rank@test.com", "senha123")
+    Perfil, _, _ = RegistrarConta("real_rank", "rank@test.com", "senha123")
     assert RegistrarPontuacao(
         Perfil["nick"], 800, "pratica", 2, True, IdConta=Perfil["idConta"]
     )

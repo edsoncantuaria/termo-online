@@ -21,7 +21,7 @@ from servidor.partida_solo import NovaPartida, SalvarPartida
 def test_perfil_registrado_com_partidas(tmp_path, monkeypatch):
     monkeypatch.setattr(persistencia, "CaminhoBanco", tmp_path / "pub.db")
     persistencia.InicializarBanco()
-    Perfil, _ = RegistrarConta("jogpub", "jogpub@test.com", "senha123")
+    Perfil, _, _ = RegistrarConta("jogpub", "jogpub@test.com", "senha123")
     Id = Perfil["idConta"]
 
     P = NovaPartida(
@@ -86,7 +86,7 @@ def test_perfil_registrado_tem_posicao_rank(tmp_path, monkeypatch):
 def test_perfil_bot_como_jogador_real(tmp_path, monkeypatch):
     monkeypatch.setattr(persistencia, "CaminhoBanco", tmp_path / "bot.db")
     persistencia.InicializarBanco()
-    PerfilHum, _ = RegistrarConta("humano1", "hum1@test.com", "senha123")
+    PerfilHum, _, _ = RegistrarConta("humano1", "hum1@test.com", "senha123")
     Bot = BOTS[0]
     RegistrarDueloRanqueadoVsBot(
         PerfilHum["idConta"],
@@ -110,7 +110,7 @@ def test_perfil_bot_como_jogador_real(tmp_path, monkeypatch):
 def test_api_perfil_jogador(tmp_path, monkeypatch):
     monkeypatch.setattr(persistencia, "CaminhoBanco", tmp_path / "api.db")
     persistencia.InicializarBanco()
-    _, Token = RegistrarConta("buscador", "busc@test.com", "senha123")
+    _, Token, _ = RegistrarConta("buscador", "busc@test.com", "senha123")
     RegistrarConta("alvo", "alvo@test.com", "senha456")
 
     Cliente = TestClient(CriarAplicacao())

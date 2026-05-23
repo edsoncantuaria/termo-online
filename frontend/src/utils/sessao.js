@@ -1,6 +1,24 @@
 import { CHAVE_SESSAO, CHAVE_CODIGO_SALA, CHAVE_NICK } from "./constantes.js";
 import { EhModoSalaOnline } from "./modos.js";
 
+const CANAL_SESSAO =
+  typeof BroadcastChannel !== "undefined"
+    ? new BroadcastChannel("termo-sessao")
+    : null;
+
+export function NotificarSessaoAlteradaEmOutrasAbas() {
+  CANAL_SESSAO?.postMessage({ tipo: "sessaoAtualizada", em: Date.now() });
+}
+
+export function RegistrarListenerSessaoOutrasAbas(callback) {
+  if (!CANAL_SESSAO || typeof callback !== "function") return () => {};
+  const handler = (ev) => {
+    if (ev.data?.tipo === "sessaoAtualizada") callback();
+  };
+  CANAL_SESSAO.addEventListener("message", handler);
+  return () => CANAL_SESSAO.removeEventListener("message", handler);
+}
+
 export function ObterSessao() {
   try {
     return JSON.parse(localStorage.getItem(CHAVE_SESSAO) || "null");
@@ -58,7 +76,8 @@ export function MontarPayloadSessao(Estado) {
   } else if (
     Estado.modo === "arena" &&
     Estado.codigoSala &&
-    Estado.idJogador
+    Estado.idJogador &&
+    !Estado.dadosSala?.partidaEncerrada
   ) {
     dados.arena = {
       ...credenciaisOnline,
@@ -96,6 +115,8 @@ export function MontarPayloadSessao(Estado) {
 
 export function PersistirSessao(Estado) {
   const dados = MontarPayloadSessao(Estado);
-  if (dados) localStorage.setItem(CHAVE_SESSAO, JSON.stringify(dados));
-  else LimparSessao();
+  if (dados) {
+    localStorage.setItem(CHAVE_SESSAO, JSON.stringify(dados));
+    NotificarSessaoAlteradaEmOutrasAbas();
+  } else LimparSessao();
 }

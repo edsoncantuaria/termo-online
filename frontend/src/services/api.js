@@ -1,27 +1,19 @@
 import { UrlApi } from "../config/origem.js";
 import { HeadersAuth } from "../utils/auth.js";
+import { MensagemErroHttp } from "../utils/erro-api.js";
 
-function MensagemErroApi(corpo) {
-  const detalhe = corpo?.detail;
-  if (typeof detalhe === "string" && detalhe.trim()) return detalhe.trim();
-  if (Array.isArray(detalhe) && detalhe.length) {
-    return detalhe
-      .map((item) => {
-        if (typeof item === "string") return item;
-        const msg = item?.msg || item?.message;
-        if (msg) return String(msg);
-        return null;
-      })
-      .filter(Boolean)
-      .join(" ") || "Dados inválidos.";
-  }
-  if (corpo?.mensagem) return String(corpo.mensagem);
-  return "Erro na requisição";
+export async function fetchPublicoJson(url, opts = {}) {
+  const R = await fetch(url, opts);
+  return JsonOuErro(R);
 }
 
 async function JsonOuErro(R) {
   const corpo = await R.json().catch(() => ({}));
-  if (!R.ok) throw new Error(MensagemErroApi(corpo));
+  if (!R.ok) {
+    const E = new Error(MensagemErroHttp(R, corpo));
+    E.status = R.status;
+    throw E;
+  }
   return corpo;
 }
 
@@ -30,6 +22,10 @@ function fetchAuth(url, opts = {}) {
     ...opts,
     headers: HeadersAuth(opts.headers || {}),
   });
+}
+
+export function fetchAuthJson(url, opts = {}) {
+  return fetchAuth(url, opts).then(JsonOuErro);
 }
 
 export const api = {
@@ -43,14 +39,16 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }).then(JsonOuErro),
-  dicionarioPalavras: () => fetch(UrlApi("/api/dicionario/palavras")).then(JsonOuErro),
+  tempo: () => fetchPublicoJson(UrlApi("/api/tempo")),
+  dicionarioPalavras: () =>
+    fetchPublicoJson(UrlApi("/api/dicionario/palavras")),
   stats: (nick) =>
     fetchAuth(UrlApi(`/api/stats?nick=${encodeURIComponent(nick)}`)).then(
       JsonOuErro
     ),
   historicoDiaria: () => fetchAuth(UrlApi("/api/diaria/historico")).then(JsonOuErro),
-  salasPublicas: () => fetch(UrlApi("/api/salas/publicas")).then((r) => r.json()),
-  frasesChat: () => fetch(UrlApi("/api/arena/frases-chat")).then((r) => r.json()),
+  salasPublicas: () => fetchPublicoJson(UrlApi("/api/salas/publicas")),
+  frasesChat: () => fetchPublicoJson(UrlApi("/api/arena/frases-chat")),
   jogarIniciar: (body) =>
     fetchAuth(UrlApi("/api/jogar/iniciar"), {
       method: "POST",
@@ -77,24 +75,24 @@ export const api = {
       body: JSON.stringify(body),
     }).then(JsonOuErro),
   salaConvite: (codigo) =>
-    fetch(UrlApi(`/api/sala/${encodeURIComponent(codigo)}/convite`)).then(
-      JsonOuErro
-    ),
+    fetchPublicoJson(UrlApi(`/api/sala/${encodeURIComponent(codigo)}/convite`)),
   salaEntrar: (body) =>
-    fetch(UrlApi("/api/sala/entrar"), {
+    fetchPublicoJson(UrlApi("/api/sala/entrar"), {
       method: "POST",
       headers: HeadersAuth({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
-    }).then(JsonOuErro),
+    }),
   salaSair: (body) =>
-    fetch(UrlApi("/api/sala/sair"), {
+    fetchPublicoJson(UrlApi("/api/sala/sair"), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: HeadersAuth({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
     }),
   salaEstado: (codigo, idJogador) =>
-    fetch(
-      UrlApi(`/api/sala/${codigo}?id_jogador=${encodeURIComponent(idJogador)}`),
+    fetchAuthJson(
+      UrlApi(
+        `/api/sala/${codigo}?id_jogador=${encodeURIComponent(idJogador)}`
+      ),
       { cache: "no-store" }
     ),
   partidaRetomar: (idPartida, tokenSessao, idJogador) => {
@@ -169,7 +167,7 @@ export const api = {
       JsonOuErro
     ),
 
-  ranqueadaElos: () => fetch(UrlApi("/api/ranqueada/elos")).then((r) => r.json()),
+  ranqueadaElos: () => fetchPublicoJson(UrlApi("/api/ranqueada/elos")),
 
   ranqueadaEntrarFila: (treino = false) =>
     fetchAuth(UrlApi("/api/ranqueada/fila"), {

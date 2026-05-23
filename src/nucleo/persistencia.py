@@ -117,6 +117,8 @@ def _AplicarMigracoesContas(C: sqlite3.Connection) -> None:
     Colunas = {Linha[1] for Linha in C.execute("PRAGMA table_info(contas)").fetchall()}
     if "email" not in Colunas:
         C.execute("ALTER TABLE contas ADD COLUMN email TEXT")
+    if "instancia_ativa" not in Colunas:
+        C.execute("ALTER TABLE contas ADD COLUMN instancia_ativa TEXT")
     C.execute(
         """
         CREATE UNIQUE INDEX IF NOT EXISTS idx_contas_email
@@ -1521,6 +1523,25 @@ def CriarSessao(IdConta: str, ExpiraEm: datetime) -> str:
             (Token, IdConta, ExpiraEm.isoformat()),
         )
     return Token
+
+
+def DefinirInstanciaAtivaConta(IdConta: str, Instancia: str) -> None:
+    with Conexao() as C:
+        C.execute(
+            "UPDATE contas SET instancia_ativa = ? WHERE id = ?",
+            (Instancia, IdConta),
+        )
+
+
+def ObterInstanciaAtivaConta(IdConta: str) -> str | None:
+    with Conexao() as C:
+        Linha = C.execute(
+            "SELECT instancia_ativa FROM contas WHERE id = ?",
+            (IdConta,),
+        ).fetchone()
+    if not Linha or not Linha["instancia_ativa"]:
+        return None
+    return str(Linha["instancia_ativa"])
 
 
 def ObterSessaoPorToken(Token: str) -> dict | None:

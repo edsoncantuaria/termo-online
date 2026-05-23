@@ -1,5 +1,5 @@
 /** Preferências, salas públicas, stats e sons. */
-import { UrlApi } from "../config/origem.js";
+import { api } from "../services/api.js";
 
 export function ObterPreferencias() {
   try {
@@ -31,8 +31,7 @@ export function AplicarTemaLegado(claro) {
 export async function CarregarSalasPublicas(ListaEl) {
   if (!ListaEl) return;
   try {
-    const R = await fetch(UrlApi("/api/salas/publicas"));
-    const D = await R.json();
+    const D = await api.salasPublicas();
     const Salas = D.salas || [];
     if (!Salas.length) {
       ListaEl.innerHTML = '<li class="ranking-vazio">Nenhuma sala pública agora</li>';
@@ -55,8 +54,7 @@ export async function CarregarSalasPublicas(ListaEl) {
 
 export async function CarregarStatsServidor(Nick, El) {
   try {
-    const R = await fetch(UrlApi(`/api/stats?nick=${encodeURIComponent(Nick)}`));
-    const D = await R.json();
+    const D = await api.stats(Nick);
     if (El.taxa) El.taxa.textContent = `${D.taxaVitoria || 0}%`;
     if (El.extra) {
       El.extra.textContent = `${D.partidasRanking || 0} partidas no ranking · ${D.diariasVencidas || 0} diárias ganhas (14d)`;
@@ -69,11 +67,7 @@ export async function CarregarStatsServidor(Nick, El) {
 export async function CarregarHistoricoDiaria(_Nick, ListaEl) {
   if (!ListaEl) return;
   try {
-    const { HeadersAuth } = await import("../utils/auth.js");
-    const R = await fetch(UrlApi("/api/diaria/historico"), {
-      headers: HeadersAuth({}),
-    });
-    const D = await R.json();
+    const D = await api.historicoDiaria();
     const H = D.historico || [];
     if (!H.length) {
       ListaEl.innerHTML = '<li class="ranking-vazio">Nenhuma diária salva ainda</li>';
@@ -97,8 +91,7 @@ export async function CarregarHistoricoDiaria(_Nick, ListaEl) {
 export async function MontarFrasesChat(Container) {
   if (!Container) return;
   try {
-    const R = await fetch(UrlApi("/api/arena/frases-chat"));
-    const D = await R.json();
+    const D = await api.frasesChat();
     Container.innerHTML = (D.frases || []).map(
       (F) => `<button type="button" class="btn-chat-frase" data-frase="${F}">${F}</button>`
     ).join("");

@@ -8,6 +8,36 @@ import { aoReconexaoWsEsgotada } from "./acoes-jogo-ativo.js";
 let socketSala = null;
 let intervaloSyncArena = null;
 let intervaloPingArena = null;
+let timerTimeoutChuteOnline = null;
+
+const TIMEOUT_CHUTE_ONLINE_MS = 10_000;
+
+export function cancelarTimeoutChuteOnline() {
+  if (timerTimeoutChuteOnline) {
+    clearTimeout(timerTimeoutChuteOnline);
+    timerTimeoutChuteOnline = null;
+  }
+}
+
+/** Libera o teclado se o servidor não responder ao chute (WS instável). */
+export function iniciarTimeoutChuteOnline(store, tentativasAntes) {
+  cancelarTimeoutChuteOnline();
+  timerTimeoutChuteOnline = setTimeout(() => {
+    timerTimeoutChuteOnline = null;
+    if (!store.carregandoChute) return;
+    const eu = store.dadosSala?.jogadores?.find((j) => j.souEu);
+    const total = eu?.tentativas?.length ?? store.arenaTentativas?.length ?? 0;
+    if (total > tentativasAntes) return;
+    store.carregandoChute = false;
+    store.mostrarToast(
+      "Sem resposta do servidor — tente o chute de novo.",
+      true
+    );
+    if (store.codigoSala && store.idJogador) {
+      store.conectarWs();
+    }
+  }, TIMEOUT_CHUTE_ONLINE_MS);
+}
 
 export function obterSocketSala() {
   return socketSala;
@@ -71,9 +101,11 @@ export function wsEnviar(tipo, dados = {}) {
 
 export function processarWsArena(store, M) {
   if (M.tipo === "chuteInvalido") {
+    cancelarTimeoutChuteOnline();
     store.carregandoChute = false;
     store.tratarChuteInvalido(M.mensagem);
   } else if (M.tipo === "erro") {
+    cancelarTimeoutChuteOnline();
     store.carregandoChute = false;
     store.mostrarToast(M.mensagem, true);
     TocarSom("erro");
@@ -95,15 +127,7 @@ export function processarWsArena(store, M) {
 export async function sincronizarArenaHttp(store) {
   if (!store.codigoSala || !store.idJogador) return;
   try {
-    const R = await api.salaEstado(store.codigoSala, store.idJogador);
-    if (!R.ok) {
-      if (R.status === 404) {
-        store.mostrarToast("Sala não encontrada.", true);
-        pararSyncArena();
-      }
-      return;
-    }
-    const D = await R.json();
+    const D = await api.salaEstado(store.codigoSala, store.idJogador);
     if (
       store.modo === "arena" &&
       D.partidaEncerrada &&
@@ -121,8 +145,13 @@ export async function sincronizarArenaHttp(store) {
     } else {
       store.atualizarArena(D);
     }
-  } catch {
-    /* rede */
+  } catch (e) {
+    if (e?.status === 404) {
+      store.mostrarToast("Sala não encontrada.", true);
+      pararSyncArena();
+    } else if (e?.status === 503 || e?.status === 429) {
+      store.mostrarToast(e.message, true);
+    }
   }
 }
 

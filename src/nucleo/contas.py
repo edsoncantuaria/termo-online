@@ -138,6 +138,24 @@ def LiberarNickDeVisitante(NickDesejado: str) -> None:
     persistencia.AtualizarNickConta(Conta["id"], NovoNick)
 
 
+def _EmitirSessaoAutenticada(
+    IdConta: str, *, Dias: int = DURACAO_SESSAO_DIAS
+) -> tuple[str, str]:
+    Token = persistencia.CriarSessao(IdConta, _AgoraUtc() + timedelta(days=Dias))
+    Instancia = secrets.token_urlsafe(16)
+    persistencia.DefinirInstanciaAtivaConta(IdConta, Instancia)
+    return Token, Instancia
+
+
+def InstanciaContaValida(IdConta: str, Instancia: str | None) -> bool:
+    if not Instancia or not str(Instancia).strip():
+        return True
+    Ativa = persistencia.ObterInstanciaAtivaConta(IdConta)
+    if not Ativa:
+        return True
+    return hmac.compare_digest(Ativa, str(Instancia).strip())
+
+
 def MontarPerfilConta(Conta: dict) -> dict:
     from .progresso import MontarProgressoConta
 
@@ -169,7 +187,7 @@ def MontarPerfilConta(Conta: dict) -> dict:
     return Perfil
 
 
-def RegistrarConta(Nick: str, Email: str, Senha: str) -> tuple[dict, str]:
+def RegistrarConta(Nick: str, Email: str, Senha: str) -> tuple[dict, str, str]:
     N = ValidarNick(Nick)
     E = ValidarEmail(Email)
     ValidarSenha(Senha)
@@ -184,13 +202,11 @@ def RegistrarConta(Nick: str, Email: str, Senha: str) -> tuple[dict, str]:
         N, Hash, Salt, EhVisitante=False, Email=E
     )
     Conta = persistencia.ObterContaPorId(IdConta)
-    Token = persistencia.CriarSessao(
-        IdConta, _AgoraUtc() + timedelta(days=DURACAO_SESSAO_DIAS)
-    )
-    return MontarPerfilConta(Conta), Token
+    Token, Instancia = _EmitirSessaoAutenticada(IdConta)
+    return MontarPerfilConta(Conta), Token, Instancia
 
 
-def LoginConta(Identificador: str, Senha: str) -> tuple[dict, str]:
+def LoginConta(Identificador: str, Senha: str) -> tuple[dict, str, str]:
     ValidarSenha(Senha)
     Id = Identificador.strip()
     if "@" in Id:
@@ -206,13 +222,11 @@ def LoginConta(Identificador: str, Senha: str) -> tuple[dict, str]:
     Hash = _HashSenha(Senha, Conta["senha_salt"])
     if not hmac.compare_digest(Hash, Conta["senha_hash"]):
         raise ValueError("E-mail ou nick incorretos.")
-    Token = persistencia.CriarSessao(
-        Conta["id"], _AgoraUtc() + timedelta(days=DURACAO_SESSAO_DIAS)
-    )
-    return MontarPerfilConta(Conta), Token
+    Token, Instancia = _EmitirSessaoAutenticada(Conta["id"])
+    return MontarPerfilConta(Conta), Token, Instancia
 
 
-def EntrarComoVisitante(NickPreferido: str | None = None) -> tuple[dict, str]:
+def EntrarComoVisitante(NickPreferido: str | None = None) -> tuple[dict, str, str]:
     Nick = ReservarNickVisitante(NickPreferido)
     _RemoverVisitanteInativoNoNick(Nick)
     IdConta = persistencia.CriarConta(
@@ -223,8 +237,8 @@ def EntrarComoVisitante(NickPreferido: str | None = None) -> tuple[dict, str]:
         Email=None,
     )
     Conta = persistencia.ObterContaPorId(IdConta)
-    Token = persistencia.CriarSessao(IdConta, _AgoraUtc() + timedelta(days=7))
-    return MontarPerfilConta(Conta), Token
+    Token, Instancia = _EmitirSessaoAutenticada(IdConta, Dias=7)
+    return MontarPerfilConta(Conta), Token, Instancia
 
 
 def DefinirAvatarConta(IdConta: str, AvatarId: str) -> dict:

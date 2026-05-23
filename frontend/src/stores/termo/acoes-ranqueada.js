@@ -5,6 +5,9 @@ import { LimparSessao } from "../../utils/sessao.js";
 import { TocarSom } from "../../lib/som.js";
 
 let timerFilaRanqueada = null;
+let timerEscapeConectandoFila = null;
+
+const ESCAPE_CONECTANDO_FILA_MS = 12_000;
 
 function PararPollFilaRanqueada() {
   if (timerFilaRanqueada) {
@@ -25,8 +28,22 @@ function LimparEstadoFilaUi(store) {
   store.filaBusca = null;
 }
 
-export function pararFilaRanqueada() {
-  if (this.filaFase === "conectando" || !this.filaPodeCancelar) return;
+function PararTimerEscapeConectandoFila() {
+  if (timerEscapeConectandoFila) {
+    clearTimeout(timerEscapeConectandoFila);
+    timerEscapeConectandoFila = null;
+  }
+}
+
+export function pararFilaRanqueada(opcoes = {}) {
+  const Forcar = opcoes?.forcar === true;
+  if (
+    !Forcar &&
+    (this.filaFase === "conectando" || !this.filaPodeCancelar)
+  ) {
+    return;
+  }
+  PararTimerEscapeConectandoFila();
   PararPollFilaRanqueada();
   LimparEstadoFilaUi(this);
   api.ranqueadaSairFila().catch(() => {});
@@ -34,16 +51,32 @@ export function pararFilaRanqueada() {
 
 async function ProcessarMatchRanqueadoEncontrado(D) {
   PararPollFilaRanqueada();
+  PararTimerEscapeConectandoFila();
   this.filaRanqueada = true;
   this.filaPodeCancelar = false;
   this.filaFase = "conectando";
   this.filaMensagem =
     D.nickOponente ? `Duelo com ${D.nickOponente}` : "Preparando o duelo…";
   this.filaPreview = [];
+  timerEscapeConectandoFila = setTimeout(() => {
+    timerEscapeConectandoFila = null;
+    if (this.filaFase !== "conectando") return;
+    this.filaPodeCancelar = true;
+    this.filaMensagem =
+      "Demorou para entrar — você pode cancelar e buscar de novo.";
+    this.mostrarToast(this.filaMensagem, true);
+  }, ESCAPE_CONECTANDO_FILA_MS);
   await new Promise((r) => setTimeout(r, 720));
   try {
     await entrarSalaRanqueada.call(this, D);
+  } catch (e) {
+    this.mostrarToast(
+      e?.message || "Não foi possível entrar no duelo ranqueado.",
+      true
+    );
+    api.ranqueadaSairFila().catch(() => {});
   } finally {
+    PararTimerEscapeConectandoFila();
     LimparEstadoFilaUi(this);
   }
 }
@@ -156,9 +189,7 @@ export async function entrarSalaRanqueada(D) {
         D.idJogador
       );
     } else {
-      const R = await api.salaEstado(D.codigoSala, D.idJogador);
-      if (!R.ok) throw new Error("Sala não encontrada");
-      estado = await R.json();
+      estado = await api.salaEstado(D.codigoSala, D.idJogador);
     }
     entrarNaSalaRanqueada.call(this, estado, D);
     TocarSom("entrada");
@@ -232,6 +263,44 @@ export async function carregarRankingRanqueado() {
   }
 }
 
+/** Retoma fila ou duelo após recarregar o app (evita fila fantasma no servidor). */
+export async function sincronizarFilaRanqueadaInicial() {
+  if (!this.conta?.podeRanqueada) return false;
+  if (this.jogoAtivo?.ativo && !this.jogoAtivo?.partidaEncerrada) {
+    return false;
+  }
+  try {
+    const D = await api.ranqueadaStatusFila();
+    if (D.estado === "encontrado") {
+      this.mostrarToast(
+        D.nickOponente
+          ? `Duelo encontrado: ${D.nickOponente}`
+          : "Entrando no duelo ranqueado…",
+        false
+      );
+      await ProcessarMatchRanqueadoEncontrado.call(this, D);
+      return true;
+    }
+    if (D.estado === "aguardando") {
+      this.filaRanqueada = true;
+      this.filaPodeCancelar = true;
+      this.filaMensagem = D.mensagem || "Busca ranqueada em andamento…";
+      this.dialogAberto = "jogar";
+      timerFilaRanqueada = setInterval(() => pollFilaRanqueada.call(this), 1000);
+      await pollFilaRanqueada.call(this);
+      this.mostrarToast("Busca ranqueada retomada — aguardando oponente.", false);
+      return true;
+    }
+    if (D.estado === "idle" || D.estado === "fila_cheia") {
+      PararPollFilaRanqueada();
+      LimparEstadoFilaUi(this);
+    }
+  } catch {
+    /* offline ou API indisponível */
+  }
+  return false;
+}
+
 export async function solicitarRevancheRanqueada() {
   if (!this.exigirContaRegistrada()) return;
   this.fecharDialogs();
@@ -254,6 +323,7 @@ export async function solicitarRevancheRanqueada() {
 
 export const acoesRanqueada = {
   pararFilaRanqueada,
+  sincronizarFilaRanqueadaInicial,
   entrarFilaRanqueada,
   pollFilaRanqueada,
   entrarSalaRanqueada,

@@ -11,16 +11,13 @@ import {
   LetrasVazias,
   LetrasPreenchidas,
   MontarPalavraChute,
-  PalavraJaFoiTentada,
   ProximoIndiceVazio,
-  ValidarModoDificilClient,
 } from "../../utils/jogo.js";
 import {
   PersistirSessao,
   LimparSessao,
   SalvarNickLocal,
 } from "../../utils/sessao.js";
-import { PalavraNoCache } from "../../utils/dicionario-cache.js";
 import { iniciarPraticaLocal } from "./acoes-pratica-local.js";
 import { MontarResultadoUi } from "../../utils/jogo.js";
 import { ObterStats, DiariaJaJogadaLocal } from "../../utils/stats.js";
@@ -105,32 +102,13 @@ export function revelarTentativaSolo(indice, tentativa, animar = false) {
   if (animar) AgendarFimAnimacao(t);
 }
 
-export async function enviarChuteSolo(cacheDicionarioSet) {
+/** Chute solo (diária, dueto, quarteto, desafio): validação só no servidor. */
+export async function enviarChuteSolo() {
   if (!LetrasPreenchidas(this.letras)) {
     this.mostrarToast("Preencha as 5 letras", true);
     return;
   }
   const palavra = MontarPalavraChute(this.letras);
-  const tentativasAnteriores = this.tentativasHist;
-  if (PalavraJaFoiTentada(palavra, tentativasAnteriores)) {
-    this.tratarChuteInvalido("Você já tentou essa palavra.");
-    return;
-  }
-  const noCache = PalavraNoCache(palavra, cacheDicionarioSet);
-  if (noCache === false) {
-    this.tratarChuteInvalido("Palavra não encontrada no dicionário.");
-    return;
-  }
-  if (noCache === null && !cacheDicionarioSet) {
-    this.mostrarToast("Validando no servidor…", false);
-  }
-  if (this.dificuldade === "dificil") {
-    const { ok, msg } = ValidarModoDificilClient(palavra, tentativasAnteriores);
-    if (!ok) {
-      this.tratarChuteInvalido(msg);
-      return;
-    }
-  }
 
   this.carregandoChute = true;
   try {

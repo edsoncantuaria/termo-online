@@ -1,5 +1,5 @@
 import { CHAVE_STATS } from "./constantes.js";
-import { DataHojeIsoBrasil } from "./tempo-brasil.js";
+import { DataDiaServidor, DiariaJaJogadaComDataServidor } from "./tempo-servidor.js";
 
 export function ObterStats() {
   try {
@@ -13,7 +13,7 @@ export function SalvarStats(S) {
   localStorage.setItem(CHAVE_STATS, JSON.stringify(S));
 }
 
+/** @deprecated Use DiariaJaJogadaComDataServidor ou flag `jaJogou` da API. */
 export function DiariaJaJogadaLocal() {
-  const s = ObterStats();
-  return s.ultimaDiaria === DataHojeIsoBrasil();
+  return DiariaJaJogadaComDataServidor(ObterStats(), DataDiaServidor());
 }

@@ -28,7 +28,7 @@ def test_avatar_padrao_estavel():
 
 
 def test_definir_avatar_conta(banco):
-    Perfil, _ = RegistrarConta("avatar_u", "av@test.com", "senha123")
+    Perfil, _, _ = RegistrarConta("avatar_u", "av@test.com", "senha123")
     Atualizado = DefinirAvatarConta(Perfil["idConta"], "coruja")
     assert Atualizado["avatarId"] == "coruja"
     Conta = persistencia.ObterContaPorId(Perfil["idConta"])
@@ -36,6 +36,6 @@ def test_definir_avatar_conta(banco):
 
 
 def test_definir_avatar_invalido(banco):
-    Perfil, _ = RegistrarConta("avatar_inv", "inv@test.com", "senha123")
+    Perfil, _, _ = RegistrarConta("avatar_inv", "inv@test.com", "senha123")
     with pytest.raises(ValueError, match="lista"):
         DefinirAvatarConta(Perfil["idConta"], "xyz")

@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException
 
-from nucleo.contas import ResolverSessao
+from nucleo.contas import InstanciaContaValida, ResolverSessao
 
 
 def ObterToken(
@@ -14,8 +14,17 @@ def ObterToken(
     return x_termo_token
 
 
-def ContaOpcional(Token: Annotated[str | None, Depends(ObterToken)]):
-    return ResolverSessao(Token)
+def ContaOpcional(
+    Token: Annotated[str | None, Depends(ObterToken)],
+    Instancia: Annotated[str | None, Header(alias="X-Termo-Instancia")] = None,
+):
+    Perfil = ResolverSessao(Token)
+    if Perfil and not InstanciaContaValida(Perfil["idConta"], Instancia):
+        raise HTTPException(
+            status_code=409,
+            detail="Esta conta foi aberta em outro dispositivo ou aba. Entre novamente.",
+        )
+    return Perfil
 
 
 def ContaObrigatoria(Perfil=Depends(ContaOpcional)):

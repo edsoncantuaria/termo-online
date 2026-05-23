@@ -11,7 +11,6 @@ import {
   MesclarJogoAtivoComRetomar,
 } from "../../utils/jogo-ativo.js";
 import { ObterSessao, LimparSessao, PersistirSessao } from "../../utils/sessao.js";
-import { DiariaJaJogadaLocal } from "../../utils/stats.js";
 import { PartidaOnlineEmAndamento } from "../../utils/jogo.js";
 import { entrarNaSalaRanqueada } from "./acoes-ranqueada.js";
 
@@ -201,9 +200,7 @@ export async function reconectarJogoAtivo() {
           J.idJogador
         );
       } else {
-        const R = await api.salaEstado(J.codigoSala, J.idJogador);
-        if (!R.ok) throw new Error("Não foi possível retomar a sala.");
-        estado = await R.json();
+        estado = await api.salaEstado(J.codigoSala, J.idJogador);
       }
       if (J.tipo === "ranqueada") {
         if (estado.partidaEncerrada || estado.somenteResultado) {
@@ -271,8 +268,11 @@ export async function reconectarJogoAtivo() {
         this.atualizarArena(estado);
       }
     } else if (J.tipo === "solo") {
-      if (J.modoSolo === "diaria" && DiariaJaJogadaLocal()) {
-        throw new Error("Palavra do dia já concluída neste aparelho.");
+      if (J.modoSolo === "diaria") {
+        const info = await api.diariaInfo(this.nickJogo);
+        if (info.jaJogou) {
+          throw new Error("Palavra do dia já concluída hoje.");
+        }
       }
       const D = await api.jogarEstado(J.idPartida, J.tokenPartida);
       if (D.encerrada) throw new Error("Partida já encerrada.");
