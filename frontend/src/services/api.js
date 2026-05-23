@@ -1,9 +1,27 @@
 import { UrlApi } from "../config/origem.js";
 import { HeadersAuth } from "../utils/auth.js";
 
+function MensagemErroApi(corpo) {
+  const detalhe = corpo?.detail;
+  if (typeof detalhe === "string" && detalhe.trim()) return detalhe.trim();
+  if (Array.isArray(detalhe) && detalhe.length) {
+    return detalhe
+      .map((item) => {
+        if (typeof item === "string") return item;
+        const msg = item?.msg || item?.message;
+        if (msg) return String(msg);
+        return null;
+      })
+      .filter(Boolean)
+      .join(" ") || "Dados inválidos.";
+  }
+  if (corpo?.mensagem) return String(corpo.mensagem);
+  return "Erro na requisição";
+}
+
 async function JsonOuErro(R) {
   const corpo = await R.json().catch(() => ({}));
-  if (!R.ok) throw new Error(corpo.detail || corpo.mensagem || "Erro na requisição");
+  if (!R.ok) throw new Error(MensagemErroApi(corpo));
   return corpo;
 }
 
@@ -58,10 +76,14 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }).then(JsonOuErro),
+  salaConvite: (codigo) =>
+    fetch(UrlApi(`/api/sala/${encodeURIComponent(codigo)}/convite`)).then(
+      JsonOuErro
+    ),
   salaEntrar: (body) =>
     fetch(UrlApi("/api/sala/entrar"), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: HeadersAuth({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
     }).then(JsonOuErro),
   salaSair: (body) =>

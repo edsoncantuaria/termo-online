@@ -10,6 +10,7 @@ import ViewJogo from "./components/views/ViewJogo.vue";
 import DialogPerfil from "./components/dialogs/DialogPerfil.vue";
 import DialogJogar from "./components/dialogs/DialogJogar.vue";
 import DialogCriarSala from "./components/dialogs/DialogCriarSala.vue";
+import DialogConfigurarSala from "./components/dialogs/DialogConfigurarSala.vue";
 import DialogAjuda from "./components/dialogs/DialogAjuda.vue";
 import DialogAviso from "./components/dialogs/DialogAviso.vue";
 import DialogResultado from "./components/dialogs/DialogResultado.vue";
@@ -96,20 +97,21 @@ onUnmounted(() => {
         <ViewArenaLobby v-else-if="store.view === 'arenaLobby'" />
         <ViewJogo v-else-if="store.view === 'jogo'" />
       </main>
-      <AppToast />
     </div>
 
     <DialogPerfil />
     <DialogConta />
     <DialogJogar />
     <DialogCriarSala />
+    <DialogConfigurarSala />
     <DialogAjuda />
     <DialogAviso />
     <DialogResultado />
     <TutorialPrimeiraVisita
-      v-if="store.mostrarTutorial"
+      v-if="store.deveExibirTutorial"
       @fechar="store.fecharTutorial()"
     />
+    <AppToast />
   </template>
 </template>
 

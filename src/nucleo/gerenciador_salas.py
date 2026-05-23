@@ -278,7 +278,33 @@ class GerenciadorSalas:
         )
         self.Salas[Codigo] = Sala
         self.PersistirSala(Sala)
+        from nucleo.redis_estado import RegistrarSalaNoWorker
+
+        RegistrarSalaNoWorker(Codigo)
         return Sala, Jogador
+
+    def InfoConviteSala(self, CodigoSala: str) -> dict | None:
+        Sala = self.ObterSala(CodigoSala.upper())
+        if not Sala:
+            return None
+        Config = Sala.Configuracao
+        Ativos = len(self.JogadoresAtivos(Sala))
+        Encerrada = Sala.PartidaEncerrada or Sala.EstadoSala == "encerrada"
+        Cheia = (
+            not Encerrada
+            and Sala.EstadoSala == "aguardando"
+            and Ativos >= Config.MaximoJogadores
+        )
+        return {
+            "codigoSala": Sala.CodigoSala,
+            "temSenha": bool(Config.Senha),
+            "cheia": Cheia,
+            "partidaEncerrada": Encerrada,
+            "estadoSala": Sala.EstadoSala,
+            "jogadores": len(Sala.Jogadores),
+            "jogadoresAtivos": Ativos,
+            "maximoJogadores": Config.MaximoJogadores,
+        }
 
     def EntrarSala(
         self,
@@ -333,6 +359,9 @@ class GerenciadorSalas:
         Sala = _sala_persistencia.ImportarSnapshot(Dados)
         if Sala:
             self.Salas[Codigo] = Sala
+            from nucleo.redis_estado import RegistrarSalaNoWorker
+
+            RegistrarSalaNoWorker(Codigo)
         return Sala
 
     def AtribuirPalavras(self, Sala: SalaJogo) -> None:
@@ -366,6 +395,65 @@ class GerenciadorSalas:
         if len(Lista) < MinimoJogadoresSala:
             return False
         return all(J.Pronto for J in Lista)
+
+    def AtualizarConfiguracaoSala(
+        self,
+        Sala: SalaJogo,
+        IdHost: str,
+        MesmaPalavra: bool,
+        VerOutros: bool,
+        MaximoJogadores: int,
+        TempoLimiteSegundos: int,
+        ModoSessao: str,
+        MetaVitorias: int,
+        InicioAutoDois: bool,
+        SenhaNova: str | None = None,
+        RemoverSenha: bool = False,
+    ) -> str | None:
+        if Sala.CriadorId != IdHost:
+            return "Apenas o host pode alterar as configurações."
+        if Sala.EstadoSala != "aguardando":
+            return "Só é possível configurar na sala de espera."
+        if Sala.Configuracao.Ranqueada:
+            return "Duelos ranqueados não permitem alterar a configuração."
+
+        Ocupacao = len(Sala.Jogadores)
+        if MaximoJogadores < Ocupacao:
+            return (
+                f"Máximo de jogadores não pode ser menor que {Ocupacao} "
+                "(pessoas na sala agora)."
+            )
+
+        Modo = ModoSessao if ModoSessao in (ModoPontos, ModoVitorias) else ModoPontos
+        if RemoverSenha:
+            Senha = None
+        elif SenhaNova and str(SenhaNova).strip():
+            Senha = self.NormalizarSenha(str(SenhaNova))
+        else:
+            Senha = Sala.Configuracao.Senha
+
+        Config = ConfiguracaoSala(
+            MesmaPalavra=bool(MesmaPalavra),
+            VerOutros=bool(VerOutros),
+            MaximoJogadores=int(MaximoJogadores),
+            Senha=Senha,
+            TempoLimiteSegundos=int(TempoLimiteSegundos),
+            NumeroRodadas=Sala.Configuracao.NumeroRodadas,
+            ModoSessao=Modo,
+            MetaVitorias=max(1, min(20, int(MetaVitorias))),
+            InicioAutoDois=bool(InicioAutoDois),
+            SalaPublica=not Senha,
+            Ranqueada=Sala.Configuracao.Ranqueada,
+        )
+        Erro = self.ValidarConfiguracao(Config)
+        if Erro:
+            return Erro
+
+        Sala.Configuracao = Config
+        self._ZerarProntidaoLobby(Sala)
+        self.PersistirSala(Sala)
+        _DispararNotificacaoLobby()
+        return None
 
     def AlternarPronto(
         self, Sala: SalaJogo, IdJogador: str, Pronto: bool | None = None

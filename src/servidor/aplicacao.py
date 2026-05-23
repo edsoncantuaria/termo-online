@@ -13,6 +13,7 @@ from nucleo.dicionario import CarregarDicionario
 from .manutencao import TarefaManutencaoSalas
 from .metricas import MiddlewareMetricas
 from .observabilidade import ConfigurarLogging
+from .middleware_carga import MiddlewareControleCarga
 from .rate_limit import MiddlewareRateLimit
 from .rotas import RegistrarRotas
 from .saude import RoteadorSaude
@@ -57,6 +58,7 @@ def CriarAplicacao() -> FastAPI:
         allow_headers=["*"],
     )
     Aplicacao.add_middleware(MiddlewareMetricas)
+    Aplicacao.add_middleware(MiddlewareControleCarga)
     Aplicacao.add_middleware(MiddlewareRateLimit)
     Aplicacao.include_router(RoteadorSaude)
     RegistrarRotas(Aplicacao)

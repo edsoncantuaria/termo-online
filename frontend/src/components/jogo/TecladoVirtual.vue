@@ -4,7 +4,7 @@ import { useTermoStore } from "../../stores/termo.js";
 const store = useTermoStore();
 
 function rotulo(k) {
-  if (k === "enter") return "↵";
+  if (k === "enter") return "ENTER";
   if (k === "back") return "⌫";
   return k.toUpperCase();
 }
@@ -22,7 +22,11 @@ function aria(k) {
       v-for="(linha, idx) in store.tecladoLinhas"
       :key="idx"
       class="teclado-linha"
-      :class="{ 'teclado-linha-meio': idx === 1 }"
+      :class="{
+        'teclado-linha-meio': idx === 1,
+        'teclado-linha-ultima': idx === 2,
+        'teclado-linha-enter': idx === 3,
+      }"
     >
       <button
         v-for="k in linha"
@@ -31,6 +35,8 @@ function aria(k) {
         class="tecla"
         :class="[
           k === 'enter' || k === 'back' ? 'grande' : '',
+          k === 'enter' ? 'tecla-enter' : '',
+          k === 'back' ? 'tecla-back' : '',
           store.teclado[k],
         ]"
         :disabled="store.carregandoChute || store.encerrada"

@@ -52,10 +52,15 @@ mv /home/alpine/termo-online-upload /root/termo-online
 cd /root/termo-online && sh instalar.sh
 ```
 
+## Produção Alpine (sem Docker)
+
+Ver **[DEPLOY-ALPINE.md](DEPLOY-ALPINE.md)** — tunnel direto, sem nginx; limites de carga no app.
+
 ## Arquivos
 
 | Arquivo | Função |
 |---------|--------|
+| `DEPLOY-ALPINE.md` | Guia VM leve (tunnel → :8000/:8001) |
 | `instalar-na-vm.sh` | Instalação completa |
 | `openrc/termo-*` | Init scripts Alpine (padrão na VM) |
 | `termo-api.service` | Unit systemd (Debian/Ubuntu) |

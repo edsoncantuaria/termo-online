@@ -17,6 +17,10 @@ const contagemProntos = computed(() => {
   const total = store.dadosSala?.totalProntidao ?? 0;
   return { prontos, total };
 });
+
+const ehHost = computed(
+  () => !!(store.dadosSala?.souCriador ?? store.souCriador)
+);
 </script>
 
 <template>
@@ -25,13 +29,34 @@ const contagemProntos = computed(() => {
       <header class="lobby-cabecalho">
         <div class="lobby-cabecalho-topo">
           <span class="lobby-codigo-mini">{{ store.codigoSala }}</span>
-          <span
-            v-if="store.badgeConexaoVisivel"
-            class="badge-conexao"
-            :class="store.wsConectado ? 'online' : 'offline'"
-          >
-            {{ store.wsConectado ? "Ao vivo" : "Reconectando" }}
-          </span>
+          <div class="lobby-cabecalho-acoes">
+            <button
+              v-if="ehHost"
+              type="button"
+              class="btn-lobby-config"
+              aria-label="Configurar sala"
+              title="Configurar partida"
+              @click="store.abrirConfigurarSala()"
+            >
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  d="M12 15.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM19.4 15a1.7 1.7 0 00.34 1.87l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.7 1.7 0 00-1.87-.34 1.7 1.7 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.7 1.7 0 00-1-1.51 1.7 1.7 0 00-1.87.34l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.7 1.7 0 004.6 15a1.7 1.7 0 00-1.51-1H3a2 2 0 010-4h.09A1.7 1.7 0 004.6 9a1.7 1.7 0 00-.34-1.87l-.06-.06a2 2 0 012.83-2.83l.06.06A1.7 1.7 0 009 4.1 1.7 1.7 0 0010 2.59V2a2 2 0 014 0v.09a1.7 1.7 0 001 1.51 1.7 1.7 0 001.87-.34l.06-.06a2 2 0 012.83 2.83l-.06.06A1.7 1.7 0 0019.4 9c.36.49.57 1.08.6 1.7H21a2 2 0 010 4h-.09c-.03.62-.24 1.21-.6 1.7z"
+                />
+              </svg>
+              <span class="btn-lobby-config-texto">Configurar</span>
+            </button>
+            <span
+              v-if="store.badgeConexaoVisivel"
+              class="badge-conexao"
+              :class="store.wsConectado ? 'online' : 'offline'"
+            >
+              {{ store.wsConectado ? "Ao vivo" : "Reconectando" }}
+            </span>
+          </div>
         </div>
         <h2 class="lobby-titulo">Sala de espera</h2>
         <p class="lobby-status-texto">{{ store.lobbyStatus }}</p>
@@ -69,6 +94,14 @@ const contagemProntos = computed(() => {
         <ul class="lobby-config-lista">
           <li v-for="(chip, i) in store.lobbyChips" :key="i">{{ chip }}</li>
         </ul>
+        <button
+          v-if="ehHost"
+          type="button"
+          class="lobby-config-editar"
+          @click="store.abrirConfigurarSala()"
+        >
+          Alterar regras e senha
+        </button>
       </section>
 
       <section class="lobby-jogadores" aria-label="Jogadores na sala">

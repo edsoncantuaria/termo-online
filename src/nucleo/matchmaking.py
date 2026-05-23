@@ -164,8 +164,18 @@ class FilaMatchmaking:
             LiberarReservaBot(E.BotReservadoId)
 
     def Entrar(self, Perfil: dict, Gerenciador: GerenciadorSalas) -> dict:
+        from .controle_carga import PodeEntrarFilaRanqueada
+
         ExigirPodeRanquear(Perfil)
         IdConta = Perfil["idConta"]
+        Admissao = PodeEntrarFilaRanqueada(len(self.Fila), IdConta in self.Fila)
+        if not Admissao.Permitido:
+            return {
+                "estado": "fila_cheia",
+                "mensagem": Admissao.Mensagem,
+                "posicaoFila": Admissao.PosicaoFila,
+                "retryAfterSegundos": Admissao.RetryAfterSegundos,
+            }
         self.Sair(IdConta)
         self.RevancheAlvo.pop(IdConta, None)
         self.Fila[IdConta] = EntradaFila(
@@ -377,4 +387,10 @@ class FilaMatchmaking:
             }
 
 
-FilaGlobal = FilaMatchmaking()
+def _InicializarFilaGlobal() -> FilaMatchmaking:
+    from .redis_fila import ConstruirFilaGlobal
+
+    return ConstruirFilaGlobal()
+
+
+FilaGlobal = _InicializarFilaGlobal()

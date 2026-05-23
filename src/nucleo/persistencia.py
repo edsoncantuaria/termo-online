@@ -128,6 +128,15 @@ def _AplicarMigracoesContas(C: sqlite3.Connection) -> None:
     )
     if "avatar_id" not in Colunas:
         C.execute("ALTER TABLE contas ADD COLUMN avatar_id TEXT")
+    if "ultima_atividade_em" not in Colunas:
+        C.execute("ALTER TABLE contas ADD COLUMN ultima_atividade_em TEXT")
+        C.execute(
+            """
+            UPDATE contas
+            SET ultima_atividade_em = COALESCE(criado_em, datetime('now'))
+            WHERE ultima_atividade_em IS NULL
+            """
+        )
 
 
 def _AplicarMigracoesProgresso(C: sqlite3.Connection) -> None:
@@ -339,12 +348,47 @@ def CarregarPartidaSolo(IdPartida: str, ClassePartida):
     return _DesserializarEstadoPartida(Linha, ClassePartida)
 
 
+INATIVIDADE_VISITANTE_HORAS = 1
+
+
+def _ParsearInstanteUtc(Texto: str | None):
+    from datetime import datetime, timezone
+
+    if not Texto:
+        return None
+    Valor = str(Texto).strip().replace("Z", "+00:00")
+    try:
+        Instante = datetime.fromisoformat(Valor)
+    except ValueError:
+        return None
+    if Instante.tzinfo is None:
+        Instante = Instante.replace(tzinfo=timezone.utc)
+    return Instante
+
+
+def VisitanteEstaInativo(Conta: dict) -> bool:
+    from datetime import datetime, timedelta, timezone
+
+    if not Conta.get("eh_visitante"):
+        return False
+    Ref = Conta.get("ultima_atividade_em") or Conta.get("criado_em")
+    Instante = _ParsearInstanteUtc(Ref)
+    if not Instante:
+        return False
+    Limite = datetime.now(timezone.utc) - timedelta(hours=INATIVIDADE_VISITANTE_HORAS)
+    return Instante < Limite
+
+
 def NickEhVisitante(Nick: str) -> bool:
     NickNorm = (Nick or "").strip()[:24].lower()
     if not NickNorm:
         return False
     Conta = ObterContaPorNick(NickNorm)
-    return bool(Conta and Conta.get("eh_visitante"))
+    return bool(
+        Conta
+        and Conta.get("eh_visitante")
+        and not VisitanteEstaInativo(Conta)
+    )
 
 
 def LimparRankingVisitantesEPontosZero() -> None:
@@ -972,16 +1016,20 @@ def CriarConta(
     EhVisitante: bool = False,
     Email: str | None = None,
 ) -> str:
+    from datetime import datetime, timezone
+
     from .ranqueada import PONTOS_INICIAIS
 
     IdConta = str(uuid.uuid4())
     EmailNorm = (Email or "").strip().lower() or None
+    Agora = datetime.now(timezone.utc).isoformat()
     with Conexao() as C:
         C.execute(
             """
             INSERT INTO contas (
-                id, nick, email, senha_hash, senha_salt, eh_visitante, pontos_ranqueada
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                id, nick, email, senha_hash, senha_salt, eh_visitante,
+                pontos_ranqueada, ultima_atividade_em
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 IdConta,
@@ -991,6 +1039,7 @@ def CriarConta(
                 senha_salt,
                 int(EhVisitante),
                 PONTOS_INICIAIS,
+                Agora,
             ),
         )
     return IdConta
@@ -1059,6 +1108,44 @@ def ObterSessaoPorToken(Token: str) -> dict | None:
 def RevogarSessao(Token: str) -> None:
     with Conexao() as C:
         C.execute("DELETE FROM sessoes WHERE token = ?", (Token,))
+
+
+def AtualizarAtividadeConta(IdConta: str, Instante: str | None = None) -> None:
+    from datetime import datetime, timezone
+
+    if Instante is None:
+        Instante = datetime.now(timezone.utc).isoformat()
+    with Conexao() as C:
+        C.execute(
+            "UPDATE contas SET ultima_atividade_em = ? WHERE id = ?",
+            (Instante, IdConta),
+        )
+
+
+def ExcluirConta(IdConta: str) -> None:
+    """Remove conta e dados ligados (visitante inativo liberando nick)."""
+    with Conexao() as C:
+        C.execute("DELETE FROM sessoes WHERE id_conta = ?", (IdConta,))
+        C.execute("DELETE FROM historico_ranqueada WHERE id_conta = ?", (IdConta,))
+        C.execute(
+            "DELETE FROM historico_ranqueada WHERE id_oponente = ?", (IdConta,)
+        )
+        for Tabela in (
+            "diaria_xp_tentativa",
+            "diaria_xp_conclusao",
+            "diaria_sessao",
+            "diaria_jogadores",
+            "xp_ganho_diario",
+            "arena_xp_rodada",
+            "arena_xp_sessao",
+            "meta_semanal_recompensa",
+            "meta_semanal_progresso",
+            "conta_badges",
+            "xp_log",
+        ):
+            C.execute(f"DELETE FROM {Tabela} WHERE id_conta = ?", (IdConta,))
+        C.execute("DELETE FROM partidas_solo WHERE id_conta = ?", (IdConta,))
+        C.execute("DELETE FROM contas WHERE id = ?", (IdConta,))
 
 
 def AtualizarPontosRanqueada(IdConta: str, Pontos: int) -> None:

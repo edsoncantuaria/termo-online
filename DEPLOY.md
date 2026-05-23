@@ -34,11 +34,9 @@ Dados persistentes no volume `termo-data` (`data/termo.db`).
 
 ## HTTPS e domínio
 
-Coloque um reverse proxy (Caddy, nginx, Traefik) na frente do container ou do `make run`:
+**VM Alpine (produção Cloudive):** use **Cloudflare Tunnel** direto em `:8000` (UI) e `:8001` (API) — sem nginx/Caddy na máquina. Ver [deploy/vm/DEPLOY-ALPINE.md](deploy/vm/DEPLOY-ALPINE.md).
 
-- Proxy para `http://127.0.0.1:8000`
-- WebSocket em `/ws` com upgrade habilitado
-- Cabeçalhos `X-Forwarded-*` se o proxy suportar
+**Outros ambientes:** proxy opcional (Caddy, nginx) só se não tiver tunnel/terminação externa — proxy para `http://127.0.0.1:8000`, WebSocket em `/ws` com upgrade, cabeçalhos `X-Forwarded-*`.
 
 ## Checklist pós-deploy
 
@@ -62,18 +60,15 @@ make run
 
 O banco SQLite em `data/termo.db` é preservado se o volume/diretório `data/` for mantido.
 
-## Escala horizontal (importante)
+## Escala e carga
 
-Salas da arena, fila ranqueada e matchmaking ficam **na memória do processo** Python. Para um único servidor (`make run` ou um container), está ok.
+**Limites por processo** (anti-sobrecarga): `TERM0_MAX_WS_SALA`, `TERM0_MAX_WS_LOBBY`, `TERM0_MAX_SALAS`, `TERM0_MAX_FILA_RANQUEADA`. Ver `GET /api/infra/carga` e `GET /api/metricas`.
 
-Se subir **mais de uma instância** atrás do load balancer:
+**Instância única** (`make run`, um OpenRC `termo-api`): recomendado em VM pequena — salas, WebSocket e fila na mesma RAM.
 
-- Jogadores na mesma sala precisam cair no **mesmo worker** (sticky session por cookie/IP), **ou**
-- Migrar **salas e fila ranqueada** para Redis (ou sticky session no load balancer).
+**Escala (só se tiver 2+ processos API):** fila ranqueada via Redis (`TERM0_REDIS_URL`); salas/WebSocket ficam no processo que criou a sala — na prática use **uma instância** ou **um origin** no tunnel (sem nginx na VM). Detalhes em [deploy/vm/DEPLOY-ALPINE.md](deploy/vm/DEPLOY-ALPINE.md).
 
-Com `TERM0_REDIS_URL`, o **rate limit** da API já é compartilhado entre instâncias. Salas/fila ainda ficam na memória de cada processo.
-
-Sem sticky session ou Redis para salas, partidas na arena podem “sumir” entre requisições. WebSocket exige proxy com upgrade (`/ws`, `/ws/lobby`).
+**Alpine sem Docker:** [deploy/vm/DEPLOY-ALPINE.md](deploy/vm/DEPLOY-ALPINE.md).
 
 ## Fuso horário
 

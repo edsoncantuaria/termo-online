@@ -71,7 +71,21 @@ def ValidarSenha(Senha: str) -> None:
 
 
 def _NickOcupado(Nick: str) -> bool:
-    return persistencia.ObterContaPorNick(Nick) is not None
+    Conta = persistencia.ObterContaPorNick(Nick)
+    if not Conta:
+        return False
+    if Conta.get("eh_visitante") and persistencia.VisitanteEstaInativo(Conta):
+        return False
+    return True
+
+
+def _RemoverVisitanteInativoNoNick(Nick: str) -> None:
+    Conta = persistencia.ObterContaPorNick(Nick)
+    if not Conta or not Conta.get("eh_visitante"):
+        return
+    if not persistencia.VisitanteEstaInativo(Conta):
+        return
+    persistencia.ExcluirConta(Conta["id"])
 
 
 def _ProximoNickLivre(Prefixo: str, *, Ignorar: str | None = None) -> str:
@@ -192,6 +206,7 @@ def LoginConta(Identificador: str, Senha: str) -> tuple[dict, str]:
 
 def EntrarComoVisitante(NickPreferido: str | None = None) -> tuple[dict, str]:
     Nick = ReservarNickVisitante(NickPreferido)
+    _RemoverVisitanteInativoNoNick(Nick)
     IdConta = persistencia.CriarConta(
         Nick,
         senha_hash="",
@@ -229,6 +244,8 @@ def ResolverSessao(Token: str | None) -> dict | None:
     Conta = persistencia.ObterContaPorId(Sessao["id_conta"])
     if not Conta:
         return None
+    if Conta.get("eh_visitante"):
+        persistencia.AtualizarAtividadeConta(Conta["id"])
     return MontarPerfilConta(Conta)
 
 

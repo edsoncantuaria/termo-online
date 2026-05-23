@@ -11,6 +11,16 @@ export TERM0_RELOAD=0
 export TERM0_DATA="${INSTALL_DIR}/data"
 export TERM0_CORS_ORIGINS="https://termo.cloudive.com.br,http://localhost:8000"
 export TERM0_LOG_LEVEL=INFO
+# Carga: perfil 1 GB RAM + 3 GB swap (pico usa swap; monitore com free -h)
+export TERM0_MAX_WS_SALA=700
+export TERM0_MAX_WS_LOBBY=400
+export TERM0_MAX_SALAS=280
+export TERM0_MAX_FILA_RANQUEADA=150
+export TERM0_MAX_FILA_ESPERA=200
+export TERM0_ESPERA_SLOT_SEG=3
+# Redis opcional (descomente se usar redis local — ver deploy/vm/DEPLOY-ALPINE.md)
+# export TERM0_REDIS_URL=redis://127.0.0.1:6379/0
+# export TERM0_WORKER_ID=api-1
 
 command="${INSTALL_DIR}/.venv/bin/python"
 command_args="-m uvicorn main:Aplicacao --host 0.0.0.0 --port 8001 --app-dir ${INSTALL_DIR}/src"

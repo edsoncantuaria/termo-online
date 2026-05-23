@@ -1,7 +1,7 @@
 /** Ações Pinia: fila ranqueada, ranking e revanche. */
 import { api } from "../../services/api.js";
 import { SalvarAuthLocal } from "../../utils/auth.js";
-import { LimparSessao, SalvarCodigoSala } from "../../utils/sessao.js";
+import { LimparSessao } from "../../utils/sessao.js";
 import { TocarSom } from "../../lib/som.js";
 
 let timerFilaRanqueada = null;
@@ -87,8 +87,7 @@ export function entrarNaSalaRanqueada(D) {
   this.codigoSala = D.codigoSala;
   this.idJogador = D.idJogador;
   this.souCriador = D.souCriador;
-  this.codigoEntrada = D.codigoSala;
-  SalvarCodigoSala(D.codigoSala);
+  this.codigoEntrada = "";
   this.dadosSala = D;
   this.fecharDialogs();
   if (D.estadoSala === "aguardando") {

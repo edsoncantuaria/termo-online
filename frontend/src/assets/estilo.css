@@ -1006,17 +1006,45 @@ html {
   margin-bottom: 0.75rem;
 }
 
-/* --- Jogo desktop --- */
+/* --- Jogo: tela cheia 100dvh --- */
+.app.modo-jogo {
+  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+html:has(.app.modo-jogo),
+body:has(.app.modo-jogo) {
+  overflow: hidden;
+  overscroll-behavior: none;
+  height: 100dvh;
+  max-height: 100dvh;
+}
+
 .app.modo-jogo .principal {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
   width: 100%;
+  padding: 0.35rem 0.5rem 0;
+  overflow: hidden;
 }
 
 .view-jogo {
   width: 100%;
   max-width: 100%;
+}
+
+.view-jogo.view-ativa {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .layout-jogo {
@@ -1028,6 +1056,13 @@ html {
   width: 100%;
   max-width: 520px;
   margin: 0 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.app.modo-jogo .layout-jogo {
+  overflow: hidden;
+  align-items: stretch;
 }
 
 /* Arena: grade central + lateral à direita */
@@ -1055,6 +1090,38 @@ html {
   width: 100%;
   max-width: 520px;
   margin: 0 auto;
+}
+
+.app.modo-jogo .jogo-principal {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-width: 100%;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+.app.modo-jogo .grade-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  align-items: center;
+  margin-bottom: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app.modo-jogo .teclado {
+  flex-shrink: 0;
+  margin-top: auto;
+  width: 100%;
+}
+
+.app.modo-jogo .jogo-meta,
+.app.modo-jogo .faixa-estado,
+.app.modo-jogo .card-aguardo,
+.app.modo-jogo .dica-celulas,
+.app.modo-jogo .vitoria-rodada-toast {
+  flex-shrink: 0;
 }
 
 .jogo-meta {
@@ -1195,7 +1262,7 @@ html {
   50% { transform: rotateX(-90deg); }
 }
 
-.app > .toast {
+.toast-fixo {
   position: fixed;
   bottom: 1.25rem;
   left: 50%;
@@ -1212,6 +1279,19 @@ html {
   border: 1px solid var(--border);
   border-radius: var(--raio-pill);
   box-shadow: var(--sombra);
+  pointer-events: none;
+}
+
+/* Toast dentro do modal (Teleport → dialog[open]) */
+.toast-em-dialog {
+  flex-shrink: 0;
+  margin: 0.65rem 1rem 1rem;
+  width: calc(100% - 2rem);
+  max-width: none;
+  align-self: center;
+  text-align: center;
+  font-weight: 600;
+  color: var(--dourado);
   pointer-events: none;
 }
 
@@ -1247,6 +1327,22 @@ html {
   padding: 0 5%;
 }
 
+.teclado-linha-ultima {
+  padding-left: 8%;
+}
+
+.teclado-linha-enter {
+  justify-content: flex-end;
+  padding-left: 22%;
+  padding-right: 0;
+}
+
+.teclado-linha-enter .tecla-enter {
+  flex: 0 1 auto;
+  min-width: clamp(88px, 32%, 168px);
+  max-width: 52%;
+}
+
 .tecla {
   flex: 1 1 0;
   min-width: 0;
@@ -1275,6 +1371,16 @@ html {
   max-width: clamp(40px, 13vw, 68px);
   font-size: clamp(0.62rem, 2.2vw, 0.75rem);
   border-radius: 12px;
+}
+
+.tecla-back {
+  flex: 1.55 1 0;
+  max-width: clamp(48px, 15vw, 76px);
+}
+
+.tecla-enter {
+  font-size: clamp(0.58rem, 2vw, 0.72rem);
+  letter-spacing: 0.02em;
 }
 
 .tecla.correto { background: var(--verde); color: #fff; }
@@ -1983,8 +2089,17 @@ body.modo-daltonico .tile.ausente::after {
     font-size: 0.95rem;
   }
   .principal { padding: 0.75rem 0.5rem 1rem; }
+  .app.modo-jogo .principal {
+    padding: 0.25rem 0.35rem 0;
+  }
   .jogo-principal { max-width: 100%; }
   .teclado-linha-meio {
     padding: 0 4.8%;
+  }
+  .teclado-linha-ultima {
+    padding-left: 6%;
+  }
+  .teclado-linha-enter {
+    padding-left: 18%;
   }
 }

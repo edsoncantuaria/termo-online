@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from nucleo import persistencia
@@ -7,6 +9,7 @@ from nucleo.contas import (
     LiberarNickDeVisitante,
     NOMES_BASE_VISITANTE,
     RegistrarConta,
+    ResolverSessao,
     ReservarNickVisitante,
     ValidarEmail,
     ValidarNick,
@@ -97,3 +100,37 @@ def test_liberar_visitante_desloca_com_zero(banco_contas):
     Conta = persistencia.ObterContaPorNick("ana0")
     assert Conta is not None
     assert Conta["eh_visitante"]
+
+
+def _MarcarVisitanteInativo(IdConta: str) -> None:
+    Antiga = (
+        datetime.now(timezone.utc)
+        - timedelta(hours=persistencia.INATIVIDADE_VISITANTE_HORAS, minutes=5)
+    ).isoformat()
+    persistencia.AtualizarAtividadeConta(IdConta, Antiga)
+
+
+def test_visitante_inativo_libera_nick(banco_contas):
+    Perfil1, _ = EntrarComoVisitante("maria")
+    assert Perfil1["nick"] == "maria"
+    _MarcarVisitanteInativo(Perfil1["idConta"])
+    Perfil2, _ = EntrarComoVisitante("maria")
+    assert Perfil2["nick"] == "maria"
+    assert Perfil2["idConta"] != Perfil1["idConta"]
+    assert persistencia.ObterContaPorId(Perfil1["idConta"]) is None
+
+
+def test_visitante_ativo_mantem_nick(banco_contas):
+    Perfil1, _ = EntrarComoVisitante("maria")
+    Perfil2, _ = EntrarComoVisitante("maria")
+    assert Perfil2["nick"] == "maria1"
+
+
+def test_sessao_visitante_renova_atividade(banco_contas):
+    Perfil, Token = EntrarComoVisitante("lucas")
+    _MarcarVisitanteInativo(Perfil["idConta"])
+    assert ResolverSessao(Token) is not None
+    Conta = persistencia.ObterContaPorId(Perfil["idConta"])
+    assert not persistencia.VisitanteEstaInativo(Conta)
+    Perfil2, _ = EntrarComoVisitante("lucas")
+    assert Perfil2["nick"] == "lucas1"

@@ -79,6 +79,7 @@ export function ChipsConfigLobby(D) {
       D.modoRodadasTexto ||
       "Maratona",
     cfg.tempoLimiteTexto || "Sem limite",
+    D.temSenha ? "Com senha" : null,
     cfg.ranqueada ? "Ranqueado 1v1" : null,
   ].filter(Boolean);
 }

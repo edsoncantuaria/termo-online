@@ -11,14 +11,12 @@ export function ObterSessao() {
 
 export function LimparSessao() {
   localStorage.removeItem(CHAVE_SESSAO);
+  LimparCodigoSala();
 }
 
-export function SalvarCodigoSala(Codigo) {
-  if (Codigo) localStorage.setItem(CHAVE_CODIGO_SALA, Codigo);
-}
-
-export function CarregarCodigoSala() {
-  return localStorage.getItem(CHAVE_CODIGO_SALA) || "";
+/** Campo "Código" da home não persiste; remove legado do localStorage. */
+export function LimparCodigoSala() {
+  localStorage.removeItem(CHAVE_CODIGO_SALA);
 }
 
 export function CarregarNickLocal() {

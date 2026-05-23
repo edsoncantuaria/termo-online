@@ -43,7 +43,7 @@ Ver [DEPLOY.md](DEPLOY.md) para colocar em produção.
 
 | Tipo | O que libera |
 |------|----------------|
-| **Visitante** | Nick amigável automático (`maria`, `maria1`, `joao2`…); sem fila ranqueada nem ranking de elo |
+| **Visitante** | Nick amigável automático (`maria`, `maria1`, `joao2`…); sem fila ranqueada nem ranking de elo; após **1 h** sem uso o nick volta a ficar livre para outro visitante |
 | **Conta** | Nick fixo; ao cadastrar, se o nick estiver só com visitante, a conta fica com o nick e o visitante é renomeado (ex.: `maria1` → `maria10`) |
 
 O modal de conta abre em **Entrar**; **Entrar como visitante** fica acima do login.

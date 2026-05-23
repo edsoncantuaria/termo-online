@@ -90,3 +90,12 @@ def RegistrarRotasRanqueada(Roteador: APIRouter) -> None:
     @Roteador.get("/infra/redis")
     def InfraRedis():
         return StatusRedis()
+
+    @Roteador.get("/infra/carga")
+    def InfraCarga():
+        from nucleo.controle_carga import MontarStatusCarga
+
+        return MontarStatusCarga(
+            SalasAtivas=len(GerenciadorVersus.Salas),
+            FilaRanqueada=len(FilaGlobal.Fila),
+        )

@@ -49,7 +49,14 @@ async def BroadcastSalasPublicasLobby() -> None:
 
 
 async def ConectarWebSocketLobby(Conexao: WebSocket) -> None:
+    from nucleo.controle_carga import PodeAceitarWsLobby, RegistrarConexaoWsLobby, LiberarConexaoWsLobby
+
+    Admissao = PodeAceitarWsLobby()
+    if not Admissao.Permitido:
+        await Conexao.close(code=1013, reason=Admissao.Mensagem or "Servidor cheio")
+        return
     await Conexao.accept()
+    RegistrarConexaoWsLobby()
     ConexoesLobby.add(Conexao)
     try:
         from servidor.estado_global import GerenciadorVersus
@@ -66,7 +73,10 @@ async def ConectarWebSocketLobby(Conexao: WebSocket) -> None:
     except WebSocketDisconnect:
         pass
     finally:
+        from nucleo.controle_carga import LiberarConexaoWsLobby
+
         ConexoesLobby.discard(Conexao)
+        LiberarConexaoWsLobby()
 
 
 async def EnviarParaJogador(CodigoSala: str, IdJogador: str, Mensagem: dict) -> bool:
@@ -207,10 +217,31 @@ async def ProcessarChuteSala(Sala, IdJogador: str, Palavra: str) -> None:
 
 
 async def ConectarWebSocketSala(Conexao: WebSocket, codigo_sala: str, id_jogador: str) -> None:
+    from nucleo.controle_carga import (
+        LiberarConexaoWsSala,
+        PodeAceitarWsSala,
+        RegistrarConexaoWsSala,
+    )
+    from nucleo.redis_estado import VerificarWorkerDonoSala
+
+    Codigo = codigo_sala.upper()
+    DonoOk, WorkerRemoto = VerificarWorkerDonoSala(Codigo)
+    if not DonoOk:
+        await Conexao.close(
+            code=1013,
+            reason="Sala em outro processo — use um único termo-api.",
+        )
+        return
+    Admissao = PodeAceitarWsSala()
+    if not Admissao.Permitido:
+        await Conexao.close(code=1013, reason=Admissao.Mensagem or "Servidor cheio")
+        return
     await Conexao.accept()
+    RegistrarConexaoWsSala()
     Sala = Gerenciador.ObterSala(codigo_sala)
 
     if not Sala or id_jogador not in Sala.Jogadores:
+        LiberarConexaoWsSala()
         await Conexao.send_json({"tipo": "erro", "mensagem": "Sala ou jogador inválido."})
         await Conexao.close()
         return
@@ -292,6 +323,28 @@ async def ConectarWebSocketSala(Conexao: WebSocket, codigo_sala: str, id_jogador
                     )
                 else:
                     await BroadcastEstadoSala(Sala)
+            elif Tipo == "configurar":
+                Erro = Gerenciador.AtualizarConfiguracaoSala(
+                    Sala,
+                    id_jogador,
+                    bool(Payload.get("mesmaPalavra", True)),
+                    bool(Payload.get("verOutros", True)),
+                    int(Payload.get("maximoJogadores", 4)),
+                    int(Payload.get("tempoLimiteSegundos", 0)),
+                    str(Payload.get("modoSessao", "pontos")),
+                    int(Payload.get("metaVitorias", 5)),
+                    bool(Payload.get("inicioAutoDois", False)),
+                    Payload.get("senhaNova"),
+                    bool(Payload.get("removerSenha", False)),
+                )
+                if Erro:
+                    await EnviarParaJogador(
+                        Sala.CodigoSala,
+                        id_jogador,
+                        {"tipo": "erro", "mensagem": Erro},
+                    )
+                else:
+                    await BroadcastEstadoSala(Sala)
             elif Tipo == "expulsar":
                 IdAlvo = Payload.get("idJogador", "")
                 Erro = Gerenciador.ExpulsarJogador(Sala, id_jogador, IdAlvo)
@@ -352,6 +405,7 @@ async def ConectarWebSocketSala(Conexao: WebSocket, codigo_sala: str, id_jogador
     except WebSocketDisconnect:
         pass
     finally:
+        LiberarConexaoWsSala()
         RemoverConexao(Sala.CodigoSala, id_jogador)
         if SaidaExplicita:
             Gerenciador.RemoverJogador(Sala.CodigoSala, id_jogador)

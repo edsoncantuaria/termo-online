@@ -15,15 +15,21 @@ def RegistrarMetrica(Nome: str, Valor: int = 1) -> None:
 
 
 def MontarSnapshotMetricas() -> dict:
-    from servidor.estado_global import GerenciadorVersus
+    from nucleo.controle_carga import MontarStatusCarga
     from nucleo.matchmaking import FilaGlobal
+    from nucleo.redis_estado import StatusRedis
+    from servidor.estado_global import GerenciadorVersus
 
     FilaGlobal.Processar(GerenciadorVersus)
+    Salas = len(GerenciadorVersus.Salas)
+    Fila = len(FilaGlobal.Fila)
     return {
         "uptimeSegundos": int(time.time() - InicioProcesso),
         "requisicoes": dict(Contadores),
-        "salasAtivas": len(GerenciadorVersus.Salas),
-        "filaRanqueada": len(FilaGlobal.Fila),
+        "salasAtivas": Salas,
+        "filaRanqueada": Fila,
+        "carga": MontarStatusCarga(SalasAtivas=Salas, FilaRanqueada=Fila),
+        "redis": StatusRedis(),
     }
 
 

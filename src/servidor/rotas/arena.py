@@ -4,7 +4,9 @@ import string
 from fastapi import APIRouter, Depends, HTTPException
 
 from nucleo.arena_rodadas import ModoPontos, ModoVitorias
+from nucleo.controle_carga import PodeCriarSala
 from nucleo.gerenciador_salas import ConfiguracaoSala
+from nucleo.redis_estado import VerificarWorkerDonoSala
 from nucleo.sala_chat import FrasesChatPermitidas
 from servidor.dependencias_auth import ContaOpcional
 from servidor.estado_global import GerenciadorVersus
@@ -20,6 +22,13 @@ from servidor.websocket import BroadcastEstadoSala
 def RegistrarRotasArena(Roteador: APIRouter) -> None:
     @Roteador.post("/sala/criar")
     async def CriarSala(Corpo: CriarSalaRequest, Perfil=Depends(ContaOpcional)):
+        Admissao = PodeCriarSala(len(GerenciadorVersus.Salas))
+        if not Admissao.Permitido:
+            raise HTTPException(
+                status_code=503,
+                detail=Admissao.Mensagem,
+                headers={"Retry-After": str(Admissao.RetryAfterSegundos)},
+            )
         try:
             Modo = (
                 Corpo.modoSessao
@@ -51,6 +60,17 @@ def RegistrarRotasArena(Roteador: APIRouter) -> None:
 
     @Roteador.post("/sala/entrar")
     async def EntrarSala(Corpo: EntrarSalaRequest, Perfil=Depends(ContaOpcional)):
+        Codigo = Corpo.codigoSala.upper()
+        DonoOk, WorkerRemoto = VerificarWorkerDonoSala(Codigo)
+        if not DonoOk:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Esta sala está em outro processo da API. "
+                    "Mantenha um único termo-api na VM (tunnel → :8001)."
+                ),
+                headers={"X-Termo-Worker": WorkerRemoto or ""},
+            )
         Nome = Corpo.nomeJogador[:24] or "Jogador"
         IdConta = None
         if Perfil:
@@ -71,6 +91,14 @@ def RegistrarRotasArena(Roteador: APIRouter) -> None:
         Resposta = MontarRespostaSala(Sala, Jogador)
         Resposta["aguardandoInicio"] = Sala.EstadoSala == "aguardando"
         return Resposta
+
+    @Roteador.get("/sala/{codigo_sala}/convite")
+    def ConviteSala(codigo_sala: str):
+        GerenciadorVersus.RestaurarSalasAtivas()
+        Info = GerenciadorVersus.InfoConviteSala(codigo_sala)
+        if not Info:
+            raise HTTPException(status_code=404, detail="Sala não encontrada.")
+        return Info
 
     @Roteador.get("/sala/{codigo_sala}")
     def ConsultarSala(codigo_sala: str, id_jogador: str):

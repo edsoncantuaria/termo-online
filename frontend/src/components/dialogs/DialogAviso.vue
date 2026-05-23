@@ -8,6 +8,8 @@ const store = useTermoStore();
 const dialogo = ref(null);
 const aberto = computed(() => store.dialogAberto === "aviso");
 const ehConfirmacao = computed(() => store.aviso.tipo === "confirm");
+const ehConvite = computed(() => store.aviso.tipo === "convite");
+const ehSenhaSala = computed(() => store.aviso.tipo === "senhaSala");
 
 const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
   dialogo,
@@ -22,6 +24,7 @@ const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
     class="dialog dialog-aviso"
     :class="{
       'dialog-aviso-nick': store.aviso.tipo === 'nick',
+      'dialog-aviso-convite': ehConvite || ehSenhaSala,
       'dialog-aviso-confirm': ehConfirmacao,
     }"
     @click="onCliqueFora"
@@ -61,12 +64,55 @@ const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
         />
         <p class="aviso-campo-hint">O nick no topo da página também será atualizado.</p>
       </div>
+      <div v-else-if="ehConvite" class="aviso-campos-convite">
+        <label for="avisoConviteNick">Seu nome no jogo</label>
+        <input
+          id="avisoConviteNick"
+          v-model="store.aviso.nickTemp"
+          type="text"
+          maxlength="20"
+          placeholder="ex: maria"
+          autocomplete="nickname"
+          class="input-redondo"
+          @input="
+            store.aviso.nickTemp = store.normalizarNickEntrada(
+              store.aviso.nickTemp
+            )
+          "
+        />
+        <p class="aviso-campo-hint">3–20 caracteres (a–z, números ou _).</p>
+        <label v-if="store.aviso.exigeSenha" for="avisoConviteSenha">
+          Senha da sala
+        </label>
+        <input
+          v-if="store.aviso.exigeSenha"
+          id="avisoConviteSenha"
+          v-model="store.aviso.senhaTemp"
+          type="text"
+          maxlength="8"
+          placeholder="Senha da sala"
+          class="input-redondo"
+          autocomplete="off"
+        />
+      </div>
+      <div v-else-if="ehSenhaSala" class="aviso-campos-convite">
+        <label for="avisoSenhaSala">Senha da sala</label>
+        <input
+          id="avisoSenhaSala"
+          v-model="store.aviso.senhaTemp"
+          type="text"
+          maxlength="8"
+          placeholder="Digite a senha"
+          class="input-redondo"
+          autocomplete="off"
+        />
+      </div>
       <div
         class="dialog-acoes aviso-acoes"
         :class="{ 'aviso-acoes-confirm': ehConfirmacao }"
       >
         <button
-          v-if="ehConfirmacao"
+          v-if="ehConfirmacao || ehConvite || ehSenhaSala"
           type="button"
           class="btn-modo btn-modo-sec btn-largo"
           @click="store.cancelarAviso()"

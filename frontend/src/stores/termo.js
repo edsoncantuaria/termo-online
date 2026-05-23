@@ -16,6 +16,12 @@ import {
   SalvarAuthLocal,
   LimparAuthLocal,
 } from "../utils/auth.js";
+import {
+  ValidarNick,
+  ValidarLogin,
+  ValidarRegistro,
+  NormalizarNick,
+} from "../utils/validacao-auth.js";
 import { EhModoSalaOnline } from "../utils/modos.js";
 import {
   NormalizarTentativa,
@@ -51,8 +57,7 @@ import {
   ObterSessao,
   LimparSessao,
   PersistirSessao,
-  SalvarCodigoSala,
-  CarregarCodigoSala,
+  LimparCodigoSala,
   CarregarNickLocal,
   SalvarNickLocal,
 } from "../utils/sessao.js";
@@ -93,7 +98,10 @@ export const useTermoStore = defineStore("termo", {
   state: () => ({
     view: "inicio",
     nick: CarregarNickLocal(),
-    codigoEntrada: CarregarCodigoSala(),
+    codigoEntrada: "",
+    /** Código de ?sala= preservado após limpar a URL (evita perder no 2º init). */
+    conviteSalaCodigo: "",
+    processandoConviteSala: false,
     senhaEntrada: "",
     espectadorEntrada: false,
 
@@ -187,6 +195,9 @@ export const useTermoStore = defineStore("termo", {
       textoBotao: "Entendi",
       textoBotaoSec: "Cancelar",
       nickTemp: "",
+      senhaTemp: "",
+      conviteCodigo: "",
+      exigeSenha: false,
       aoConfirmar: null,
       aoCancelar: null,
     },
@@ -222,11 +233,35 @@ export const useTermoStore = defineStore("termo", {
       senha: "",
     },
 
+    formConfigurarSala: {
+      minJogadores: 2,
+      maxJogadores: 4,
+      mesmaPalavra: true,
+      verOutros: true,
+      modoSessao: "pontos",
+      metaVitorias: 5,
+      inicioAutoDois: false,
+      tempoLimite: 180,
+      temSenhaAtual: false,
+      senhaNova: "",
+      removerSenha: false,
+    },
+
     tentativasReconexao: 0,
     wsUrl: null,
   }),
 
   getters: {
+    deveExibirTutorial: (s) => {
+      if (s.conviteSalaCodigo || s.processandoConviteSala) return false;
+      if (
+        s.dialogAberto === "aviso" &&
+        (s.aviso.tipo === "convite" || s.aviso.tipo === "senhaSala")
+      ) {
+        return false;
+      }
+      return s.mostrarTutorial;
+    },
     nickJogo: (s) => {
       const N = (s.conta?.nick || s.nick || "Jogador").trim().slice(0, 24);
       return N || "Jogador";
@@ -234,7 +269,8 @@ export const useTermoStore = defineStore("termo", {
     tecladoLinhas: () => [
       TECLADO_LINHAS[0],
       TECLADO_LINHAS[1],
-      ["enter", ...TECLADO_LINHAS[2], "back"],
+      [...TECLADO_LINHAS[2], "back"],
+      ["enter"],
     ],
     emJogo: (s) => s.view === "jogo",
     emLobby: (s) => s.view === "arenaLobby",
@@ -679,6 +715,11 @@ export const useTermoStore = defineStore("termo", {
     },
 
     async authLogin(identificador, senha) {
+      const V = ValidarLogin(identificador, senha);
+      if (!V.ok) {
+        this.mostrarToast(V.mensagem, true);
+        return { ok: false, mensagem: V.mensagem };
+      }
       try {
         const D = await api.authLogin(identificador, senha);
         this.aplicarSessaoConta(D.conta, D.token);
@@ -690,17 +731,24 @@ export const useTermoStore = defineStore("termo", {
         );
       } catch (e) {
         this.mostrarToast(e.message, true);
+        return { ok: false, mensagem: e.message };
       }
     },
 
-    async authRegistrar(nick, email, senha) {
+    async authRegistrar(nick, email, senha, confirmarSenha = senha) {
+      const V = ValidarRegistro(nick, email, senha, confirmarSenha);
+      if (!V.ok) {
+        this.mostrarToast(V.mensagem, true);
+        return { ok: false, mensagem: V.mensagem };
+      }
       try {
-        const D = await api.authRegistrar(nick, email, senha);
+        const D = await api.authRegistrar(V.nick, email, senha);
         this.aplicarSessaoConta(D.conta, D.token);
         this.fecharDialogs();
         this.mostrarToast("Conta criada com sucesso!", false, true);
       } catch (e) {
         this.mostrarToast(e.message, true);
+        return { ok: false, mensagem: e.message };
       }
     },
 
@@ -713,21 +761,18 @@ export const useTermoStore = defineStore("termo", {
     },
 
     async authVisitante(nickEscolhido) {
-      const Base = this.normalizarNickEntrada(nickEscolhido);
-      if (Base.length < 3) {
-        this.mostrarToast(
-          "Escolha um nome com pelo menos 3 letras (a–z, números ou _).",
-          true
-        );
-        return;
+      const V = ValidarNick(nickEscolhido);
+      if (!V.ok) {
+        this.mostrarToast(V.mensagem, true);
+        return { ok: false, mensagem: V.mensagem };
       }
       try {
-        const D = await api.authVisitante(Base);
+        const D = await api.authVisitante(V.nick);
         this.aplicarSessaoConta(D.conta, D.token);
         this.fecharDialogs();
         const exib = NickExibicao(D.conta.nick);
         const sufixo =
-          D.conta.nick !== Base
+          D.conta.nick !== V.nick
             ? ` (${exib} — nome já em uso, variante atribuída)`
             : "";
         this.mostrarToast(
@@ -737,6 +782,7 @@ export const useTermoStore = defineStore("termo", {
         );
       } catch (e) {
         this.mostrarToast(e.message, true);
+        return { ok: false, mensagem: e.message };
       }
     },
 
@@ -775,6 +821,7 @@ export const useTermoStore = defineStore("termo", {
     irParaView(nome) {
       this.view = nome;
       if (nome === "inicio") {
+        this.codigoEntrada = "";
         this.fecharDialogs();
         this.conectarLobbyWs();
       } else {
@@ -887,6 +934,64 @@ export const useTermoStore = defineStore("termo", {
       if (nome === "jogar") {
         this.carregarRankingRanqueado();
       }
+    },
+
+    preencherFormConfigurarSala() {
+      const cfg = this.dadosSala?.configuracao || {};
+      const min = Math.max(2, this.lobbyJogadores?.length || 2);
+      const maxAtual = cfg.maximoJogadores || 4;
+      Object.assign(this.formConfigurarSala, {
+        minJogadores: min,
+        maxJogadores: Math.max(min, maxAtual),
+        mesmaPalavra: cfg.mesmaPalavra !== false,
+        verOutros: cfg.verOutros !== false,
+        modoSessao: cfg.modoSessao || "pontos",
+        metaVitorias: cfg.metaVitorias || 5,
+        inicioAutoDois: !!cfg.inicioAutoDois,
+        tempoLimite: cfg.tempoLimiteSegundos ?? 180,
+        temSenhaAtual: !!this.dadosSala?.temSenha,
+        senhaNova: "",
+        removerSenha: false,
+      });
+    },
+
+    abrirConfigurarSala() {
+      if (!(this.dadosSala?.souCriador ?? this.souCriador)) return;
+      if (this.dadosSala?.configuracao?.ranqueada) {
+        this.mostrarToast("Duelo ranqueado não permite alterar configuração.", true);
+        return;
+      }
+      if (this.dadosSala?.estadoSala && this.dadosSala.estadoSala !== "aguardando") {
+        this.mostrarToast("Só é possível configurar na sala de espera.", true);
+        return;
+      }
+      this.preencherFormConfigurarSala();
+      this.abrirDialog("configSala");
+    },
+
+    submeterConfigurarSala(ev) {
+      ev?.preventDefault?.();
+      const c = this.formConfigurarSala;
+      if (c.maxJogadores < c.minJogadores) {
+        this.mostrarToast(
+          `Máximo não pode ser menor que ${c.minJogadores} (pessoas na sala).`,
+          true
+        );
+        return;
+      }
+      this.wsEnviar("configurar", {
+        mesmaPalavra: c.mesmaPalavra,
+        verOutros: c.verOutros,
+        maximoJogadores: c.maxJogadores,
+        tempoLimiteSegundos: c.tempoLimite || 0,
+        modoSessao: c.modoSessao,
+        metaVitorias: c.metaVitorias,
+        inicioAutoDois: c.inicioAutoDois,
+        senhaNova: c.removerSenha ? "" : (c.senhaNova || "").trim(),
+        removerSenha: !!c.removerSenha,
+      });
+      this.fecharDialogs();
+      this.mostrarToast("Configuração enviada.", false, true);
     },
 
     definirNick(valor) {
@@ -1102,6 +1207,8 @@ export const useTermoStore = defineStore("termo", {
         textoBotao: textoBotao || (ehNick ? "Entrar com outro nick" : "Entendi"),
         textoBotaoSec: "Cancelar",
         nickTemp: this.nickJogo,
+        senhaTemp: "",
+        conviteCodigo: "",
         aoConfirmar: aoConfirmar || null,
         aoCancelar: null,
       };
@@ -1125,6 +1232,8 @@ export const useTermoStore = defineStore("termo", {
         textoBotao: textoConfirmar,
         textoBotaoSec: textoCancelar,
         nickTemp: "",
+        senhaTemp: "",
+        conviteCodigo: "",
         aoConfirmar: aoConfirmar || null,
         aoCancelar: aoCancelar || null,
       };
@@ -1133,11 +1242,22 @@ export const useTermoStore = defineStore("termo", {
 
     cancelarAviso() {
       const cb = this.aviso.aoCancelar;
+      if (this.aviso.tipo === "convite" || this.aviso.tipo === "senhaSala") {
+        this.conviteSalaCodigo = "";
+      }
       this.fecharDialogs();
       cb?.();
     },
 
     confirmarAviso() {
+      if (this.aviso.tipo === "convite") {
+        this.confirmarConviteSala();
+        return;
+      }
+      if (this.aviso.tipo === "senhaSala") {
+        this.confirmarSenhaConviteSala();
+        return;
+      }
       if (this.aviso.tipo === "nick") {
         const novo = this.aviso.nickTemp.trim().slice(0, 24);
         if (!novo) return;
@@ -1196,8 +1316,7 @@ export const useTermoStore = defineStore("termo", {
       this.codigoSala = D.codigoSala;
       this.idJogador = D.idJogador;
       this.souCriador = D.souCriador;
-      this.codigoEntrada = D.codigoSala;
-      SalvarCodigoSala(D.codigoSala);
+      this.codigoEntrada = "";
       this.dadosSala = D;
       this.fecharDialogs();
       if (D.estadoSala === "aguardando") {
@@ -1207,18 +1326,35 @@ export const useTermoStore = defineStore("termo", {
       this.persistir();
     },
 
-    async entrarSala() {
+    tratarErroEntradaSala(mensagem) {
+      const msg = mensagem || "Não foi possível entrar";
+      const conflito = EhErroNick(msg);
+      const senhaErrada = /senha/i.test(msg);
+      this.mostrarAviso({
+        titulo: conflito
+          ? "Nick já em uso"
+          : senhaErrada
+            ? "Senha incorreta"
+            : "Não foi possível entrar",
+        mensagem: conflito
+          ? `Alguém na sala já está como «${this.nickJogo}». Troque seu apelido e tente de novo.`
+          : msg,
+        dica: conflito
+          ? "Use um nick diferente do que já está na lista de jogadores."
+          : undefined,
+        tipo: conflito ? "nick" : "erro",
+        aoConfirmar: conflito ? () => this.entrarSala() : undefined,
+      });
+    },
+
+    async executarEntradaSala(codigoInformado) {
       this.nick = this.nickJogo;
       SalvarNickLocal(this.nick);
-      const cod = this.codigoEntrada.trim().toUpperCase();
+      const cod = (codigoInformado || this.codigoEntrada).trim().toUpperCase();
       if (cod.length !== 6) {
-        this.mostrarAviso({
-          titulo: "Código inválido",
-          mensagem: "Digite as 6 letras do código da sala para entrar.",
-          dica: "O código aparece na tela de quem criou a sala.",
-        });
-        return;
+        return { ok: false, mensagem: "Código inválido.", codigoInvalido: true };
       }
+      this.codigoEntrada = cod;
       try {
         const D = await api.salaEntrar({
           codigoSala: cod,
@@ -1244,20 +1380,228 @@ export const useTermoStore = defineStore("termo", {
           }
         }
         this.atualizarArena(D);
+        this.conviteSalaCodigo = "";
+        return { ok: true };
       } catch (e) {
         const msg = e.message || "Não foi possível entrar";
-        const conflito = EhErroNick(msg);
+        return {
+          ok: false,
+          mensagem: msg,
+          precisaSenha: /senha/i.test(msg),
+        };
+      }
+    },
+
+    async entrarSala() {
+      const cod = this.codigoEntrada.trim().toUpperCase();
+      if (cod.length !== 6) {
         this.mostrarAviso({
-          titulo: conflito ? "Nick já em uso" : "Não foi possível entrar",
-          mensagem: conflito
-            ? `Alguém na sala já está como «${this.nickJogo}». Troque seu apelido e tente de novo.`
-            : msg,
-          dica: conflito
-            ? "Use um nick diferente do que já está na lista de jogadores."
-            : undefined,
-          tipo: conflito ? "nick" : "erro",
-          aoConfirmar: conflito ? () => this.entrarSala() : undefined,
+          titulo: "Código inválido",
+          mensagem: "Digite as 6 letras do código da sala para entrar.",
+          dica: "O código aparece na tela de quem criou a sala.",
         });
+        return;
+      }
+      const R = await this.executarEntradaSala(cod);
+      if (!R.ok) this.tratarErroEntradaSala(R.mensagem);
+    },
+
+    limparQuerySala() {
+      const u = new URL(location.href);
+      if (!u.searchParams.has("sala")) return;
+      u.searchParams.delete("sala");
+      const destino = u.pathname + u.search + u.hash;
+      history.replaceState({}, "", destino || "/");
+    },
+
+    codigoSalaDaUrl() {
+      const cod = new URLSearchParams(location.search).get("sala");
+      if (!cod) return "";
+      const normalizado = cod.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+      return normalizado.length === 6 ? normalizado : "";
+    },
+
+    mostrarAvisoConviteSala(codigo, temSenha) {
+      this.aviso = {
+        titulo: `Entrar na sala ${codigo}`,
+        mensagem: temSenha
+          ? "Informe seu nick e a senha da sala para entrar."
+          : "Escolha um nick e você entra direto na sala de espera.",
+        dica: "Conta com e-mail é opcional — visitante basta para jogar na arena.",
+        tipo: "convite",
+        textoBotao: "Entrar na sala",
+        textoBotaoSec: "Cancelar",
+        nickTemp: NormalizarNick(this.nickJogo) || "",
+        senhaTemp: "",
+        conviteCodigo: codigo,
+        exigeSenha: !!temSenha,
+        aoConfirmar: null,
+        aoCancelar: null,
+      };
+      this.abrirDialog("aviso");
+    },
+
+    mostrarAvisoSenhaConviteSala(codigo) {
+      this.aviso = {
+        titulo: `Sala ${codigo}`,
+        mensagem: "Esta sala está protegida por senha.",
+        dica: "",
+        tipo: "senhaSala",
+        textoBotao: "Entrar",
+        textoBotaoSec: "Cancelar",
+        nickTemp: "",
+        senhaTemp: this.senhaEntrada || "",
+        conviteCodigo: codigo,
+        exigeSenha: true,
+        aoConfirmar: null,
+        aoCancelar: null,
+      };
+      this.abrirDialog("aviso");
+    },
+
+    async confirmarConviteSala() {
+      const codigo = this.aviso.conviteCodigo;
+      const senha = (this.aviso.senhaTemp || "").trim();
+      if (!this.conta) {
+        const V = ValidarNick(this.aviso.nickTemp);
+        if (!V.ok) {
+          this.mostrarToast(V.mensagem, true);
+          return;
+        }
+        const auth = await this.authVisitante(V.nick);
+        if (auth?.ok === false) return;
+      }
+      this.fecharDialogs();
+      this.senhaEntrada = senha;
+      this.espectadorEntrada = false;
+      const R = await this.executarEntradaSala(codigo);
+      if (R.ok) return;
+      if (R.precisaSenha) {
+        this.mostrarAvisoSenhaConviteSala(codigo);
+        return;
+      }
+      this.tratarErroEntradaSala(R.mensagem);
+    },
+
+    async confirmarSenhaConviteSala() {
+      const codigo = this.aviso.conviteCodigo;
+      const senha = (this.aviso.senhaTemp || "").trim();
+      if (!senha) {
+        this.mostrarToast("Informe a senha da sala.", true);
+        return;
+      }
+      this.fecharDialogs();
+      this.senhaEntrada = senha;
+      this.espectadorEntrada = false;
+      const R = await this.executarEntradaSala(codigo);
+      if (R.ok) return;
+      if (R.precisaSenha) {
+        this.mostrarAvisoSenhaConviteSala(codigo);
+        return;
+      }
+      this.tratarErroEntradaSala(R.mensagem);
+    },
+
+    async tentarEntrarConviteAutomatico(codigo) {
+      this.espectadorEntrada = false;
+      const R = await this.executarEntradaSala(codigo);
+      if (R.ok) return true;
+      if (R.precisaSenha) {
+        this.mostrarAvisoSenhaConviteSala(codigo);
+        return false;
+      }
+      this.tratarErroEntradaSala(R.mensagem);
+      return false;
+    },
+
+    capturarConviteSalaDaUrl() {
+      const cod = this.codigoSalaDaUrl();
+      if (cod) this.conviteSalaCodigo = cod;
+      return this.conviteSalaCodigo || "";
+    },
+
+    limparConviteSalaPendente() {
+      this.conviteSalaCodigo = "";
+    },
+
+    async processarConviteSala() {
+      if (this.processandoConviteSala) return;
+
+      const codigo = (this.conviteSalaCodigo || this.codigoSalaDaUrl()).trim();
+      if (!codigo) {
+        if (new URLSearchParams(location.search).get("sala")) {
+          this.mostrarToast("Código de sala inválido no link.", true);
+          this.limparQuerySala();
+        }
+        this.limparConviteSalaPendente();
+        return;
+      }
+
+      this.conviteSalaCodigo = codigo.toUpperCase();
+      this.processandoConviteSala = true;
+      this.mostrarTutorial = false;
+      this.limparQuerySala();
+
+      if (
+        this.codigoSala &&
+        this.codigoSala !== codigo &&
+        this.idJogador &&
+        EhModoSalaOnline(this.modo)
+      ) {
+        await this.voltarInicio();
+      }
+
+      if (this.codigoSala === codigo && this.idJogador) {
+        if (this.view !== "arenaLobby" && this.view !== "jogo") {
+          this.irParaView(
+            this.modo === "ranqueada" ? "inicio" : "arenaLobby"
+          );
+        }
+        return;
+      }
+
+      try {
+        let info;
+        try {
+          info = await api.salaConvite(codigo);
+        } catch {
+          this.mostrarToast("Sala não encontrada.", true);
+          this.irParaView("inicio");
+          this.limparConviteSalaPendente();
+          return;
+        }
+
+        if (info.partidaEncerrada) {
+          this.mostrarToast("Esta sala já encerrou a partida.", true);
+          this.irParaView("inicio");
+          this.limparConviteSalaPendente();
+          return;
+        }
+
+        if (info.cheia) {
+          this.mostrarToast(
+            `Sala cheia (${info.jogadoresAtivos}/${info.maximoJogadores} jogadores).`,
+            true
+          );
+          this.irParaView("inicio");
+          this.limparConviteSalaPendente();
+          return;
+        }
+
+        this.codigoEntrada = codigo;
+
+        if (this.conta) {
+          if (info.temSenha && !this.senhaEntrada.trim()) {
+            this.mostrarAvisoSenhaConviteSala(codigo);
+            return;
+          }
+          await this.tentarEntrarConviteAutomatico(codigo);
+          return;
+        }
+
+        this.mostrarAvisoConviteSala(codigo, info.temSenha);
+      } finally {
+        this.processandoConviteSala = false;
       }
     },
 
@@ -1638,8 +1982,7 @@ export const useTermoStore = defineStore("termo", {
           this.idJogador = S.idJogador;
           this.souCriador = D.souCriador;
           this.configArena = D.configuracao;
-          this.codigoEntrada = S.codigoSala;
-          SalvarCodigoSala(S.codigoSala);
+          this.codigoEntrada = "";
           this.dadosSala = D;
           if (D.estadoSala === "aguardando") {
             this.irParaView(viewLobby);
@@ -1799,11 +2142,6 @@ export const useTermoStore = defineStore("termo", {
       }
     },
 
-    aplicarQuerySala() {
-      const cod = new URLSearchParams(location.search).get("sala");
-      if (cod) this.codigoEntrada = cod.toUpperCase();
-    },
-
     aplicarQueryDesafio() {
       const d = new URLSearchParams(location.search).get("desafio");
       if (d) this.codigoDesafio = d.toUpperCase();
@@ -1877,7 +2215,8 @@ export const useTermoStore = defineStore("termo", {
     },
 
     async inicializar() {
-      this.aplicarQuerySala();
+      LimparCodigoSala();
+      this.codigoEntrada = "";
       this.aplicarQueryDesafio();
       AplicarDaltonismo(this.preferencias.daltonismo);
       document.documentElement.classList.toggle(
@@ -1905,13 +2244,19 @@ export const useTermoStore = defineStore("termo", {
       this.atualizarStatsUI();
       const retomou = await this.retomarSessao();
       await Promise.all([this.carregarInfoDiaria(), this.carregarHomePainel()]);
+      const temConviteSala = !!this.capturarConviteSalaDaUrl();
+      this.mostrarTutorial = false;
       if (!retomou) {
         this.irParaView("inicio");
-        if (!localStorage.getItem(CHAVE_TUTORIAL_VISTO)) {
+        if (temConviteSala) {
+          await this.processarConviteSala();
+        } else if (!localStorage.getItem(CHAVE_TUTORIAL_VISTO)) {
           this.mostrarTutorial = true;
         } else if (!this.conta) {
           setTimeout(() => this.abrirConta("entrada"), 500);
         }
+      } else if (temConviteSala) {
+        await this.processarConviteSala();
       }
       const desafio = new URLSearchParams(location.search).get("desafio");
       if (desafio && !retomou) {
