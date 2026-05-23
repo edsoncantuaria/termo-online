@@ -9,9 +9,14 @@ from .sala_chat import MaximoMensagensChat
 def ExportarSnapshot(Sala: SalaJogo) -> dict:
     Config = Sala.Configuracao
     return {
+        "idPartida": getattr(Sala, "IdPartida", None),
         "codigoSala": Sala.CodigoSala,
         "criadorId": Sala.CriadorId,
         "estadoSala": Sala.EstadoSala,
+        "estadoSalaAntesPausa": getattr(Sala, "EstadoSalaAntesPausa", None),
+        "pausaAteEpoch": getattr(Sala, "PausaAteEpoch", None),
+        "idJogadorPausado": getattr(Sala, "IdJogadorPausado", None),
+        "timersCongelados": getattr(Sala, "TimersCongelados", None) or {},
         "partidaEncerrada": Sala.PartidaEncerrada,
         "vencedorId": Sala.VencedorId,
         "palavraSecreta": Sala.PalavraSecreta,
@@ -57,6 +62,7 @@ def ExportarSnapshot(Sala: SalaJogo) -> dict:
                 "espectador": J.Espectador,
                 "idConta": J.IdConta,
                 "pronto": J.Pronto,
+                "tokenSessao": getattr(J, "TokenSessao", None),
             }
             for J in Sala.Jogadores.values()
         ],
@@ -100,12 +106,21 @@ def ImportarSnapshot(Dados: dict) -> SalaJogo | None:
                 IdConta=J.get("idConta"),
                 Pronto=J.get("pronto", False),
                 EhBot=J.get("ehBot", False),
+                TokenSessao=J.get("tokenSessao"),
             )
-        return SalaJogo(
+        from . import partida_sessao
+
+        IdPartida = Dados.get("idPartida") or partida_sessao.GerarIdPartida()
+        Sala = SalaJogo(
             CodigoSala=Dados["codigoSala"],
             CriadorId=Dados["criadorId"],
             Configuracao=Config,
+            IdPartida=IdPartida,
             EstadoSala=Dados.get("estadoSala", "aguardando"),
+            EstadoSalaAntesPausa=Dados.get("estadoSalaAntesPausa"),
+            PausaAteEpoch=Dados.get("pausaAteEpoch"),
+            IdJogadorPausado=Dados.get("idJogadorPausado"),
+            TimersCongelados=dict(Dados.get("timersCongelados") or {}),
             PalavraSecreta=Dados.get("palavraSecreta"),
             PalavraComAcento=Dados.get("palavraComAcento"),
             Jogadores=Jogadores,
@@ -118,6 +133,10 @@ def ImportarSnapshot(Dados: dict) -> SalaJogo | None:
             UltimoVencedorRodadaId=Dados.get("ultimoVencedorRodadaId"),
             ResultadosRanqueada=Dados.get("resultadosRanqueada"),
         )
+        for J in Sala.Jogadores.values():
+            partida_sessao.GarantirTokenJogador(J)
+        persistencia.RegistrarPartidaSala(Sala.IdPartida, Sala.CodigoSala)
+        return Sala
     except (KeyError, TypeError):
         return None
 

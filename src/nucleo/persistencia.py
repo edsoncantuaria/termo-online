@@ -106,6 +106,7 @@ def InicializarBanco() -> None:
         )
         _AplicarMigracoesContas(C)
         _AplicarMigracoesProgresso(C)
+        _AplicarMigracoesPartida(C)
         LimparRankingVisitantesEPontosZero()
 
 
@@ -240,6 +241,73 @@ def _AplicarMigracoesProgresso(C: sqlite3.Connection) -> None:
         );
         """
     )
+
+
+def _AplicarMigracoesPartida(C: sqlite3.Connection) -> None:
+    C.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS partidas_sala (
+            id_partida TEXT PRIMARY KEY,
+            codigo_sala TEXT NOT NULL UNIQUE,
+            criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS eventos_partida (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_partida TEXT NOT NULL,
+            codigo_sala TEXT,
+            tipo TEXT NOT NULL,
+            payload_json TEXT NOT NULL DEFAULT '{}',
+            data_hora TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_eventos_partida_id
+        ON eventos_partida (id_partida, data_hora);
+        """
+    )
+    ColunasHist = {
+        Linha[1] for Linha in C.execute("PRAGMA table_info(historico_ranqueada)").fetchall()
+    }
+    if "id_partida" not in ColunasHist:
+        C.execute("ALTER TABLE historico_ranqueada ADD COLUMN id_partida TEXT")
+
+
+def RegistrarPartidaSala(IdPartida: str, CodigoSala: str) -> None:
+    Codigo = CodigoSala.upper()
+    with Conexao() as C:
+        C.execute(
+            "DELETE FROM partidas_sala WHERE codigo_sala = ? OR id_partida = ?",
+            (Codigo, IdPartida),
+        )
+        C.execute(
+            "INSERT INTO partidas_sala (id_partida, codigo_sala) VALUES (?, ?)",
+            (IdPartida, Codigo),
+        )
+
+
+def ObterCodigoSalaPorIdPartida(IdPartida: str) -> str | None:
+    with Conexao() as C:
+        Linha = C.execute(
+            "SELECT codigo_sala FROM partidas_sala WHERE id_partida = ?",
+            (IdPartida,),
+        ).fetchone()
+    return Linha["codigo_sala"] if Linha else None
+
+
+def RegistrarEventoPartida(
+    IdPartida: str,
+    Tipo: str,
+    PayloadJson: str,
+    CodigoSala: str | None = None,
+) -> None:
+    with Conexao() as C:
+        C.execute(
+            """
+            INSERT INTO eventos_partida (id_partida, codigo_sala, tipo, payload_json)
+            VALUES (?, ?, ?, ?)
+            """,
+            (IdPartida, CodigoSala.upper() if CodigoSala else None, Tipo, PayloadJson),
+        )
 
 
 def _SerializarEstadoPartida(Partida) -> str:
@@ -1177,25 +1245,49 @@ def RegistrarHistoricoRanqueada(
     PontosAntes: int,
     PontosDepois: int,
     Venceu: bool,
+    IdPartida: str | None = None,
 ) -> None:
     with Conexao() as C:
-        C.execute(
-            """
-            INSERT INTO historico_ranqueada (
-                id_conta, id_oponente, codigo_sala, delta,
-                pontos_antes, pontos_depois, venceu
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                IdConta,
-                IdOponente,
-                CodigoSala,
-                Delta,
-                PontosAntes,
-                PontosDepois,
-                int(Venceu),
-            ),
-        )
+        ColunasHist = {
+            Linha[1] for Linha in C.execute("PRAGMA table_info(historico_ranqueada)").fetchall()
+        }
+        if "id_partida" in ColunasHist:
+            C.execute(
+                """
+                INSERT INTO historico_ranqueada (
+                    id_conta, id_oponente, codigo_sala, id_partida, delta,
+                    pontos_antes, pontos_depois, venceu
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    IdConta,
+                    IdOponente,
+                    CodigoSala,
+                    IdPartida,
+                    Delta,
+                    PontosAntes,
+                    PontosDepois,
+                    int(Venceu),
+                ),
+            )
+        else:
+            C.execute(
+                """
+                INSERT INTO historico_ranqueada (
+                    id_conta, id_oponente, codigo_sala, delta,
+                    pontos_antes, pontos_depois, venceu
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    IdConta,
+                    IdOponente,
+                    CodigoSala,
+                    Delta,
+                    PontosAntes,
+                    PontosDepois,
+                    int(Venceu),
+                ),
+            )
         if Venceu:
             C.execute(
                 "UPDATE contas SET vitorias_ranqueadas = vitorias_ranqueadas + 1 WHERE id = ?",

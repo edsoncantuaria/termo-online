@@ -44,17 +44,14 @@ const classesApp = computed(() => ({
 }));
 
 function onKeydown(e) {
-  if (store.view !== "jogo" || store.encerrada || store.espectador) return;
-  if (e.key === "ArrowLeft") {
+  if (store.view !== "jogo" || store.espectador) return;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    if (!store.podeMoverCursorGrade) return;
     e.preventDefault();
-    store.moverCursorCelula(-1);
+    store.moverCursorCelula(e.key === "ArrowLeft" ? -1 : 1);
     return;
   }
-  if (e.key === "ArrowRight") {
-    e.preventDefault();
-    store.moverCursorCelula(1);
-    return;
-  }
+  if (!store.podeEditarGradeAtual || store.carregandoChute) return;
   if (e.key === "Enter") store.onTecla("enter");
   else if (e.key === "Backspace") store.onTecla("back");
   else if (/^[a-zA-Z]$/.test(e.key)) store.onTecla(e.key.toLowerCase());

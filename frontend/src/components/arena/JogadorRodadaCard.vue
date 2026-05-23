@@ -1,6 +1,10 @@
 <script setup>
 import { computed } from "vue";
+import { useTermoStore } from "../../stores/termo.js";
+import { AvatarEfetivo } from "../../utils/avatares.js";
 import JogadorAvatar from "../jogo/JogadorAvatar.vue";
+
+const store = useTermoStore();
 import GradeTermo from "../jogo/GradeTermo.vue";
 import { StatusJogadorRodada } from "../../utils/jogador.js";
 import { NormalizarTentativa } from "../../utils/jogo.js";
@@ -26,6 +30,12 @@ const linhasMini = computed(() => {
   }));
 });
 
+const avatarId = computed(() =>
+  props.jogador.souEu
+    ? store.avatarIdEfetivo()
+    : props.jogador.avatarId
+);
+
 const pips = computed(() => {
   const usadas = props.jogador.tentativasUsadas || 0;
   return Array.from({ length: props.maxTentativas }, (_, i) => ({
@@ -47,7 +57,11 @@ const pips = computed(() => {
     :data-jogador-id="jogador.idJogador"
   >
     <div class="jogador-rodada-topo">
-      <JogadorAvatar :nome="jogador.nomeJogador" pequeno />
+      <JogadorAvatar
+        :nome="jogador.nomeJogador"
+        :avatar-id="avatarId"
+        pequeno
+      />
       <div class="jogador-rodada-ident">
         <span class="jogador-rodada-nome">{{ jogador.nomeJogador }}</span>
         <span class="jogador-rodada-status">{{ status.texto }}</span>

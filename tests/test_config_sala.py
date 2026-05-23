@@ -63,4 +63,39 @@ def test_host_atualiza_senha_e_modo():
     assert C.MetaVitorias == 7
     assert C.TempoLimiteSegundos == 300
     assert C.InicioAutoDois is True
-    assert C.SalaPublica is False
+    assert C.SalaPublica is True
+
+
+def test_serializar_jogador_inclui_avatar_id():
+    G = GerenciadorSalas()
+    Sala, Host = G.CriarSala("host", ConfiguracaoSala())
+    D = G.SerializarJogador(Sala, Host, Host.IdJogador, True)
+    assert D["avatarId"] in (
+        "folha",
+        "broto",
+        "sol",
+        "nuvem",
+        "cogumelo",
+        "coruja",
+        "raposa",
+        "gato",
+        "peixe",
+        "abelha",
+        "tulipa",
+        "pinheiro",
+    )
+
+
+def test_listar_salas_publicas_inclui_sala_com_senha():
+    G = GerenciadorSalas()
+    Senha = G.NormalizarSenha("segredo")
+    Sala, _ = G.CriarSala(
+        "host",
+        ConfiguracaoSala(Senha=Senha, SalaPublica=True, MaximoJogadores=4),
+    )
+    Lista = G.ListarSalasPublicas()
+    Codigos = {I["codigoSala"] for I in Lista}
+    assert Sala.CodigoSala in Codigos
+    Item = next(I for I in Lista if I["codigoSala"] == Sala.CodigoSala)
+    assert Item["temSenha"] is True
+    assert Item["temVaga"] is True

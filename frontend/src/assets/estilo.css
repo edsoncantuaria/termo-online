@@ -945,6 +945,17 @@ html {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
+.jogador-avatar--ilustrado {
+  padding: 0;
+  overflow: hidden;
+}
+
+.jogador-avatar--ilustrado .avatar-ilustracao {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 .jogador-host-badge {
   position: absolute;
   right: -2px;

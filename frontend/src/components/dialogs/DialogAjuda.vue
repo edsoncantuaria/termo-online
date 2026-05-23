@@ -198,6 +198,16 @@ const { fechar, onCliqueFora, onCancel } = useDialogoNativo(
         >
           Rever tutorial inicial
         </button>
+        <button
+          type="button"
+          class="btn-modo btn-modo-sec btn-largo"
+          @click="store.confirmarLimparCache()"
+        >
+          Limpar cache local
+        </button>
+        <p class="ajuda-nota">
+          Use se o jogo travar, mensagens repetirem ou a sessão não retomar corretamente.
+        </p>
       </section>
     </div>
   </dialog>

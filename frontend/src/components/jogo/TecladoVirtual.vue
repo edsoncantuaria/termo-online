@@ -39,7 +39,7 @@ function aria(k) {
           k === 'back' ? 'tecla-back' : '',
           store.teclado[k],
         ]"
-        :disabled="store.carregandoChute || store.encerrada"
+        :disabled="store.carregandoChute || !store.podeEditarGradeAtual"
         :aria-label="aria(k)"
         @click="store.onTecla(k)"
       >

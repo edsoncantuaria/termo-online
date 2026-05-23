@@ -1,5 +1,10 @@
 <script setup>
+import { computed } from "vue";
+import { useTermoStore } from "../../stores/termo.js";
+import { AvatarEfetivo } from "../../utils/avatares.js";
 import JogadorAvatar from "../jogo/JogadorAvatar.vue";
+
+const store = useTermoStore();
 
 const props = defineProps({
   jogador: { type: Object, required: true },
@@ -8,6 +13,12 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["expulsar"]);
+
+const avatarId = computed(() =>
+  props.jogador.souEu
+    ? store.avatarIdEfetivo()
+    : props.jogador.avatarId
+);
 </script>
 
 <template>
@@ -21,7 +32,10 @@ const emit = defineEmits(["expulsar"]);
     }"
   >
     <span class="jogador-avatar-wrap">
-      <JogadorAvatar :nome="jogador.nomeJogador" />
+      <JogadorAvatar
+        :nome="jogador.nomeJogador"
+        :avatar-id="avatarId"
+      />
       <span
         v-if="jogador.idJogador === criadorId"
         class="jogador-host-badge"

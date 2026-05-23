@@ -26,7 +26,7 @@ const grades = computed(() =>
           atual: false,
           animar: !!g.tentativas[i].animar,
         });
-      } else if (i === store.tentativa && !store.encerrada) {
+      } else if (i === store.tentativa && store.podeEditarGradeAtual) {
         linhas.push({
           letras: [...store.letras],
           estados: [],
@@ -61,7 +61,7 @@ const grades = computed(() =>
         :linhas="g.linhas"
         compacta
         :shake-linha="store.linhaShake"
-        :editavel="!store.encerrada"
+        :editavel="store.podeEditarGradeAtual"
         @selecionar-celula="(_, col) => store.selecionarCelula(col)"
       />
     </div>

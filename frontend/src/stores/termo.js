@@ -80,15 +80,53 @@ import {
 import { DataHojeIsoBrasil } from "../utils/tempo-brasil.js";
 import * as acoesArena from "./termo/acoes-arena.js";
 import { TocarSom, prepararSons } from "../lib/som.js";
+import { LimparCacheAplicacao } from "../utils/cache-local.js";
 import { AgendarFimAnimacao, DURACAO_FLIP_LINHA } from "../utils/animacao.js";
+
+function JogadorEuNaSala(Estado) {
+  return Estado.dadosSala?.jogadores?.find((j) => j.souEu) ?? null;
+}
+
+/** Arena/ranqueada: edição depende do estado da rodada, não só de `encerrada`. */
+function PodeEditarGradeAtualEstado(Estado) {
+  if (Estado.view !== "jogo" || Estado.espectador) return false;
+  if (EhModoSalaOnline(Estado.modo)) {
+    if (Estado.estadoSalaArena === "pausada") return false;
+    return (
+      Estado.estadoSalaArena === "jogando" &&
+      !JogadorEuNaSala(Estado)?.finalizou
+    );
+  }
+  return !Estado.encerrada;
+}
 
 let socketLobby = null;
 let tentativasReconexaoLobby = 0;
 let intervaloTimer = null;
 let timersChat = new Map();
+const chavesChatVistas = new Set();
+let ultimoChatEnviadoMs = 0;
+let intervaloCountdown = null;
+let intervaloPausa = null;
+const COOLDOWN_CHAT_MS = 1500;
 let cacheDicionarioSet = null;
+
+function PararIntervaloCountdown() {
+  if (intervaloCountdown) {
+    clearInterval(intervaloCountdown);
+    intervaloCountdown = null;
+  }
+}
+
+function PararIntervaloPausa() {
+  if (intervaloPausa) {
+    clearInterval(intervaloPausa);
+    intervaloPausa = null;
+  }
+}
 let pararObservadorTema = null;
 let timerToast = null;
+let listenerPersistirPagina = null;
 
 function ChaveMsgChat(M) {
   return `${M.quando}|${M.idJogador}|${M.texto}`;
@@ -124,6 +162,7 @@ export const useTermoStore = defineStore("termo", {
     filaJogadoresOnline: 0,
     filaPreview: [],
     filaBusca: null,
+    filaPodeCancelar: true,
     minhaPosicaoRanqueada: null,
     totalRanqueados: 0,
     rankingRanqueado: [],
@@ -135,6 +174,7 @@ export const useTermoStore = defineStore("termo", {
     modo: null,
     idPartida: null,
     tokenPartida: null,
+    tokenSessao: null,
     dataDia: null,
     maxTentativas: 6,
     tentativa: 0,
@@ -262,6 +302,9 @@ export const useTermoStore = defineStore("termo", {
       }
       return s.mostrarTutorial;
     },
+    filaRanqueadaTravada: (s) => !!s.filaRanqueada,
+    filaRanqueadaPodeCancelar: (s) =>
+      !!s.filaRanqueada && !!s.filaPodeCancelar && s.filaFase !== "conectando",
     nickJogo: (s) => {
       const N = (s.conta?.nick || s.nick || "Jogador").trim().slice(0, 24);
       return N || "Jogador";
@@ -356,6 +399,14 @@ export const useTermoStore = defineStore("termo", {
     badgeEstadoJogo: (s) => {
       const D = s.dadosSala;
       if (!D || !EhModoSalaOnline(s.modo)) return null;
+      if (D.estadoSala === "pausada" || D.pausada) {
+        const seg = D.segundosPausaRestantes;
+        const txt =
+          seg != null
+            ? `Partida pausada — retorno em até ${seg}s`
+            : D.motivoPausa || "Partida pausada";
+        return { tipo: "pausa", texto: txt };
+      }
       if (D.estadoSala === "entre_rodadas") {
         return { tipo: "pausa", texto: "Rodada encerrada" };
       }
@@ -392,8 +443,10 @@ export const useTermoStore = defineStore("termo", {
           : Math.min(100, ((j.pontosAcumulados || 0) / maxPts) * 100),
       }));
     },
+    podeEditarGradeAtual: (s) => PodeEditarGradeAtualEstado(s),
+    podeMoverCursorGrade: (s) => PodeEditarGradeAtualEstado(s),
     mostrarDicaCelulas: (s) => {
-      if (s.encerrada || s.espectador || !s.mostrarGradePrincipal) return false;
+      if (!PodeEditarGradeAtualEstado(s) || !s.mostrarGradePrincipal) return false;
       return !LetrasPreenchidas(s.letras);
     },
     mensagemAguardoArena: (s) => {
@@ -467,23 +520,7 @@ export const useTermoStore = defineStore("termo", {
           });
         } else if (
           i === s.tentativa &&
-          !s.encerrada &&
-          !EhModoSalaOnline(s.modo)
-        ) {
-          const letras = NormalizarLetrasProgresso(s.letras);
-          const temDica = Object.values(s.teclado || {}).includes("presente");
-          linhas.push({
-            letras,
-            estados: [],
-            atual: true,
-            revelada: false,
-            comDica: temDica,
-            indiceCursor: s.indiceCursor,
-          });
-        } else if (
-          i === s.tentativa &&
-          !s.encerrada &&
-          EhModoSalaOnline(s.modo)
+          PodeEditarGradeAtualEstado(s)
         ) {
           const letras = NormalizarLetrasProgresso(s.letras);
           const temDica = Object.values(s.teclado || {}).includes("presente");
@@ -509,7 +546,7 @@ export const useTermoStore = defineStore("termo", {
     dotsTentativas: (s) =>
       Array.from({ length: s.maxTentativas }, (_, i) => ({
         usada: i < s.tentativa,
-        atual: i === s.tentativa && !s.encerrada,
+        atual: i === s.tentativa && PodeEditarGradeAtualEstado(s),
       })),
     statVitorias: (s) => s.statsLocais.vitorias || 0,
     statSequencia: (s) => s.statsLocais.sequencia || 0,
@@ -652,6 +689,26 @@ export const useTermoStore = defineStore("termo", {
         "reduzir-animacao",
         !!reduzir
       );
+    },
+
+    confirmarLimparCache() {
+      this.mostrarConfirmacao({
+        titulo: "Limpar cache local?",
+        mensagem:
+          "Remove sessão salva, dicionário em cache, estatísticas locais e flags de tutorial.",
+        dica: "Sua conta (login) e preferências de som/tema são mantidas.",
+        textoConfirmar: "Limpar",
+        textoCancelar: "Cancelar",
+        aoConfirmar: () => this.executarLimparCache(),
+      });
+    },
+
+    executarLimparCache() {
+      LimparCacheAplicacao();
+      cacheDicionarioSet = null;
+      this.conviteSalaCodigo = "";
+      this.limparChat();
+      this.mostrarToast("Cache local limpo. Recarregue se algo parecer estranho.", false, true);
     },
 
     definirFiltroSalasPublicas(filtro) {
@@ -828,6 +885,7 @@ export const useTermoStore = defineStore("termo", {
         this.pararLobbyWs();
       }
       if (nome !== "jogo") {
+        PararIntervaloCountdown();
         this.countdownSegundos = null;
         this.pararCronometro();
       }
@@ -901,7 +959,12 @@ export const useTermoStore = defineStore("termo", {
     },
 
     fecharDialogs() {
-      if (this.dialogAberto === "jogar" && this.filaRanqueada) {
+      if (
+        this.dialogAberto === "jogar" &&
+        this.filaRanqueada &&
+        this.filaPodeCancelar &&
+        this.filaFase !== "conectando"
+      ) {
         this.pararFilaRanqueada();
       }
       this.dialogAberto = null;
@@ -923,7 +986,12 @@ export const useTermoStore = defineStore("termo", {
 
     abrirDialog(nome) {
       const anterior = this.dialogAberto;
-      if (anterior === "jogar" && this.filaRanqueada && nome !== "jogar") {
+      if (
+        anterior === "jogar" &&
+        this.filaRanqueada &&
+        this.filaPodeCancelar &&
+        nome !== "jogar"
+      ) {
         this.pararFilaRanqueada();
       }
       if (nome !== "aviso") {
@@ -1001,6 +1069,7 @@ export const useTermoStore = defineStore("termo", {
     },
 
     resetarJogo() {
+      PararIntervaloPausa();
       this.pararCronometro();
       this.tentativa = 0;
       this.letras = LetrasVazias();
@@ -1112,7 +1181,7 @@ export const useTermoStore = defineStore("termo", {
     },
 
     selecionarCelula(indice) {
-      if (this.encerrada) return;
+      if (!PodeEditarGradeAtualEstado(this)) return;
       if (indice < 0 || indice >= TAMANHO_PALAVRA) return;
       this.indiceCursor = indice;
       if (this.modo && !EhModoSalaOnline(this.modo) && this.idPartida) {
@@ -1121,7 +1190,7 @@ export const useTermoStore = defineStore("termo", {
     },
 
     moverCursorCelula(delta) {
-      if (this.encerrada || this.carregandoChute) return;
+      if (!PodeEditarGradeAtualEstado(this)) return;
       const Novo = this.indiceCursor + delta;
       if (Novo >= 0 && Novo < TAMANHO_PALAVRA) {
         this.selecionarCelula(Novo);
@@ -1129,7 +1198,7 @@ export const useTermoStore = defineStore("termo", {
     },
 
     onTecla(k) {
-      if (this.encerrada || this.carregandoChute) return;
+      if (!PodeEditarGradeAtualEstado(this) || this.carregandoChute) return;
       this.letras = NormalizarLetrasProgresso(this.letras);
       if (k === "back") {
         if (this.letras[this.indiceCursor]) {
@@ -1284,7 +1353,7 @@ export const useTermoStore = defineStore("termo", {
       try {
         const D = await api.salaCriar({
           nomeJogador: this.nickJogo,
-          salaPublica: !c.senha?.trim(),
+          salaPublica: true,
           mesmaPalavra: c.mesmaPalavra,
           verOutros: c.verOutros,
           maximoJogadores: c.maxJogadores,
@@ -1313,6 +1382,11 @@ export const useTermoStore = defineStore("termo", {
       }
     },
 
+    aplicarCredenciaisPartida(D) {
+      if (D?.idPartida) this.idPartida = D.idPartida;
+      if (D?.tokenSessao) this.tokenSessao = D.tokenSessao;
+    },
+
     entrarNaSala(D) {
       if (D.configuracao?.ranqueada) {
         this.entrarNaSalaRanqueada(D);
@@ -1323,6 +1397,7 @@ export const useTermoStore = defineStore("termo", {
       this.configArena = D.configuracao;
       this.codigoSala = D.codigoSala;
       this.idJogador = D.idJogador;
+      this.aplicarCredenciaisPartida(D);
       this.souCriador = D.souCriador;
       this.codigoEntrada = "";
       this.dadosSala = D;
@@ -1411,7 +1486,23 @@ export const useTermoStore = defineStore("termo", {
         return;
       }
       const R = await this.executarEntradaSala(cod);
-      if (!R.ok) this.tratarErroEntradaSala(R.mensagem);
+      if (R.ok) return;
+      if (R.precisaSenha) {
+        this.mostrarAvisoSenhaConviteSala(cod);
+        return;
+      }
+      this.tratarErroEntradaSala(R.mensagem);
+    },
+
+    entrarSalaListaPublica(codigo, temSenha = false) {
+      const cod = (codigo || "").trim().toUpperCase();
+      if (cod.length !== 6) return;
+      this.codigoEntrada = cod;
+      if (temSenha) {
+        this.mostrarAvisoSenhaConviteSala(cod);
+        return;
+      }
+      this.entrarSala();
     },
 
     limparQuerySala() {
@@ -1704,6 +1795,9 @@ export const useTermoStore = defineStore("termo", {
         this.letras = LetrasVazias();
         this.indiceCursor = 0;
         this.ultimoToastRodadaFim = null;
+        if (D.estadoSala === "jogando" && eu && !eu.finalizou) {
+          this.encerrada = false;
+        }
       }
 
       if (
@@ -1751,19 +1845,71 @@ export const useTermoStore = defineStore("termo", {
         this.encerrada = true;
         this.letras = LetrasVazias();
         this.indiceCursor = 0;
+      } else if (this.view === "jogo" && D.estadoSala === "pausada") {
+        this.encerrada = true;
+        this.letras = LetrasVazias();
+        this.indiceCursor = 0;
+      }
+
+      if (
+        EhModoSalaOnline(this.modo) &&
+        this.view === "jogo" &&
+        !this.espectador &&
+        D.estadoSala === "jogando"
+      ) {
+        const jogador = D.jogadores?.find((j) => j.souEu);
+        if (jogador && !jogador.finalizou) {
+          this.encerrada = false;
+        }
       }
 
       this.renderizarChat(D);
       this.atualizarEntreRodadas(D);
 
+      PararIntervaloCountdown();
       if (
         this.view === "jogo" &&
         D.estadoSala === "countdown" &&
-        D.countdownSegundos != null
+        D.countdownSegundos != null &&
+        D.countdownSegundos > 0
       ) {
-        this.countdownSegundos = Math.max(1, D.countdownSegundos);
-      } else if (this.view !== "jogo") {
+        this.countdownSegundos = D.countdownSegundos;
+        intervaloCountdown = setInterval(() => {
+          if (this.countdownSegundos > 1) {
+            this.countdownSegundos -= 1;
+            return;
+          }
+          PararIntervaloCountdown();
+          this.countdownSegundos = null;
+          if (this.dadosSala?.estadoSala === "countdown") {
+            acoesArena.sincronizarArenaHttp(this);
+          }
+        }, 1000);
+      } else {
         this.countdownSegundos = null;
+      }
+
+      PararIntervaloPausa();
+      if (
+        this.view === "jogo" &&
+        (D.estadoSala === "pausada" || D.pausada) &&
+        D.segundosPausaRestantes != null &&
+        D.segundosPausaRestantes > 0
+      ) {
+        intervaloPausa = setInterval(() => {
+          const Sala = this.dadosSala;
+          if (!Sala || Sala.estadoSala !== "pausada") {
+            PararIntervaloPausa();
+            return;
+          }
+          const Restante = Sala.segundosPausaRestantes;
+          if (Restante == null || Restante <= 1) {
+            PararIntervaloPausa();
+            acoesArena.sincronizarArenaHttp(this);
+            return;
+          }
+          Sala.segundosPausaRestantes = Restante - 1;
+        }, 1000);
       }
 
       this.ultimoVencedorRodadaId = D.ultimoVencedorRodadaId;
@@ -1818,12 +1964,12 @@ export const useTermoStore = defineStore("termo", {
         setTimeout(() => this.mostrarResultadoArena(D, venci, campeao), 300);
         acoesArena.fecharSocketSala();
         this.irParaView("inicio");
+        LimparSessao();
         if (this.modo === "ranqueada") {
           this.modo = null;
           this.codigoSala = null;
           this.idJogador = null;
           this.dadosSala = null;
-          LimparSessao();
         }
       }
     },
@@ -1839,6 +1985,7 @@ export const useTermoStore = defineStore("termo", {
     limparChat() {
       timersChat.forEach((t) => clearTimeout(t));
       timersChat = new Map();
+      chavesChatVistas.clear();
       this.chatMensagens = [];
     },
 
@@ -1846,7 +1993,8 @@ export const useTermoStore = defineStore("termo", {
       const msgs = D.mensagensChat || [];
       for (const M of msgs) {
         const chave = ChaveMsgChat(M);
-        if (this.chatMensagens.some((x) => x.chave === chave)) continue;
+        if (chavesChatVistas.has(chave)) continue;
+        chavesChatVistas.add(chave);
         const item = {
           chave,
           nomeJogador: M.nomeJogador,
@@ -1886,6 +2034,9 @@ export const useTermoStore = defineStore("termo", {
     },
 
     enviarChatFrase(texto) {
+      const agora = Date.now();
+      if (agora - ultimoChatEnviadoMs < COOLDOWN_CHAT_MS) return;
+      ultimoChatEnviadoMs = agora;
       this.wsEnviar("chat", { texto });
     },
 
@@ -1943,7 +2094,56 @@ export const useTermoStore = defineStore("termo", {
       LimparSessao();
     },
 
+    mostrarDialogoRetomadaRanqueada(D) {
+      const pausada = D.estadoSala === "pausada" || D.pausada;
+      const seg = D.segundosPausaRestantes;
+      this.mostrarConfirmacao({
+        titulo: pausada ? "Duelo ranqueado pausado" : "Duelo ranqueado em andamento",
+        mensagem: pausada
+          ? seg != null
+            ? `A partida está pausada. Você tem cerca de ${seg}s para voltar antes do resultado por abandono.`
+            : "A partida está pausada aguardando reconexão."
+          : "Você tem uma partida ranqueada ativa. Continue o duelo ou desista para sair.",
+        dica: "O código da sala continua o mesmo na tela (ex.: GMVXGJ).",
+        textoConfirmar: "Continuar duelo",
+        textoCancelar: "Desistir",
+        aoConfirmar: () => {},
+        aoCancelar: () => this.desistirPartida(),
+      });
+    },
+
+    async desistirPartida() {
+      if (!EhModoSalaOnline(this.modo) || !this.idPartida || !this.idJogador) {
+        await this.voltarInicio();
+        return;
+      }
+      if (!this.tokenSessao) {
+        this.mostrarToast("Sessão sem token — saia e entre de novo na sala.", true);
+        return;
+      }
+      try {
+        await api.partidaDesistir(this.idPartida, {
+          idJogador: this.idJogador,
+          tokenSessao: this.tokenSessao,
+        });
+        this.fecharSocketSala();
+        LimparSessao();
+        this.modo = null;
+        this.codigoSala = null;
+        this.idJogador = null;
+        this.idPartida = null;
+        this.tokenSessao = null;
+        this.dadosSala = null;
+        this.estadoSalaArena = null;
+        this.irParaView("inicio");
+        this.mostrarToast("Você desistiu da partida.");
+      } catch (e) {
+        this.mostrarToast(e.message || "Não foi possível desistir", true);
+      }
+    },
+
     async voltarInicio() {
+      PararIntervaloPausa();
       this.pararFilaRanqueada();
       this.pararCronometro();
       this.limparChat();
@@ -1956,6 +2156,7 @@ export const useTermoStore = defineStore("termo", {
       this.idJogador = null;
       this.idPartida = null;
       this.tokenPartida = null;
+      this.tokenSessao = null;
       this.dadosSala = null;
       this.configArena = null;
       this.estadoSalaArena = null;
@@ -1979,77 +2180,82 @@ export const useTermoStore = defineStore("termo", {
 
       const retomarSala = async (chave, modo, viewLobby, label) => {
         const S = salvo[chave];
-        if (!S) return false;
+        if (!S) return { ok: false, invalida: false };
         try {
-          const R = await api.salaEstado(S.codigoSala, S.idJogador);
-          if (!R.ok) throw new Error("sala");
-          const D = await R.json();
-          if (D.partidaEncerrada) throw new Error("fim");
+          let D;
+          if (S.idPartida && (S.tokenSessao || this.conta?.idConta)) {
+            D = await api.partidaRetomar(
+              S.idPartida,
+              S.tokenSessao,
+              S.idJogador
+            );
+          } else {
+            const R = await api.salaEstado(S.codigoSala, S.idJogador);
+            if (!R.ok) {
+              const invalida = R.status === 404 || R.status === 410;
+              return { ok: false, invalida };
+            }
+            D = await R.json();
+          }
+          if (D.partidaEncerrada) return { ok: false, invalida: true };
           this.modo = modo;
           this.codigoSala = S.codigoSala;
           this.idJogador = S.idJogador;
+          this.aplicarCredenciaisPartida({ ...S, ...D });
           this.souCriador = D.souCriador;
           this.configArena = D.configuracao;
           this.codigoEntrada = "";
           this.dadosSala = D;
-          if (D.estadoSala === "aguardando") {
+          const emPartida =
+            D.estadoSala === "jogando" ||
+            D.estadoSala === "entre_rodadas" ||
+            D.estadoSala === "countdown" ||
+            D.estadoSala === "pausada";
+          if (emPartida || S.view === "jogo") {
+            this.iniciarTelaJogo(label);
+            this.atualizarArena(D);
+          } else {
             this.irParaView(viewLobby);
           }
           this.conectarWs();
-          if (
-            D.estadoSala === "jogando" ||
-            D.estadoSala === "entre_rodadas" ||
-            D.estadoSala === "countdown"
-          ) {
-            this.iniciarTelaJogo(label);
-            this.atualizarArena(D);
-          }
           this.persistir();
-          this.mostrarToast(
-            modo === "ranqueada"
-              ? "Ranqueado retomado — duelo em andamento"
-              : "Arena retomada — você voltou à sala"
-          );
-          return true;
+          if (modo === "ranqueada" && emPartida) {
+            this.mostrarDialogoRetomadaRanqueada(D);
+          } else {
+            this.mostrarToast(
+              modo === "ranqueada"
+                ? "Ranqueado retomado — duelo em andamento"
+                : "Arena retomada — você voltou à sala"
+            );
+          }
+          return { ok: true, invalida: false };
         } catch {
-          return false;
+          return { ok: false, invalida: false };
+        }
+      };
+
+      const tratarFalhaRetomar = (resultado) => {
+        if (resultado?.ok) return;
+        if (resultado?.invalida) {
+          const s = ObterSessao();
+          if (s?.solo) {
+            localStorage.setItem("termoSessao", JSON.stringify({ solo: s.solo }));
+          } else {
+            LimparSessao();
+          }
         }
       };
 
       if (salvo.ranqueada) {
-        retomou = await retomarSala(
-          "ranqueada",
-          "ranqueada",
-          "inicio",
-          "Ranqueado"
-        );
-        if (!retomou) {
-          const s = ObterSessao();
-          if (s?.solo) {
-            localStorage.setItem(
-              "termoSessao",
-              JSON.stringify({ solo: s.solo })
-            );
-          } else LimparSessao();
-        }
+        const R = await retomarSala("ranqueada", "ranqueada", "inicio", "Ranqueado");
+        retomou = !!R.ok;
+        tratarFalhaRetomar(R);
       }
 
       if (!retomou && salvo.arena) {
-        retomou = await retomarSala(
-          "arena",
-          "arena",
-          "arenaLobby",
-          "Arena"
-        );
-        if (!retomou) {
-          const s = ObterSessao();
-          if (s?.solo) {
-            localStorage.setItem(
-              "termoSessao",
-              JSON.stringify({ solo: s.solo })
-            );
-          } else LimparSessao();
-        }
+        const R = await retomarSala("arena", "arena", "arenaLobby", "Arena");
+        retomou = !!R.ok;
+        tratarFalhaRetomar(R);
       }
 
       if (salvo.solo && !retomou) {
@@ -2222,7 +2428,23 @@ export const useTermoStore = defineStore("termo", {
       }
     },
 
+    registrarPersistenciaAoRecarregar() {
+      if (listenerPersistirPagina) return;
+      listenerPersistirPagina = () => {
+        if (
+          EhModoSalaOnline(this.modo) &&
+          this.codigoSala &&
+          this.idJogador &&
+          !this.dadosSala?.partidaEncerrada
+        ) {
+          this.persistir();
+        }
+      };
+      window.addEventListener("pagehide", listenerPersistirPagina);
+    },
+
     async inicializar() {
+      this.registrarPersistenciaAoRecarregar();
       LimparCodigoSala();
       this.codigoEntrada = "";
       this.aplicarQueryDesafio();

@@ -21,6 +21,8 @@ O servidor sobe em `http://0.0.0.0:8000` (variável `PORT`). O Vue compilado fic
 docker compose up --build -d
 ```
 
+Inclui **Redis** (`redis:7-alpine`) com `TERM0_REDIS_URL=redis://redis:6379/0` no serviço `termo` (fila ranqueada e rate limit entre processos). Para subir só a API sem Redis, remova o serviço `redis` e a variável no `docker-compose.yml`.
+
 Dados persistentes no volume `termo-data` (`data/termo.db`).
 
 ## Variáveis de ambiente
@@ -30,7 +32,7 @@ Dados persistentes no volume `termo-data` (`data/termo.db`).
 | `PORT` | `8000` | Porta HTTP |
 | `TERM0_DATA` | `./data` | Diretório do SQLite |
 | `TERM0_LOG_LEVEL` | `INFO` | Nível de log (`DEBUG`, `WARNING`, …) |
-| `TERM0_REDIS_URL` | — | Redis para **rate limit** compartilhado entre workers; sem URL = memória |
+| `TERM0_REDIS_URL` | — | Redis (fila ranqueada + rate limit); no Compose já aponta para `redis://redis:6379/0` |
 
 ## HTTPS e domínio
 

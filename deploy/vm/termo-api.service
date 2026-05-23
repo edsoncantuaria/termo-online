@@ -1,6 +1,7 @@
 [Unit]
 Description=Termo Online API (FastAPI)
-After=network.target
+After=network.target redis-server.service
+Wants=redis-server.service
 
 [Service]
 Type=simple
@@ -12,6 +13,7 @@ Environment=TERM0_RELOAD=0
 Environment=TERM0_DATA=/root/termo-online/data
 Environment=TERM0_CORS_ORIGINS=https://termo.cloudive.com.br,http://localhost:8000
 Environment=TERM0_LOG_LEVEL=INFO
+Environment=TERM0_REDIS_URL=redis://127.0.0.1:6379/0
 ExecStart=/root/termo-online/.venv/bin/python -m uvicorn main:Aplicacao --host 0.0.0.0 --port 8001 --app-dir /root/termo-online/src
 Restart=on-failure
 RestartSec=5

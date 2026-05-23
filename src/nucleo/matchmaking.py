@@ -372,17 +372,22 @@ class FilaMatchmaking:
         oponente_eh_bot: bool,
         nick_bot: str | None = None,
     ) -> None:
+        IdPartida = getattr(Sala, "IdPartida", None)
         if B:
             for Entrada, Jogador in ((A, J1), (B, J2)):
                 self.UltimoMatch[Entrada.IdConta] = {
                     "codigoSala": Sala.CodigoSala,
+                    "idPartida": IdPartida,
                     "idJogador": Jogador.IdJogador,
+                    "tokenSessao": getattr(Jogador, "TokenSessao", None),
                     "nickOponente": B.Nick if Entrada.IdConta == A.IdConta else A.Nick,
                 }
         else:
             self.UltimoMatch[A.IdConta] = {
                 "codigoSala": Sala.CodigoSala,
+                "idPartida": IdPartida,
                 "idJogador": J1.IdJogador,
+                "tokenSessao": getattr(J1, "TokenSessao", None),
                 "nickOponente": nick_bot or "Jogador",
             }
 

@@ -1285,26 +1285,187 @@ html.tema-claro .btn-modo-conta-destaque:hover {
   font-size: 0.88rem;
 }
 
-.jogar-buscando {
+.dialog-jogar--busca::backdrop {
+  background: rgba(8, 6, 14, 0.82);
+}
+
+.jogar-abas--travadas {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.jogar-ranqueado-card--busca {
+  border-color: rgba(212, 168, 67, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(212, 168, 67, 0.12),
+    0 12px 40px rgba(212, 168, 67, 0.12);
+}
+
+.jogar-mm {
   text-align: center;
-  padding: 0.5rem 0;
+  padding: 0.35rem 0 0.15rem;
 }
 
-.jogar-spinner {
-  display: inline-block;
-  width: 2.25rem;
-  height: 2.25rem;
-  border: 2px solid rgba(255, 255, 255, 0.12);
-  border-top-color: #d4a843;
+.jogar-mm-visual {
+  position: relative;
+  width: 7.5rem;
+  height: 7.5rem;
+  margin: 0 auto 1.1rem;
+}
+
+.jogar-mm-anel {
+  position: absolute;
+  inset: 0;
   border-radius: 50%;
-  animation: spinRanqueada 0.75s linear infinite;
-  margin-bottom: 0.65rem;
+  border: 2px solid rgba(212, 168, 67, 0.35);
+  animation: mmPulso 2.4s ease-out infinite;
 }
 
-@keyframes spinRanqueada {
-  to {
-    transform: rotate(360deg);
+.jogar-mm-anel--2 {
+  inset: 12%;
+  animation-delay: 0.35s;
+  border-color: rgba(95, 173, 98, 0.4);
+}
+
+.jogar-mm-anel--3 {
+  inset: 24%;
+  animation-delay: 0.7s;
+  border-color: rgba(212, 168, 67, 0.55);
+}
+
+.jogar-mm-nucleo {
+  position: absolute;
+  inset: 32%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #e8c96a, #b8862a);
+  box-shadow:
+    0 0 24px rgba(212, 168, 67, 0.45),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.2);
+  animation: mmNucleo 1.8s ease-in-out infinite;
+}
+
+.jogar-mm--conectando .jogar-mm-nucleo {
+  background: linear-gradient(145deg, #7fd083, #3d8a4a);
+  animation: mmMatch 0.55s ease-out forwards;
+}
+
+.jogar-mm-icone {
+  font-size: 1.35rem;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+
+.jogar-mm-orbita {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: #d4a843;
+  box-shadow: 0 0 10px rgba(212, 168, 67, 0.8);
+  animation: mmOrbita 2.8s linear infinite;
+  animation-delay: calc((var(--i) - 1) * -0.47s);
+  transform: rotate(calc(var(--i) * 60deg)) translateY(-3.35rem);
+}
+
+.jogar-mm--conectando .jogar-mm-orbita,
+.jogar-mm--conectando .jogar-mm-anel {
+  animation: none;
+  opacity: 0.2;
+}
+
+.jogar-mm-titulo {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #f0d078;
+}
+
+.jogar-mm--conectando .jogar-mm-titulo {
+  color: #9fe0a2;
+}
+
+.jogar-mm-sub {
+  margin: 0 0 1rem;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  max-width: 22rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.jogar-mm-detalhes {
+  margin-bottom: 1rem;
+}
+
+.jogar-mm-carregando {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #9fe0a2;
+}
+
+.jogar-mm-cancelar {
+  margin-top: 0.25rem;
+}
+
+@keyframes mmPulso {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.35;
   }
+  50% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.08);
+    opacity: 0;
+  }
+}
+
+@keyframes mmNucleo {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes mmMatch {
+  0% {
+    transform: scale(0.85);
+  }
+  60% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes mmOrbita {
+  to {
+    transform: rotate(calc(var(--i) * 60deg + 360deg)) translateY(-3.35rem);
+  }
+}
+
+html.reduzir-animacao .jogar-mm-anel,
+html.reduzir-animacao .jogar-mm-nucleo,
+html.reduzir-animacao .jogar-mm-orbita {
+  animation: none;
 }
 
 .jogar-fila-tempo {
@@ -2587,6 +2748,28 @@ html.tema-claro .config-rodape {
   background: rgba(255, 255, 255, 0.95);
 }
 
+/* Criar sala reutiliza estilos config-premium */
+.dialog-criar-premium .config-hero {
+  background: linear-gradient(
+    155deg,
+    rgba(95, 173, 98, 0.18) 0%,
+    rgba(201, 180, 88, 0.1) 50%,
+    transparent 100%
+  );
+}
+
+.card-pausa-partida {
+  border-color: rgba(201, 180, 88, 0.35);
+  background: rgba(201, 180, 88, 0.08);
+}
+
+.card-pausa-timer {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--dourado);
+}
+
 .lobby-cabecalho-topo {
   display: flex;
   align-items: center;
@@ -3151,6 +3334,34 @@ html.tema-claro .lobby-rodape {
   border-radius: var(--raio-pill);
   background: rgba(157, 150, 173, 0.15);
   color: var(--text-muted);
+}
+
+.badge-sala-senha {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: var(--raio-pill);
+  background: rgba(201, 180, 88, 0.12);
+  color: var(--dourado);
+  border: 1px solid rgba(201, 180, 88, 0.28);
+}
+
+.badge-sala-senha .icone-cadeado {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.sala-publica-item-senha {
+  border-color: rgba(201, 180, 88, 0.22);
+}
+
+.sala-publica-item-senha:hover {
+  border-color: rgba(201, 180, 88, 0.42);
 }
 
 .sala-publica-skeleton {

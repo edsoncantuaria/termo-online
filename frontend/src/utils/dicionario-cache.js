@@ -3,6 +3,11 @@ import { UrlApi } from "../config/origem.js";
 const CHAVE_HASH = "termoDicionarioHash";
 const CHAVE_PALAVRAS = "termoDicionarioPalavras";
 
+export function LimparCacheDicionario() {
+  localStorage.removeItem(CHAVE_HASH);
+  localStorage.removeItem(CHAVE_PALAVRAS);
+}
+
 export async function CarregarCacheDicionario() {
   try {
     const R = await fetch(UrlApi("/api/dicionario/info"));

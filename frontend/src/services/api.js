@@ -97,6 +97,21 @@ export const api = {
       UrlApi(`/api/sala/${codigo}?id_jogador=${encodeURIComponent(idJogador)}`),
       { cache: "no-store" }
     ),
+  partidaRetomar: (idPartida, tokenSessao, idJogador) => {
+    const params = new URLSearchParams();
+    if (tokenSessao) params.set("token", tokenSessao);
+    if (idJogador) params.set("id_jogador", idJogador);
+    const q = params.toString() ? `?${params}` : "";
+    return fetchAuth(UrlApi(`/api/partida/${idPartida}/retomar${q}`)).then(
+      JsonOuErro
+    );
+  },
+  partidaDesistir: (idPartida, body) =>
+    fetchAuth(UrlApi(`/api/partida/${idPartida}/desistir`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(JsonOuErro),
   desafioCriar: () =>
     fetch(UrlApi("/api/desafio/criar"), { method: "POST" }).then(JsonOuErro),
 

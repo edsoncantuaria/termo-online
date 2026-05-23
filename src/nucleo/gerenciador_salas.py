@@ -1,11 +1,13 @@
 import hashlib
 import random
+import secrets
 import string
 import time
 import uuid
 from dataclasses import dataclass, field
 
 from . import persistencia
+from .avatares import ResolverAvatarId
 from .arena_rodadas import (
     CalcularPontosRodada,
     DeterminarCampeaoSessao,
@@ -88,6 +90,7 @@ class JogadorSala:
     IdConta: str | None = None
     Pronto: bool = False
     EhBot: bool = False
+    TokenSessao: str | None = None
 
 
 @dataclass
@@ -95,7 +98,12 @@ class SalaJogo:
     CodigoSala: str
     CriadorId: str
     Configuracao: ConfiguracaoSala
+    IdPartida: str = field(default_factory=lambda: str(uuid.uuid4()))
     EstadoSala: str = "aguardando"
+    EstadoSalaAntesPausa: str | None = None
+    PausaAteEpoch: float | None = None
+    IdJogadorPausado: str | None = None
+    TimersCongelados: dict[str, float] = field(default_factory=dict)
     PalavraSecreta: str | None = None
     PalavraComAcento: str | None = None
     Jogadores: dict[str, JogadorSala] = field(default_factory=dict)
@@ -124,11 +132,17 @@ class GerenciadorSalas:
         _sala_persistencia.PersistirSala(self, Sala)
 
     def MarcarConexao(self, Sala: SalaJogo, IdJogador: str, Conectado: bool) -> None:
+        from . import partida_sessao
+
         Jogador = Sala.Jogadores.get(IdJogador)
         if not Jogador:
             return
         Jogador.Conectado = Conectado
         Jogador.UltimaAtividade = time.time()
+        if Conectado:
+            partida_sessao.RetomarPausaPorConexao(self, Sala, IdJogador)
+        elif partida_sessao.PartidaEmAndamento(Sala):
+            partida_sessao.IniciarPausaPorDesconexao(self, Sala, IdJogador)
         self.PersistirSala(Sala)
 
     def JogadoresConectados(self, Sala: SalaJogo) -> int:
@@ -167,6 +181,8 @@ class GerenciadorSalas:
         return True
 
     def LimparJogadoresInativos(self, Sala: SalaJogo) -> bool:
+        if Sala.EstadoSala == "pausada":
+            return False
         Agora = time.time()
         Removidos = [
             Id
@@ -266,17 +282,25 @@ class GerenciadorSalas:
         Codigo = self.GerarCodigoSala()
         IdJogador = str(uuid.uuid4())
         Nome = NomeJogador[:24] or "Jogador"
+        from . import partida_sessao
+
         Jogador = JogadorSala(
-            IdJogador=IdJogador, NomeJogador=Nome, IdConta=IdConta
+            IdJogador=IdJogador,
+            NomeJogador=Nome,
+            IdConta=IdConta,
+            TokenSessao=secrets.token_urlsafe(16),
         )
         Jogador.Conectado = True
+        IdPartida = partida_sessao.GerarIdPartida()
         Sala = SalaJogo(
             CodigoSala=Codigo,
             CriadorId=IdJogador,
             Configuracao=Config,
+            IdPartida=IdPartida,
             Jogadores={IdJogador: Jogador},
         )
         self.Salas[Codigo] = Sala
+        persistencia.RegistrarPartidaSala(IdPartida, Codigo)
         self.PersistirSala(Sala)
         from nucleo.redis_estado import RegistrarSalaNoWorker
 
@@ -338,11 +362,15 @@ class GerenciadorSalas:
                 return None, None, "Sala cheia."
 
         IdJogador = str(uuid.uuid4())
+        from . import partida_sessao
+
+        partida_sessao.GarantirIdPartidaSala(Sala)
         Jogador = JogadorSala(
             IdJogador=IdJogador,
             NomeJogador=Nome,
             Espectador=Espectador,
             IdConta=IdConta,
+            TokenSessao=secrets.token_urlsafe(16),
         )
         Jogador.Conectado = True
         Sala.Jogadores[IdJogador] = Jogador
@@ -442,7 +470,7 @@ class GerenciadorSalas:
             ModoSessao=Modo,
             MetaVitorias=max(1, min(20, int(MetaVitorias))),
             InicioAutoDois=bool(InicioAutoDois),
-            SalaPublica=not Senha,
+            SalaPublica=Sala.Configuracao.SalaPublica,
             Ranqueada=Sala.Configuracao.Ranqueada,
         )
         Erro = self.ValidarConfiguracao(Config)
@@ -689,7 +717,7 @@ class GerenciadorSalas:
         Resultado = []
         for Sala in self.Salas.values():
             Config = Sala.Configuracao
-            if Config.Senha or not Config.SalaPublica:
+            if not Config.SalaPublica:
                 continue
             if Sala.EstadoSala != "aguardando" or Sala.PartidaEncerrada:
                 continue
@@ -704,6 +732,7 @@ class GerenciadorSalas:
                     "modoSessaoTexto": FormatarModoSessao(Config.ModoSessao, Config.MetaVitorias),
                     "estadoSala": Sala.EstadoSala,
                     "temVaga": Ativos < Config.MaximoJogadores,
+                    "temSenha": bool(Config.Senha),
                 }
             )
         return sorted(Resultado, key=lambda I: -I["online"])[:20]
@@ -845,6 +874,15 @@ class GerenciadorSalas:
         self.VerificarTempoEsgotado(Sala)
         if self.RodadaDeveEncerrar(Sala):
             self.FinalizarRodada(Sala)
+        from .partida_sessao import GarantirIdPartidaSala, RegistrarEventoPartida
+
+        GarantirIdPartidaSala(Sala)
+        RegistrarEventoPartida(
+            Sala.IdPartida,
+            "chute",
+            {"idJogador": IdJogador, "palavra": PalavraExibicao},
+            Sala.CodigoSala,
+        )
         self.PersistirSala(Sala)
         return True
 
@@ -876,6 +914,15 @@ class GerenciadorSalas:
         return FilaGlobal.InfoRevanche(J.IdConta)
 
     @staticmethod
+    def ResolverAvatarJogador(Jogador: JogadorSala) -> str:
+        AvatarSalvo = None
+        if Jogador.IdConta:
+            Conta = persistencia.ObterContaPorId(Jogador.IdConta)
+            if Conta:
+                AvatarSalvo = Conta.get("avatar_id")
+        return ResolverAvatarId(AvatarSalvo, Jogador.NomeJogador)
+
+    @staticmethod
     def IdJogadorPublico(Jogador: JogadorSala) -> str:
         """Oponentes bot usam id opaco — nada que revele 'bot' no cliente."""
         if not getattr(Jogador, "EhBot", False):
@@ -897,6 +944,7 @@ class GerenciadorSalas:
         Dados = {
             "idJogador": self.IdJogadorPublico(Jogador),
             "nomeJogador": Jogador.NomeJogador,
+            "avatarId": self.ResolverAvatarJogador(Jogador),
             "venceu": Jogador.Venceu,
             "finalizou": Jogador.Finalizou,
             "pontos": Jogador.PontosAcumulados,
@@ -925,13 +973,23 @@ class GerenciadorSalas:
         return Dados
 
     def EstadoPublicoSala(self, Sala: SalaJogo, IdObservador: str) -> dict:
+        from . import partida_sessao
+
+        partida_sessao.GarantirIdPartidaSala(Sala)
         VerOutros = Sala.Configuracao.VerOutros
         Config = Sala.Configuracao
+        JogadoresPlacar = {
+            K: V for K, V in Sala.Jogadores.items() if not V.Espectador
+        }
         Placar = MontarPlacar(
-            {K: V for K, V in Sala.Jogadores.items() if not V.Espectador},
+            JogadoresPlacar,
             Config.ModoSessao,
             Config.MetaVitorias,
         )
+        for Linha in Placar:
+            J = JogadoresPlacar.get(Linha["idJogador"])
+            if J:
+                Linha["avatarId"] = self.ResolverAvatarJogador(J)
         NumeroRodadas = Config.NumeroRodadas
         Maratona = Config.ModoSessao == ModoPontos
         UltimoNome = None
@@ -957,7 +1015,9 @@ class GerenciadorSalas:
             if Sala.CriadorId == IdObservador
             else None
         )
-        return {
+        Eu = Sala.Jogadores.get(IdObservador)
+        RespostaBase = {
+            "idPartida": Sala.IdPartida,
             "codigoSala": Sala.CodigoSala,
             "estadoSala": Sala.EstadoSala,
             "partidaEncerrada": Sala.PartidaEncerrada,
@@ -1052,6 +1112,10 @@ class GerenciadorSalas:
                 for J in Sala.Jogadores.values()
             ],
         }
+        RespostaBase.update(partida_sessao.CamposPausaPublicos(Sala))
+        if Eu and getattr(Eu, "TokenSessao", None):
+            RespostaBase["tokenSessao"] = Eu.TokenSessao
+        return RespostaBase
 
     def DeterminarVencedor(self, Sala: SalaJogo) -> str | None:
         Vencedores = [J for J in Sala.Jogadores.values() if J.Venceu]

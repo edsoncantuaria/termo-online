@@ -29,30 +29,29 @@ export function SalvarNickLocal(Nick) {
 
 export function MontarPayloadSessao(Estado) {
   const dados = {};
-  if (
-    Estado.modo === "ranqueada" &&
+  /** Arena/ranqueada: `encerrada` só indica fim da rodada do jogador, não fim da sessão. */
+  const sessaoOnlineAtiva =
+    EhModoSalaOnline(Estado.modo) &&
     Estado.codigoSala &&
     Estado.idJogador &&
-    !Estado.encerrada
-  ) {
+    !Estado.dadosSala?.partidaEncerrada;
+
+  const credenciaisOnline = {
+    codigoSala: Estado.codigoSala,
+    idJogador: Estado.idJogador,
+    idPartida: Estado.idPartida,
+    tokenSessao: Estado.tokenSessao,
+    souCriador: Estado.souCriador,
+    configuracao: Estado.configArena,
+  };
+  if (Estado.modo === "ranqueada" && sessaoOnlineAtiva) {
     dados.ranqueada = {
-      codigoSala: Estado.codigoSala,
-      idJogador: Estado.idJogador,
-      souCriador: Estado.souCriador,
-      configuracao: Estado.configArena,
+      ...credenciaisOnline,
       view: Estado.view === "jogo" ? "jogo" : "inicio",
     };
-  } else if (
-    Estado.modo === "arena" &&
-    Estado.codigoSala &&
-    Estado.idJogador &&
-    !Estado.encerrada
-  ) {
+  } else if (Estado.modo === "arena" && sessaoOnlineAtiva) {
     dados.arena = {
-      codigoSala: Estado.codigoSala,
-      idJogador: Estado.idJogador,
-      souCriador: Estado.souCriador,
-      configuracao: Estado.configArena,
+      ...credenciaisOnline,
       view: Estado.view === "jogo" ? "jogo" : "arenaLobby",
     };
   }

@@ -14,9 +14,8 @@ const filtros = [
   { id: "vitorias", rotulo: "Vitórias" },
 ];
 
-function entrarSala(codigo) {
-  store.codigoEntrada = codigo;
-  store.entrarSala();
+function entrarSala(s) {
+  store.entrarSalaListaPublica(s.codigoSala, !!s.temSenha);
 }
 
 onMounted(() => {
@@ -90,13 +89,35 @@ onUnmounted(() => {
           v-for="s in store.salasPublicasFiltradas"
           :key="s.codigoSala"
           class="sala-publica-item"
-          :class="{ 'sala-publica-item-vaga': s.temVaga }"
+          :class="{
+            'sala-publica-item-vaga': s.temVaga,
+            'sala-publica-item-senha': s.temSenha,
+          }"
         >
           <div class="sala-publica-corpo">
             <div class="sala-publica-linha-topo">
               <span class="sala-codigo" aria-label="Código da sala">{{
                 s.codigoSala
               }}</span>
+              <span
+                v-if="s.temSenha"
+                class="badge-sala-senha"
+                title="Sala protegida por senha"
+              >
+                <svg
+                  class="icone-cadeado"
+                  viewBox="0 0 24 24"
+                  width="12"
+                  height="12"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill="currentColor"
+                    d="M17 10h-1V7a4 4 0 10-8 0v3H7a2 2 0 00-2 2v8a2 2 0 002 2h10a2 2 0 002-2v-8a2 2 0 00-2-2zm-3-3a2 2 0 114 0v3h-4V7z"
+                  />
+                </svg>
+                Senha
+              </span>
               <span v-if="s.temVaga" class="badge-vaga">Vaga</span>
               <span v-else class="badge-sala-cheia">Cheia</span>
             </div>
@@ -112,9 +133,9 @@ onUnmounted(() => {
             type="button"
             class="btn-sala-entrar"
             :disabled="!s.temVaga"
-            @click="entrarSala(s.codigoSala)"
+            @click="entrarSala(s)"
           >
-            Entrar
+            {{ s.temSenha ? "Entrar com senha" : "Entrar" }}
           </button>
         </li>
       </ul>

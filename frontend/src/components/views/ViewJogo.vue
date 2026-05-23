@@ -21,6 +21,25 @@ function encerrarSessao() {
   });
 }
 
+function confirmarDesistencia() {
+  store.mostrarConfirmacao({
+    titulo: "Desistir da partida?",
+    mensagem:
+      store.modoJogoRanqueada
+        ? "Você perderá o duelo ranqueado e os pontos serão aplicados."
+        : "Você sairá da partida em andamento.",
+    textoConfirmar: "Desistir",
+    textoCancelar: "Continuar jogando",
+    aoConfirmar: () => store.desistirPartida(),
+  });
+}
+
+const mostrarBotaoDesistir = computed(
+  () =>
+    store.modoJogoArena ||
+    store.modoJogoRanqueada
+);
+
 const textoEntreRodadas = computed(() => {
   const D = store.dadosSala;
   if (!D?.placar?.length) return "Aguardando próxima rodada.";
@@ -35,6 +54,12 @@ const textoEntreRodadas = computed(() => {
 const verOutros = computed(
   () => !!store.dadosSala?.configuracao?.verOutros
 );
+
+function avatarPlacar(j) {
+  return j.idJogador === store.idJogador
+    ? store.avatarIdEfetivo()
+    : j.avatarId;
+}
 </script>
 
 <template>
@@ -87,7 +112,7 @@ const verOutros = computed(
             v-if="store.mostrarGradePrincipal"
             :linhas="store.linhasGradePrincipal"
             :shake-linha="store.linhaShake"
-            :editavel="!store.encerrada && !store.espectador"
+            :editavel="store.podeEditarGradeAtual"
             @selecionar-celula="(_, col) => store.selecionarCelula(col)"
           />
         </div>
@@ -103,6 +128,29 @@ const verOutros = computed(
         </Transition>
 
         <div
+          v-if="
+            store.dadosSala?.estadoSala === 'pausada' ||
+            store.dadosSala?.pausada
+          "
+          class="card-aguardo card-pausa-partida"
+          role="status"
+        >
+          <span class="card-aguardo-icone" aria-hidden="true">⏸</span>
+          <p>
+            {{
+              store.dadosSala?.motivoPausa ||
+              "Partida pausada — aguardando reconexão"
+            }}
+          </p>
+          <p
+            v-if="store.dadosSala?.segundosPausaRestantes != null"
+            class="card-pausa-timer"
+          >
+            Tempo restante: {{ store.dadosSala.segundosPausaRestantes }}s
+          </p>
+        </div>
+
+        <div
           v-if="store.mensagemAguardoArena"
           class="card-aguardo"
           role="status"
@@ -114,6 +162,15 @@ const verOutros = computed(
         <p v-if="store.mostrarDicaCelulas" class="dica-celulas">
           Clique numa casa vazia e monte a palavra em qualquer ordem
         </p>
+
+        <button
+          v-if="mostrarBotaoDesistir && !store.espectador && !store.dadosSala?.partidaEncerrada"
+          type="button"
+          class="btn-modo btn-modo-sec btn-desistir-partida"
+          @click="confirmarDesistencia"
+        >
+          Desistir da partida
+        </button>
 
         <TecladoVirtual v-if="!store.espectador" />
       </div>
@@ -148,7 +205,11 @@ const verOutros = computed(
               <div class="placar-corpo">
                 <div class="placar-linha-topo">
                   <span class="placar-jogador">
-                    <JogadorAvatar :nome="j.nomeJogador" pequeno />
+                    <JogadorAvatar
+                      :nome="j.nomeJogador"
+                      :avatar-id="avatarPlacar(j)"
+                      pequeno
+                    />
                     <span class="placar-nome">{{ j.nomeJogador }}</span>
                   </span>
                   <span class="placar-pontos">

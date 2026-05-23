@@ -71,6 +71,7 @@ def RegistrarDueloRanqueado(
     IdContaVencedor: str,
     IdContaPerdedor: str,
     CodigoSala: str | None = None,
+    IdPartida: str | None = None,
 ) -> list[ResultadoRanqueada]:
     if IdContaVencedor == IdContaPerdedor:
         raise ValueError("Duelo inválido.")
@@ -95,6 +96,7 @@ def RegistrarDueloRanqueado(
         Av,
         Nv,
         True,
+        IdPartida,
     )
     persistencia.RegistrarHistoricoRanqueada(
         IdContaPerdedor,
@@ -104,6 +106,7 @@ def RegistrarDueloRanqueado(
         Ap,
         Np,
         False,
+        IdPartida,
     )
 
     return [
@@ -135,6 +138,7 @@ def RegistrarDueloRanqueadoVsBot(
     VenceuReal: bool,
     PontosBot: int,
     CodigoSala: str | None = None,
+    IdPartida: str | None = None,
 ) -> list[ResultadoRanqueada]:
     Conta = persistencia.ObterContaPorId(IdContaReal)
     if not Conta or Conta.get("eh_visitante"):
@@ -150,6 +154,7 @@ def RegistrarDueloRanqueadoVsBot(
         Antes,
         Depois,
         VenceuReal,
+        IdPartida,
     )
     return [
         ResultadoRanqueada(
@@ -189,6 +194,7 @@ def ProcessarFimSalaRanqueada(Sala) -> list[ResultadoRanqueada] | None:
             VenceuReal,
             PontosBot,
             Sala.CodigoSala,
+            getattr(Sala, "IdPartida", None),
         )
 
     if len(Reais) != 2:
@@ -203,4 +209,5 @@ def ProcessarFimSalaRanqueada(Sala) -> list[ResultadoRanqueada] | None:
         Vencedor.IdConta,
         Perdedor.IdConta,
         Sala.CodigoSala,
+        getattr(Sala, "IdPartida", None),
     )

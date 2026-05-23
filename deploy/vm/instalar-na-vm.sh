@@ -27,13 +27,39 @@ echo "==> Termo Online — instalação em $RAIZ"
 echo "    API: $API_ORIGIN"
 echo "    Frontend: porta 8000 | API: porta 8001"
 
-echo "==> Pacotes do sistema (Python + Node)"
+echo "==> Pacotes do sistema (Python + Node + Redis)"
 if command -v apk >/dev/null 2>&1; then
-  apk add --no-cache python3 py3-pip nodejs npm curl 2>/dev/null || true
+  apk add --no-cache python3 py3-pip nodejs npm curl redis 2>/dev/null || true
 elif command -v apt-get >/dev/null 2>&1; then
   apt-get update -qq
-  apt-get install -y -qq python3 python3-venv python3-pip nodejs npm curl
+  apt-get install -y -qq python3 python3-venv python3-pip nodejs npm curl redis-server
 fi
+
+echo "==> Redis (fila ranqueada, rate limit)"
+REDIS_URL="redis://127.0.0.1:6379/0"
+REDIS_OK=0
+CONF_REDIS="$RAIZ/deploy/vm/redis-alpine.conf"
+if command -v apk >/dev/null 2>&1 && command -v rc-service >/dev/null 2>&1; then
+  if [ -f "$CONF_REDIS" ]; then
+    cp "$CONF_REDIS" /etc/redis.conf
+  fi
+  rc-update add redis default 2>/dev/null || true
+  rc-service redis restart 2>/dev/null || rc-service redis start 2>/dev/null || true
+elif command -v systemctl >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
+  systemctl enable redis-server 2>/dev/null || true
+  systemctl restart redis-server 2>/dev/null || true
+fi
+if command -v redis-cli >/dev/null 2>&1; then
+  if redis-cli ping 2>/dev/null | grep -qi PONG; then
+    REDIS_OK=1
+    echo "    Redis respondeu (PONG) — $REDIS_URL"
+  fi
+fi
+if [ "$REDIS_OK" -eq 0 ]; then
+  echo "    Aviso: Redis não respondeu; API usará memória até o Redis subir."
+  REDIS_URL=""
+fi
+export TERM0_REDIS_URL="$REDIS_URL"
 
 echo "==> Ambiente Python"
 if [ ! -d .venv ]; then
@@ -98,7 +124,8 @@ else
     cd "$INST/src" && export PORT=8001 TERM0_API_ONLY=1 TERM0_RELOAD=0 \
       TERM0_DATA="$INST/data" \
       TERM0_CORS_ORIGINS="https://termo.cloudive.com.br,http://localhost:8000" \
-      TERM0_LOG_LEVEL=INFO
+      TERM0_LOG_LEVEL=INFO \
+      TERM0_REDIS_URL="$TERM0_REDIS_URL"
     nohup "$INST/.venv/bin/python" -m uvicorn main:Aplicacao \
       --host 0.0.0.0 --port 8001 --app-dir "$INST/src" \
       >>"$INST/data/termo-api.log" 2>&1 &
@@ -136,6 +163,11 @@ if [ "$ApiOk" -eq 1 ]; then
   echo "API /api/health OK"
 else
   echo "API falhou — veja: rc-service termo-api status e tail data/termo-api.log"
+fi
+if [ "$REDIS_OK" -eq 1 ]; then
+  echo "Redis: ativo ($REDIS_URL)"
+elif command -v redis-cli >/dev/null 2>&1; then
+  echo "Redis: instalado mas sem PONG — rc-service redis status"
 fi
 curl -sf -o /dev/null -w "Frontend HTTP %{http_code}\n" http://127.0.0.1:8000/ || echo "Frontend falhou"
 if [ -f src/static/dist/index.html ]; then

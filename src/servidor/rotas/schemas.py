@@ -60,6 +60,11 @@ class SairSalaRequest(BaseModel):
     idJogador: str
 
 
+class DesistirPartidaRequest(BaseModel):
+    idJogador: str
+    tokenSessao: str = Field(min_length=8, max_length=64)
+
+
 class GradeDiariaRequest(BaseModel):
     nick: str = Field(max_length=24)
     gradeTexto: str = ""
@@ -84,7 +89,13 @@ class AuthVisitanteRequest(BaseModel):
 
 
 def MontarRespostaSala(Sala, Jogador) -> dict:
+    from nucleo.partida_sessao import GarantirIdPartidaSala, GarantirTokenJogador
+
+    GarantirIdPartidaSala(Sala)
+    GarantirTokenJogador(Jogador)
     Resposta = GerenciadorVersus.EstadoPublicoSala(Sala, Jogador.IdJogador)
     Resposta["idJogador"] = Jogador.IdJogador
     Resposta["nomeJogador"] = Jogador.NomeJogador
+    if getattr(Jogador, "TokenSessao", None):
+        Resposta["tokenSessao"] = Jogador.TokenSessao
     return Resposta

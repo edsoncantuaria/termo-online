@@ -15,7 +15,7 @@ Internet → cloudflared → 127.0.0.1:8000  (termo-web, UI estática)
 | `termo-web` | ~30–50 MB | Sim |
 | `termo-api` (**1 processo** uvicorn) | ~80–150 MB | Sim |
 | SQLite | disco | Sim |
-| Redis | ~15–32 MB | **Não** na VM única |
+| Redis | ~15–32 MB | Sim — `instalar.sh` instala e configura |
 | nginx / Caddy / Traefik | — | **Não** |
 
 **Por que não colocar proxy na VM?** HTTPS e domínio já vêm do Cloudflare. Proxy extra só duplica processo, RAM e ponto de falha — sem ganho no modelo de **uma API**.
@@ -77,7 +77,12 @@ sh atualizar.sh
 
 Isso faz: `git pull` → `npm run build` → reinicia `termo-api` e `termo-web`.
 
-Primeira instalação ou Node/Python novos: use `sh instalar.sh`.
+Primeira instalação ou Node/Python novos: use `sh instalar.sh` (inclui Redis local + `TERM0_REDIS_URL` no `termo-api`).
+
+```bash
+redis-cli ping          # PONG
+rc-service redis status # Alpine
+```
 
 No celular/PC, depois do deploy: **recarregar forçado** (Ctrl+Shift+R) ou fechar e abrir o app — o PWA pode guardar cache antigo por alguns segundos (`autoUpdate`).
 
