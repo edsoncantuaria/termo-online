@@ -41,3 +41,11 @@ export function HeadersAuth(extra = {}) {
   if (instanciaCliente) H["X-Termo-Instancia"] = instanciaCliente;
   return H;
 }
+
+/** Só o token — para re-sincronizar instância após 409 sem deslogar. */
+export function HeadersAuthSemInstancia(extra = {}) {
+  const { token } = CarregarAuthLocal();
+  const H = { ...extra };
+  if (token) H.Authorization = `Bearer ${token}`;
+  return H;
+}

@@ -11,3 +11,4 @@ dicionario/
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
+frontend/test-results/

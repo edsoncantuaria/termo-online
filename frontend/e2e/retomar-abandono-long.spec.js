@@ -9,7 +9,7 @@ test.describe.configure({ timeout: 120_000 });
 
 test("abandono prolongado: retomar somenteResultado (pytest integração)", () => {
   const saida = execSync(
-    ".venv/bin/python3 -m pytest tests/test_api_retomar_abandono_long.py tests/test_partida_sessao.py::test_retomar_apos_abandono_prolongado_somente_resultado tests/test_processar_salas_offline_apos_restart_simulado -q",
+    ".venv/bin/python3 -m pytest tests/test_api_retomar_abandono_long.py tests/test_partida_sessao.py::test_retomar_apos_abandono_prolongado_somente_resultado tests/test_partida_sessao.py::test_processar_salas_offline_apos_restart_simulado -q",
     { cwd: RAIZ, encoding: "utf8" }
   );
   expect(saida).toContain("passed");

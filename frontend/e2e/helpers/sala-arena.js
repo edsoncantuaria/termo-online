@@ -11,6 +11,39 @@ export async function dispensarTutorial(page) {
   });
 }
 
+export async function abrirDialogJogar(page) {
+  await page.getByRole("button", { name: "Escolher modo" }).click();
+  const dialog = page.locator("dialog.dialog-jogar");
+  await expect(dialog).toBeVisible({ timeout: 15_000 });
+  await expect(dialog.locator(".jogar-corpo")).toBeVisible();
+}
+
+function cardModoJogar(dialog, nomeModo) {
+  if (nomeModo instanceof RegExp) {
+    if (nomeModo.test("Prática")) return dialog.locator(".jogar-modo-pratica");
+    if (nomeModo.test("Dueto")) return dialog.locator(".jogar-modo-dueto");
+    if (nomeModo.test("Quarteto")) return dialog.locator(".jogar-modo-quarteto");
+  }
+  return dialog.getByRole("button", { name: nomeModo });
+}
+
+export async function escolherModoJogar(page, nomeModo) {
+  await abrirDialogJogar(page);
+  const dialog = page.locator("dialog.dialog-jogar");
+  await cardModoJogar(dialog, nomeModo).click({ force: true });
+}
+
+export async function abrirAjuda(page, aba = null) {
+  await page.getByRole("button", { name: "Ajuda" }).click();
+  const dialog = page.locator("dialog").filter({ hasText: "Como jogar" });
+  await expect(dialog).toBeVisible({ timeout: 10_000 });
+  if (aba) {
+    await dialog
+      .getByRole("button", { name: aba, exact: true })
+      .click({ force: true });
+  }
+}
+
 export async function definirNick(page, nick) {
   await page.goto("/");
   await page.evaluate(
@@ -20,6 +53,16 @@ export async function definirNick(page, nick) {
   await dispensarTutorial(page);
   await page.reload();
   await dispensarTutorial(page);
+}
+
+export async function garantirNickVisitante(page, nick = "E2EJogador") {
+  const btn = page.getByRole("button", { name: /Entrar como visitante/i });
+  if (!(await btn.isVisible().catch(() => false))) return;
+  await page.getByPlaceholder(/maria/i).fill(nick);
+  await btn.click({ force: true });
+  await expect(page.locator("dialog.dialog-conta")).toBeHidden({
+    timeout: 25_000,
+  });
 }
 
 export async function criarSalaViaApi(request, nick) {

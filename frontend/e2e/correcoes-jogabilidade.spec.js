@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import { test, expect } from "@playwright/test";
 import {
   digitarPalavra,
+  dispensarTutorial,
+  escolherModoJogar,
   prepararArenaDoisJogadores,
   metaArena,
   tentativasUsadasApi,
@@ -157,9 +159,10 @@ test.describe("Correções de jogabilidade", () => {
       [hash, palavras.slice(0, 500)]
     );
 
-    await page.getByRole("button", { name: /Jogar/i }).click();
-    await page.getByRole("button", { name: /^Prática$/i }).click();
-    await expect(page.locator(".grade")).toBeVisible({ timeout: 15000 });
+    await escolherModoJogar(page, /^Prática$/i);
+    await expect(page.locator(".grade .linha").first()).toBeVisible({
+      timeout: 25_000,
+    });
 
     let bloqueouIniciar = false;
     page.on("request", (req) => {

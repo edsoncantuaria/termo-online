@@ -1,13 +1,14 @@
 import { test, expect } from "@playwright/test";
+import { dispensarTutorial, escolherModoJogar } from "./helpers/sala-arena.js";
 
 test("prática: chute repetido é rejeitado", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Jogar" }).click();
-  await page.getByRole("button", { name: /Prática/i }).click();
+  await dispensarTutorial(page);
+  await escolherModoJogar(page, /Prática/i);
   await page.waitForURL(/view=jogo|\/\?/, { timeout: 15000 }).catch(() => {});
 
-  const grid = page.locator(".grade-linha").first();
-  await expect(grid).toBeVisible({ timeout: 20000 });
+  const grid = page.locator(".grade .linha, .grade-linha").first();
+  await expect(grid).toBeVisible({ timeout: 25_000 });
 
   async function digitarPalavra(palavra) {
     for (const L of palavra) {

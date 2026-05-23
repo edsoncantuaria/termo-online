@@ -803,7 +803,7 @@ export const useTermoStore = defineStore("termo", {
     fecharTutorial() {
       this.mostrarTutorial = false;
       localStorage.setItem(CHAVE_TUTORIAL_VISTO, "1");
-      if (!this.conta) {
+      if (!this.token && !this.conta) {
         this.abrirConta("entrada");
       }
     },
@@ -895,6 +895,39 @@ export const useTermoStore = defineStore("termo", {
       }
     },
 
+    /**
+     * Atualiza perfil/instância no servidor sem deslogar.
+     * Em 409 (instância antiga), reconcilia e mantém o token local.
+     */
+    async sincronizarContaServidor() {
+      if (!this.token) return false;
+      let D;
+      try {
+        D = await api.authEu();
+      } catch (e) {
+        if (e?.status === 409) {
+          try {
+            D = await api.authEuReconciliar();
+          } catch (e2) {
+            if (e2?.status === 401) this.authSair();
+            return false;
+          }
+        } else if (e?.status === 401) {
+          this.authSair();
+          return false;
+        } else {
+          return true;
+        }
+      }
+      const Local = CarregarAuthLocal();
+      this.aplicarSessaoConta(
+        D.conta,
+        this.token,
+        D.instanciaCliente ?? Local.instanciaCliente
+      );
+      return true;
+    },
+
     avatarIdEfetivo() {
       return AvatarEfetivo(this.conta, this.nick);
     },
@@ -927,6 +960,20 @@ export const useTermoStore = defineStore("termo", {
         this.mostrarToast(V.mensagem, true);
         return { ok: false, mensagem: V.mensagem };
       }
+      if (
+        this.token &&
+        this.conta?.podeRanqueada &&
+        !this.conta?.ehVisitante
+      ) {
+        await this.sincronizarContaServidor();
+        this.fecharDialogs();
+        this.mostrarToast(
+          `Você já está logado como ${NickExibicao(this.conta.nick)}.`,
+          false,
+          true
+        );
+        return { ok: true };
+      }
       try {
         const D = await api.authLogin(identificador, senha);
         this.aplicarSessaoConta(D.conta, D.token, D.instanciaCliente);
@@ -936,6 +983,7 @@ export const useTermoStore = defineStore("termo", {
           false,
           true
         );
+        return { ok: true };
       } catch (e) {
         this.mostrarToast(e.message, true);
         return { ok: false, mensagem: e.message };
@@ -972,6 +1020,16 @@ export const useTermoStore = defineStore("termo", {
       if (!V.ok) {
         this.mostrarToast(V.mensagem, true);
         return { ok: false, mensagem: V.mensagem };
+      }
+      if (this.token && this.conta?.ehVisitante) {
+        await this.sincronizarContaServidor();
+        this.fecharDialogs();
+        this.mostrarToast(
+          `Você já está jogando como ${NickExibicao(this.conta.nick)}.`,
+          false,
+          true
+        );
+        return { ok: true };
       }
       try {
         const D = await api.authVisitante(V.nick);
@@ -3128,32 +3186,7 @@ export const useTermoStore = defineStore("termo", {
       cacheDicionarioSet = await GarantirCacheDicionario();
       await SincronizarTempoServidor();
       if (this.token) {
-        try {
-          const D = await api.authEu();
-          const Local = CarregarAuthLocal();
-          if (
-            D.instanciaCliente &&
-            Local.instanciaCliente &&
-            D.instanciaCliente !== Local.instanciaCliente
-          ) {
-            this.mostrarToast(
-              "Esta conta foi aberta em outro lugar. Entre novamente.",
-              true
-            );
-            this.authSair();
-          } else {
-            this.aplicarSessaoConta(
-              D.conta,
-              this.token,
-              D.instanciaCliente || Local.instanciaCliente
-            );
-          }
-        } catch (e) {
-          if (e?.status === 401 || e?.status === 409) {
-            if (e.status === 409) this.mostrarToast(e.message, true);
-            this.authSair();
-          }
-        }
+        await this.sincronizarContaServidor();
       }
       await this.carregarFrasesChat();
       this.fecharDialogs();
@@ -3200,7 +3233,7 @@ export const useTermoStore = defineStore("termo", {
           await this.processarConviteAposBoot(false);
         } else if (!localStorage.getItem(CHAVE_TUTORIAL_VISTO)) {
           this.mostrarTutorial = true;
-        } else if (!this.conta) {
+        } else if (!this.token && !this.conta) {
           setTimeout(() => this.abrirConta("entrada"), 500);
         }
       } else if (temConviteSala) {

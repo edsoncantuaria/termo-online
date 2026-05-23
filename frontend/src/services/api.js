@@ -1,5 +1,5 @@
 import { UrlApi } from "../config/origem.js";
-import { HeadersAuth } from "../utils/auth.js";
+import { HeadersAuth, HeadersAuthSemInstancia } from "../utils/auth.js";
 import { MensagemErroHttp } from "../utils/erro-api.js";
 
 export async function fetchPublicoJson(url, opts = {}) {
@@ -141,6 +141,11 @@ export const api = {
     }).then(JsonOuErro),
 
   authEu: () => fetchAuth(UrlApi("/api/auth/eu")).then(JsonOuErro),
+  /** Adota instância ativa no servidor (mesmo token, outra aba/dispositivo). */
+  authEuReconciliar: () =>
+    fetch(UrlApi("/api/auth/eu"), { headers: HeadersAuthSemInstancia() }).then(
+      JsonOuErro
+    ),
 
   contaJogoAtivo: () =>
     fetchAuth(UrlApi("/api/conta/jogo-ativo")).then(JsonOuErro),
