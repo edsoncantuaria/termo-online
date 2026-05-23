@@ -76,6 +76,19 @@ export async function pollFilaRanqueada() {
   if (!this.filaRanqueada) return;
   try {
     const D = await api.ranqueadaStatusFila();
+    if (D.estado === "fila_cheia") {
+      pararFilaRanqueada.call(this);
+      this.mostrarToast(D.mensagem || "Fila cheia — tente em instantes", true);
+      return;
+    }
+    if (D.estado === "idle") {
+      pararFilaRanqueada.call(this);
+      this.mostrarToast(
+        "Você saiu da fila. Toque em Ranqueado para buscar de novo.",
+        true
+      );
+      return;
+    }
     if (D.estado === "aguardando") {
       this.filaSegundos = D.segundos ?? null;
       this.filaFase = D.fase ?? null;
@@ -89,8 +102,14 @@ export async function pollFilaRanqueada() {
     if (D.estado === "encontrado") {
       await ProcessarMatchRanqueadoEncontrado.call(this, D);
     }
-  } catch {
-    /* ok */
+  } catch (e) {
+    const Seg = this.filaSegundos ?? 0;
+    if (Seg >= 12) {
+      this.mostrarToast(
+        e?.message || "Falha ao atualizar a fila — verifique a conexão",
+        true
+      );
+    }
   }
 }
 

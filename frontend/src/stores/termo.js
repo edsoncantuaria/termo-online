@@ -476,13 +476,31 @@ export const useTermoStore = defineStore("termo", {
         1,
         ...lista.map((j) => j.pontosAcumulados || 0)
       );
-      return lista.map((j, i) => ({
-        ...j,
-        posicao: i + 1,
-        progresso: porVitorias
-          ? Math.min(100, ((j.vitoriasRodada || 0) / meta) * 100)
-          : Math.min(100, ((j.pontosAcumulados || 0) / maxPts) * 100),
-      }));
+      return lista.map((j, i) => {
+        let linha = {
+          ...j,
+          posicao: i + 1,
+          progresso: porVitorias
+            ? Math.min(100, ((j.vitoriasRodada || 0) / meta) * 100)
+            : Math.min(100, ((j.pontosAcumulados || 0) / maxPts) * 100),
+        };
+        if (
+          j.idJogador === s.idJogador &&
+          s.conta?.podeRanqueada &&
+          (j.semRank || !j.rotuloRank)
+        ) {
+          linha = {
+            ...linha,
+            rotuloRank: s.conta.rotuloRank,
+            eloNome: s.conta.eloNome,
+            elo: s.conta.elo,
+            eloClasse: s.conta.eloClasse,
+            semRank: s.conta.semRank,
+            pontosRanqueada: s.conta.pontosRanqueada,
+          };
+        }
+        return linha;
+      });
     },
     podeEditarGradeAtual: (s) => PodeEditarGradeAtualEstado(s),
     podeMoverCursorGrade: (s) => PodeEditarGradeAtualEstado(s),

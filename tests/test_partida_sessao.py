@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from nucleo.arena_rodadas import ModoVitorias
+from nucleo.arena_rodadas import ModoPontos, ModoVitorias
 from nucleo.gerenciador_salas import ConfiguracaoSala, GerenciadorSalas
 from nucleo.partida_sessao import (
     ABANDONO_TOTAL_SEG,
@@ -212,6 +212,63 @@ def test_desistir_ranqueada_sem_pontos_cancela(Gerenciador):
     assert Sala.PartidaCancelada
     assert Sala.VencedorId is None
     assert Sala.ResultadosRanqueada is None
+
+
+def test_desistir_arena_duelo_restante_vence():
+    G = GerenciadorSalas()
+    Config = ConfiguracaoSala(
+        MaximoJogadores=4,
+        ModoSessao=ModoPontos,
+        InicioAutoDois=True,
+        TempoLimiteSegundos=180,
+    )
+    Sala, J1 = G.CriarSala("A", Config, IdConta="c1")
+    _S, J2, Erro = G.EntrarSala(Sala.CodigoSala, "B", IdConta="c2")
+    assert Erro is None
+    Sala = G.ObterSala(Sala.CodigoSala)
+    for J in G.JogadoresAtivos(Sala):
+        J.Pronto = True
+    assert G.IniciarPartida(Sala, J1.IdJogador) is None
+    Sala = G.ObterSala(Sala.CodigoSala)
+    assert Sala.EstadoSala == "jogando"
+    Dados, Erro, Status = DesistirPartida(
+        G, Sala.IdPartida, J1.IdJogador, J1.TokenSessao
+    )
+    assert Status == 200
+    assert Erro is None
+    assert Dados["partidaEncerrada"] is True
+    Sala = G.ObterSala(Sala.CodigoSala)
+    assert Sala.PartidaEncerrada
+    assert Sala.VencedorId == J2.IdJogador
+
+
+def test_abandono_arena_restante_vence():
+    G = GerenciadorSalas()
+    Config = ConfiguracaoSala(
+        MaximoJogadores=2,
+        ModoSessao=ModoPontos,
+        InicioAutoDois=True,
+        TempoLimiteSegundos=180,
+    )
+    Sala, J1 = G.CriarSala("A", Config)
+    _S, J2, Erro = G.EntrarSala(Sala.CodigoSala, "B")
+    assert Erro is None
+    Sala = G.ObterSala(Sala.CodigoSala)
+    for J in G.JogadoresAtivos(Sala):
+        J.Pronto = True
+    G.IniciarPartida(Sala, J1.IdJogador)
+    G.MarcarConexao(Sala, J1.IdJogador, False)
+    Sala = G.ObterSala(Sala.CodigoSala)
+    Sala.PausaAteEpoch = time.time() - 1
+    VerificarPausasExpiradas(G)
+    Sala = G.ObterSala(Sala.CodigoSala)
+    Sala.Jogadores[J1.IdJogador].DesconexaoInicioEpoch = (
+        time.time() - ABANDONO_TOTAL_SEG - 1
+    )
+    VerificarAbandonosProlongados(G)
+    Sala = G.ObterSala(Sala.CodigoSala)
+    assert Sala.PartidaEncerrada
+    assert Sala.VencedorId == J2.IdJogador
 
 
 def test_desistir_arena_sem_pontos_remove_sem_encerrar(Gerenciador):

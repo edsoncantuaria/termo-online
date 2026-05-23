@@ -408,7 +408,11 @@ async def ConectarWebSocketSala(Conexao: WebSocket, codigo_sala: str, id_jogador
         LiberarConexaoWsSala()
         RemoverConexao(Sala.CodigoSala, id_jogador)
         if SaidaExplicita:
-            Gerenciador.RemoverJogador(Sala.CodigoSala, id_jogador)
+            from nucleo.partida_sessao import ProcessarSaidaJogadorOnline
+
+            SalaSaida = Gerenciador.ObterSala(Sala.CodigoSala)
+            if SalaSaida:
+                ProcessarSaidaJogadorOnline(Gerenciador, SalaSaida, id_jogador)
         elif Gerenciador.ObterSala(Sala.CodigoSala):
             Gerenciador.MarcarConexao(Sala, id_jogador, False)
             Gerenciador.TransferirHostSePreciso(Sala)

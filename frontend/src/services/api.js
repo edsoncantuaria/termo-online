@@ -71,7 +71,7 @@ export const api = {
     return fetchAuth(UrlApi(`/api/jogar/estado/${id}${q}`)).then(JsonOuErro);
   },
   salaCriar: (body) =>
-    fetch(UrlApi("/api/sala/criar"), {
+    fetchAuth(UrlApi("/api/sala/criar"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -113,7 +113,7 @@ export const api = {
       body: JSON.stringify(body),
     }).then(JsonOuErro),
   desafioCriar: () =>
-    fetch(UrlApi("/api/desafio/criar"), { method: "POST" }).then(JsonOuErro),
+    fetchAuth(UrlApi("/api/desafio/criar"), { method: "POST" }).then(JsonOuErro),
 
   authRegistrar: (nick, email, senha) =>
     fetchAuth(UrlApi("/api/auth/registrar"), {

@@ -61,8 +61,10 @@ class FilaMatchmaking:
         if IdConta in self.Fila:
             self.Fila[IdConta] = E
 
-    def Processar(self, Gerenciador: GerenciadorSalas) -> None:
-        self._TentarParearReais(Gerenciador)
+    def _ProcessarBotsNaFila(self, Gerenciador: GerenciadorSalas) -> None:
+        """Reserva e inicia duelo contra bot — não exige lock Redis (pareamento PvP sim)."""
+        if not BotsRanqueadosAtivos():
+            return
         Agora = time.time()
         for IdConta in list(self.Fila.keys()):
             E = self.Fila.get(IdConta)
@@ -70,31 +72,40 @@ class FilaMatchmaking:
                 continue
             Seg = Agora - E.EntrouEm
             Alterou = False
-            if (
-                BotsRanqueadosAtivos()
-                and Seg >= BUSCA_REAL_SEG
-                and not E.BotReservadoId
-            ):
+            if Seg >= BUSCA_REAL_SEG and not E.BotReservadoId:
                 Bot = EscolherBotParaPontos(E.Pontos, Seg)
                 if Bot:
                     ReservarBot(Bot.Id)
                     E.BotReservadoId = Bot.Id
                     Alterou = True
-            if BotsRanqueadosAtivos() and Seg >= BUSCA_REAL_SEG + ESPERA_BOT_SEG:
-                Bot = None
-                if E.BotReservadoId:
-                    Bot = ObterBot(E.BotReservadoId)
-                if not Bot:
-                    Bot = EscolherBotParaPontos(E.Pontos, Seg)
-                    if Bot:
-                        E.BotReservadoId = Bot.Id
-                        Alterou = True
-                if Bot:
-                    self._CriarDueloComBot(Gerenciador, E, Bot)
-                    self.Fila.pop(IdConta, None)
-                    continue
-            if Alterou:
-                self._SalvarEntradaFila(IdConta, E)
+            if Seg < BUSCA_REAL_SEG + ESPERA_BOT_SEG:
+                if Alterou:
+                    self._SalvarEntradaFila(IdConta, E)
+                continue
+            Bot = None
+            if E.BotReservadoId:
+                Bot = ObterBot(E.BotReservadoId)
+            if not Bot:
+                Bot = EscolherBotParaPontos(E.Pontos, Seg)
+            if not Bot:
+                if Alterou:
+                    self._SalvarEntradaFila(IdConta, E)
+                continue
+            Entrada = self.Fila.pop(IdConta, None)
+            if not Entrada:
+                continue
+            try:
+                self._CriarDueloComBot(Gerenciador, Entrada, Bot)
+            except Exception:
+                if Entrada.BotReservadoId:
+                    LiberarReservaBot(Entrada.BotReservadoId)
+                LiberarReservaBot(Bot.Id)
+                self.Fila[IdConta] = Entrada
+                raise
+
+    def Processar(self, Gerenciador: GerenciadorSalas) -> None:
+        self._ProcessarBotsNaFila(Gerenciador)
+        self._TentarParearReais(Gerenciador)
 
     def Status(self, IdConta: str, Gerenciador: GerenciadorSalas | None = None) -> dict:
         if Gerenciador:

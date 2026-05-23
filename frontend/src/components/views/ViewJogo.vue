@@ -110,6 +110,13 @@ const mostrarBotaoDesistir = computed(
     store.modoJogoRanqueada
 );
 
+const dicaDesistenciaDesktop = computed(() => {
+  if (store.modoJogoRanqueada) {
+    return "Derrota ranqueada e ajuste de RP conforme as regras";
+  }
+  return "Você sai da sessão; os demais jogadores continuam";
+});
+
 const textoEntreRodadas = computed(() => {
   const D = store.dadosSala;
   if (!D?.placar?.length) return "Aguardando próxima rodada.";
@@ -263,6 +270,7 @@ function avatarPlacar(j) {
           <span
             v-if="statusOponenteMobile"
             class="oponente-resumo-mobile-status"
+            :class="statusOponenteMobile.classe"
             >{{ statusOponenteMobile.texto }}</span
           >
         </button>
@@ -280,6 +288,28 @@ function avatarPlacar(j) {
             </span>
             <TentativasDots />
           </div>
+        </div>
+
+        <div
+          v-if="
+            mostrarBotaoDesistir &&
+            !store.espectador &&
+            !store.dadosSala?.partidaEncerrada &&
+            !layoutMobile
+          "
+          class="jogo-acoes-partida"
+        >
+          <button
+            type="button"
+            class="btn-desistir-partida"
+            @click="confirmarDesistencia"
+          >
+            <span class="btn-desistir-partida-icone" aria-hidden="true">✕</span>
+            <span class="btn-desistir-partida-texto">
+              <strong>Desistir da partida</strong>
+              <small>{{ dicaDesistenciaDesktop }}</small>
+            </span>
+          </button>
         </div>
 
         <div
@@ -344,20 +374,6 @@ function avatarPlacar(j) {
         <p v-if="store.mostrarDicaCelulas" class="dica-celulas">
           Clique numa casa vazia e monte a palavra em qualquer ordem
         </p>
-
-        <button
-          v-if="
-            mostrarBotaoDesistir &&
-            !store.espectador &&
-            !store.dadosSala?.partidaEncerrada &&
-            !layoutMobile
-          "
-          type="button"
-          class="btn-modo btn-modo-sec btn-desistir-partida"
-          @click="confirmarDesistencia"
-        >
-          Desistir da partida
-        </button>
 
         <TecladoVirtual v-if="!store.espectador" />
       </div>

@@ -126,6 +126,34 @@ def test_fila_persiste_reserva_bot_como_redis(monkeypatch):
     assert Fila.Fila.get("u1").BotReservadoId
 
 
+def test_fila_redis_inicia_bot_sem_lock_pareamento(monkeypatch):
+    """Poll da fila não pode travar se outro worker segura o lock de PvP."""
+    from nucleo import matchmaking as mm
+    from nucleo.redis_fila import FilaMatchmakingRedis
+
+    monkeypatch.setattr(
+        "nucleo.redis_fila.AdquirirLockRedis", lambda *a, **k: False
+    )
+    G = GerenciadorFake()
+    Fila = FilaMatchmakingRedis.__new__(FilaMatchmakingRedis)
+    FilaMatchmaking.__init__(Fila)
+    Fila.Fila = _ArmazemFilaCopia()
+    Fila.RevancheAlvo = {}
+    Fila.UltimoMatch = {}
+    Fila.UltimoOponenteHumano = {}
+    T0 = 3000.0
+    monkeypatch.setattr(mm.time, "time", lambda: T0)
+    Fila.Fila["u1"] = mm.EntradaFila(
+        IdConta="u1", Nick="tester", Pontos=400, EntrouEm=T0
+    )
+    monkeypatch.setattr(
+        mm.time, "time", lambda: T0 + BUSCA_REAL_SEG + ESPERA_BOT_SEG + 0.2
+    )
+    Fila.Processar(G)
+    assert "u1" not in Fila.Fila
+    assert "u1" in Fila.UltimoMatch
+
+
 def test_fila_entra_bot_apos_tempo_configurado(monkeypatch):
     from nucleo import matchmaking as mm
 

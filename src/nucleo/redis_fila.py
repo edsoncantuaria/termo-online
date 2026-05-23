@@ -175,9 +175,11 @@ class FilaMatchmakingRedis(FilaMatchmaking):
         self.UltimoOponenteHumano = _MapaRedisJson(_CHAVE_ULTIMO_OPONENTE)
 
     def Processar(self, Gerenciador) -> None:
+        # Bots/tempo na fila: sempre (poll do cliente não pode depender do lock).
+        self._ProcessarBotsNaFila(Gerenciador)
         if not AdquirirLockRedis(_LOCK_PROCESSAR, Segundos=5):
             return
-        super().Processar(Gerenciador)
+        self._TentarParearReais(Gerenciador)
 
 
 def ConstruirFilaGlobal() -> FilaMatchmaking:

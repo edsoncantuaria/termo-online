@@ -177,7 +177,7 @@ def MetadadosRankJogadorSala(Jogador) -> dict:
     IdConta = getattr(Jogador, "IdConta", None)
     if IdConta:
         Conta = persistencia.ObterContaPorId(IdConta)
-        if Conta:
+        if Conta and not Conta.get("eh_visitante"):
             return MontarCamposRankExibicao(
                 int(Conta.get("partidas_ranqueadas", 0)),
                 int(Conta.get("pontos_ranqueada", 0)),

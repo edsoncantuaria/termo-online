@@ -1242,6 +1242,7 @@ body:has(.app.modo-jogo) {
 }
 
 .app.modo-jogo .jogo-meta,
+.app.modo-jogo .jogo-acoes-partida,
 .app.modo-jogo .faixa-estado,
 .app.modo-jogo .card-aguardo,
 .app.modo-jogo .dica-celulas,

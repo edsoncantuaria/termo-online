@@ -3950,6 +3950,125 @@ html.tema-claro .resultado-grade-card {
   color: var(--text-muted);
 }
 
+/* Desistir — desktop (acima da grade; no mobile fica na barra inferior) */
+.jogo-acoes-partida {
+  width: 100%;
+  max-width: 500px;
+  margin: -0.15rem auto 0.85rem;
+  flex-shrink: 0;
+}
+
+.btn-desistir-partida {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--raio-md);
+  border: 1px solid rgba(232, 128, 128, 0.42);
+  background: linear-gradient(
+    135deg,
+    rgba(232, 128, 128, 0.12),
+    rgba(180, 80, 80, 0.06)
+  );
+  color: #f5c4c4;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s,
+    transform 0.12s;
+}
+
+.btn-desistir-partida:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(232, 128, 128, 0.22),
+    rgba(180, 80, 80, 0.12)
+  );
+  border-color: rgba(240, 150, 150, 0.65);
+  color: #ffe0e0;
+  transform: translateY(-1px);
+}
+
+.btn-desistir-partida:focus-visible {
+  outline: 2px solid rgba(232, 128, 128, 0.75);
+  outline-offset: 2px;
+}
+
+.btn-desistir-partida-icone {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1;
+  background: rgba(232, 128, 128, 0.2);
+  border: 1px solid rgba(232, 128, 128, 0.35);
+}
+
+.btn-desistir-partida-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.btn-desistir-partida-texto strong {
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.btn-desistir-partida-texto small {
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--text-muted);
+}
+
+.app.modo-jogo-ranqueada .btn-desistir-partida {
+  border-color: rgba(201, 180, 88, 0.38);
+  background: linear-gradient(
+    135deg,
+    rgba(201, 180, 88, 0.1),
+    rgba(232, 128, 128, 0.08)
+  );
+  color: #f0dcc0;
+}
+
+.app.modo-jogo-ranqueada .btn-desistir-partida:hover {
+  border-color: rgba(201, 180, 88, 0.55);
+  color: #fff3dc;
+}
+
+.app.modo-jogo-ranqueada .btn-desistir-partida-icone {
+  background: rgba(201, 180, 88, 0.18);
+  border-color: rgba(201, 180, 88, 0.35);
+}
+
+html.tema-claro .btn-desistir-partida {
+  color: #9b3d3d;
+  background: rgba(200, 70, 70, 0.08);
+  border-color: rgba(180, 60, 60, 0.35);
+}
+
+html.tema-claro .btn-desistir-partida:hover {
+  color: #7a2020;
+  background: rgba(200, 70, 70, 0.14);
+}
+
+html.tema-claro .btn-desistir-partida-texto small {
+  color: #6b5a5a;
+}
+
 .timer-arena .timer-icone {
   margin-right: 0.25rem;
   font-size: 0.95em;

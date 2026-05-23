@@ -291,6 +291,78 @@ def EncerrarPausaSuave(Gerenciador: GerenciadorSalas, Sala: SalaJogo) -> bool:
     return True
 
 
+def ProcessarSaidaJogadorOnline(
+    Gerenciador: GerenciadorSalas,
+    Sala: SalaJogo,
+    IdJogadorSaindo: str,
+    *,
+    DesistenciaVoluntaria: bool = False,
+) -> dict:
+    """
+    Desistência, abandono ou saída explícita.
+    Ranqueada: encerra com vitória do oponente (ou cancela se desertor não pontuou).
+    Arena/desafio: se restar um jogador com sessão ativa, vitória imediata dele.
+    """
+    Jogador = Sala.Jogadores.get(IdJogadorSaindo)
+    SemPenalidade = bool(Jogador and JogadorSemPontuacaoNaSessao(Jogador))
+
+    if Sala.EstadoSala == "pausada" and Sala.IdJogadorPausado == IdJogadorSaindo:
+        Sala.EstadoSala = Sala.EstadoSalaAntesPausa or "jogando"
+        LimparEstadoPausa(Sala)
+
+    if Jogador:
+        Jogador.AusenteContinua = False
+        Jogador.DesconexaoInicioEpoch = None
+
+    Ativos = [
+        J
+        for J in Gerenciador.JogadoresAtivos(Sala)
+        if J.IdJogador != IdJogadorSaindo
+    ]
+
+    if Sala.Configuracao.Ranqueada and Ativos:
+        if DesistenciaVoluntaria and SemPenalidade:
+            Gerenciador.EncerrarSessaoCancelada(Sala)
+            return {
+                "acao": "cancelada",
+                "semPenalidade": True,
+                "partidaEncerrada": True,
+                "partidaCancelada": True,
+            }
+        Gerenciador.EncerrarSessao(Sala, VencedorForcado=Ativos[0].IdJogador)
+        return {
+            "acao": "encerrada",
+            "semPenalidade": False,
+            "partidaEncerrada": True,
+            "vencedorId": Ativos[0].IdJogador,
+        }
+
+    if len(Ativos) == 1 and PartidaEmAndamento(Sala):
+        Gerenciador.EncerrarSessao(Sala, VencedorForcado=Ativos[0].IdJogador)
+        return {
+            "acao": "encerrada",
+            "semPenalidade": SemPenalidade,
+            "partidaEncerrada": True,
+            "vencedorId": Ativos[0].IdJogador,
+        }
+
+    Gerenciador.RemoverJogador(Sala.CodigoSala, IdJogadorSaindo, Persistir=True)
+    SalaRestante = Gerenciador.ObterSala(Sala.CodigoSala)
+    if (
+        SalaRestante
+        and SalaRestante.EstadoSala == "pausada"
+        and SalaRestante.IdJogadorPausado == IdJogadorSaindo
+    ):
+        SalaRestante.EstadoSala = SalaRestante.EstadoSalaAntesPausa or "jogando"
+        LimparEstadoPausa(SalaRestante)
+        Gerenciador.PersistirSala(SalaRestante)
+    return {
+        "acao": "removido",
+        "semPenalidade": SemPenalidade,
+        "partidaEncerrada": not SalaRestante or bool(SalaRestante.PartidaEncerrada),
+    }
+
+
 def AplicarAbandonoDefinitivo(
     Gerenciador: GerenciadorSalas,
     Sala: SalaJogo,
@@ -308,31 +380,7 @@ def AplicarAbandonoDefinitivo(
         Sala.CodigoSala,
     )
 
-    if Sala.EstadoSala == "pausada" and Sala.IdJogadorPausado == IdJogador:
-        Retorno = Sala.EstadoSalaAntesPausa or "jogando"
-        LimparEstadoPausa(Sala)
-        Sala.EstadoSala = Retorno
-
-    Ativos = [
-        J
-        for J in Gerenciador.JogadoresAtivos(Sala)
-        if J.IdJogador != IdJogador
-    ]
-
-    if Sala.Configuracao.Ranqueada and Ativos:
-        Gerenciador.EncerrarSessao(Sala, VencedorForcado=Ativos[0].IdJogador)
-        return True
-
-    Gerenciador.RemoverJogador(Sala.CodigoSala, IdJogador, Persistir=True)
-    SalaRestante = Gerenciador.ObterSala(Sala.CodigoSala)
-    if (
-        SalaRestante
-        and SalaRestante.EstadoSala == "pausada"
-        and SalaRestante.IdJogadorPausado == IdJogador
-    ):
-        SalaRestante.EstadoSala = SalaRestante.EstadoSalaAntesPausa or "jogando"
-        LimparEstadoPausa(SalaRestante)
-        Gerenciador.PersistirSala(SalaRestante)
+    ProcessarSaidaJogadorOnline(Gerenciador, Sala, IdJogador)
     return True
 
 
@@ -449,48 +497,18 @@ def DesistirPartida(
         Sala.CodigoSala,
     )
 
-    if Sala.EstadoSala == "pausada" and Sala.IdJogadorPausado == IdJogador:
-        Retorno = Sala.EstadoSalaAntesPausa or "jogando"
-        LimparEstadoPausa(Sala)
-        Sala.EstadoSala = Retorno
-
-    Jogador = Sala.Jogadores.get(IdJogador)
-    if Jogador:
-        Jogador.AusenteContinua = False
-        Jogador.DesconexaoInicioEpoch = None
-
-    Ativos = Gerenciador.JogadoresAtivos(Sala)
-    Oponentes = [J for J in Ativos if J.IdJogador != IdJogador]
-
-    SemPenalidade = bool(Jogador and JogadorSemPontuacaoNaSessao(Jogador))
-
-    if Sala.Configuracao.Ranqueada and Oponentes:
-        if SemPenalidade:
-            Gerenciador.EncerrarSessaoCancelada(Sala)
-            SalaFinal = Gerenciador.ObterSala(Sala.CodigoSala) or Sala
-            return {
-                "desistiu": True,
-                "semPenalidade": True,
-                "partidaCancelada": True,
-                "partidaEncerrada": True,
-                "codigoSala": Sala.CodigoSala,
-                "estado": Gerenciador.EstadoPublicoSala(SalaFinal, IdJogador),
-            }, None, 200
-        Gerenciador.EncerrarSessao(Sala, VencedorForcado=Oponentes[0].IdJogador)
-        SalaFinal = Gerenciador.ObterSala(Sala.CodigoSala) or Sala
-        return {
-            "desistiu": True,
-            "semPenalidade": False,
-            "partidaEncerrada": True,
-            "codigoSala": Sala.CodigoSala,
-            "estado": Gerenciador.EstadoPublicoSala(SalaFinal, IdJogador),
-        }, None, 200
-
-    Gerenciador.RemoverJogador(Sala.CodigoSala, IdJogador)
-    SalaRestante = Gerenciador.ObterSala(Sala.CodigoSala)
-    return {
+    Resultado = ProcessarSaidaJogadorOnline(
+        Gerenciador, Sala, IdJogador, DesistenciaVoluntaria=True
+    )
+    SalaFinal = Gerenciador.ObterSala(Sala.CodigoSala) or Sala
+    Resposta = {
         "desistiu": True,
-        "semPenalidade": SemPenalidade,
-        "partidaEncerrada": not SalaRestante or SalaRestante.PartidaEncerrada,
+        "semPenalidade": Resultado.get("semPenalidade", False),
+        "partidaEncerrada": Resultado.get("partidaEncerrada", False),
         "codigoSala": Sala.CodigoSala,
-    }, None, 200
+    }
+    if Resultado.get("partidaCancelada"):
+        Resposta["partidaCancelada"] = True
+    if Resultado.get("acao") in ("encerrada", "cancelada"):
+        Resposta["estado"] = Gerenciador.EstadoPublicoSala(SalaFinal, IdJogador)
+    return Resposta, None, 200
