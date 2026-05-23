@@ -1068,6 +1068,26 @@ export const useTermoStore = defineStore("termo", {
       this.carregarInfoDiaria();
     },
 
+    prepararNovaRodadaArena() {
+      this.arenaTentativas = [];
+      this.arenaTentativasExibidas = 0;
+      this.tentativa = 0;
+      this.letras = LetrasVazias();
+      this.indiceCursor = 0;
+      this.teclado = {};
+      this.carregandoChute = false;
+      this.linhaShake = null;
+    },
+
+    /** Teclado espelha só as tentativas atuais da rodada (evita cores da rodada anterior). */
+    sincronizarTecladoArena(Tentativas) {
+      let novo = {};
+      (Tentativas || []).forEach((t) => {
+        novo = RegistrarLetrasNoTeclado(t, novo);
+      });
+      this.teclado = novo;
+    },
+
     resetarJogo() {
       PararIntervaloPausa();
       this.pararCronometro();
@@ -1079,8 +1099,7 @@ export const useTermoStore = defineStore("termo", {
       this.tentativasHist = [];
       this.tabuleiros = null;
       this.gradesMulti = [];
-      this.arenaTentativas = [];
-      this.arenaTentativasExibidas = 0;
+      this.prepararNovaRodadaArena();
       this.arenaRodadaSync = null;
       this.limparChat();
       this.mostrarToast("");
@@ -1751,6 +1770,7 @@ export const useTermoStore = defineStore("termo", {
         return;
       }
       this.configArena = D.configuracao;
+      const estadoAnterior = this.estadoSalaArena;
       this.estadoSalaArena = D.estadoSala;
       this.dadosSala = D;
       this.espectador = !!eu?.espectador;
@@ -1790,12 +1810,16 @@ export const useTermoStore = defineStore("termo", {
 
       if (D.rodadaAtual !== this.arenaRodadaSync) {
         this.arenaRodadaSync = D.rodadaAtual;
-        this.arenaTentativas = [];
-        this.arenaTentativasExibidas = 0;
-        this.letras = LetrasVazias();
-        this.indiceCursor = 0;
+        this.prepararNovaRodadaArena();
         this.ultimoToastRodadaFim = null;
         if (D.estadoSala === "jogando" && eu && !eu.finalizou) {
+          this.encerrada = false;
+        }
+      }
+
+      if (D.estadoSala === "jogando" && estadoAnterior !== "jogando") {
+        this.prepararNovaRodadaArena();
+        if (eu && !eu.finalizou) {
           this.encerrada = false;
         }
       }
@@ -1817,9 +1841,7 @@ export const useTermoStore = defineStore("termo", {
           }
           return norm;
         });
-        eu.tentativas?.forEach((t) => {
-          this.teclado = RegistrarLetrasNoTeclado(t, this.teclado);
-        });
+        this.sincronizarTecladoArena(eu.tentativas);
         this.tentativa = total;
         this.arenaTentativasExibidas = total;
         this.encerrada = !!eu.finalizou;
@@ -1839,12 +1861,20 @@ export const useTermoStore = defineStore("termo", {
         D.estadoSala === "entre_rodadas"
       ) {
         this.encerrada = true;
+        this.teclado = {};
         this.letras = LetrasVazias();
         this.indiceCursor = 0;
+        this.tentativa = 0;
+        this.arenaTentativas = [];
+        this.arenaTentativasExibidas = 0;
       } else if (this.view === "jogo" && D.estadoSala === "countdown") {
         this.encerrada = true;
+        this.teclado = {};
         this.letras = LetrasVazias();
         this.indiceCursor = 0;
+        this.tentativa = 0;
+        this.arenaTentativas = [];
+        this.arenaTentativasExibidas = 0;
       } else if (this.view === "jogo" && D.estadoSala === "pausada") {
         this.encerrada = true;
         this.letras = LetrasVazias();
@@ -1919,34 +1949,17 @@ export const useTermoStore = defineStore("termo", {
         D.rodadaAtual !== this.ultimoToastRodadaFim
       ) {
         this.ultimoToastRodadaFim = D.rodadaAtual;
-        const verdes = D.maxVerdesRodada ?? 0;
-        if (D.rodadaPorVerdes) {
+        const msg = D.mensagemFimRodada;
+        if (msg) {
+          this.toastVitoriaRodada = msg;
           const ids = D.vencedoresRodadaIds || [];
-          const eu = ids.includes(this.idJogador);
-          if (D.empateVerdesRodada && ids.length > 1) {
-            this.toastVitoriaRodada = eu
-              ? `Empate! +1 pt (${verdes} verdes)`
-              : `Empate na rodada (${verdes} verdes)`;
-            if (eu) TocarSom("vitoria");
-          } else if (ids.length === 1) {
-            const nome =
-              D.vencedoresRodadaNomes?.[0] || D.ultimoVencedorRodada || "?";
-            this.toastVitoriaRodada = eu
-              ? `+1 pt (${verdes} verdes)!`
-              : `${nome} venceu (${verdes} verdes)`;
-            if (eu) TocarSom("vitoria");
-          }
-        } else if (D.ultimoVencedorRodada) {
-          const euVenceu = D.ultimoVencedorRodadaId === this.idJogador;
-          this.toastVitoriaRodada = euVenceu
-            ? "+1 vitória de rodada!"
-            : `${D.ultimoVencedorRodada} venceu a rodada`;
+          const euVenceu =
+            D.ultimoVencedorRodadaId === this.idJogador ||
+            ids.includes(this.idJogador);
           if (euVenceu) TocarSom("vitoria");
-        }
-        if (this.toastVitoriaRodada) {
           setTimeout(() => {
             this.toastVitoriaRodada = "";
-          }, 2800);
+          }, 4500);
         }
       }
 

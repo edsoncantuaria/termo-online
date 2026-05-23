@@ -254,6 +254,13 @@ function avatarPlacar(j) {
           </div>
           <p class="entre-rodadas-resumo">{{ textoEntreRodadas }}</p>
           <p
+            v-if="store.dadosSala?.mensagemFimRodada"
+            class="entre-rodadas-verdes"
+            role="status"
+          >
+            {{ store.dadosSala.mensagemFimRodada }}
+          </p>
+          <p
             v-if="store.mensagemAguardoArena"
             class="entre-rodadas-aguardo"
           >
@@ -305,12 +312,24 @@ function avatarPlacar(j) {
         </div>
 
         <h3 class="lateral-titulo titulo-outros">{{ store.tituloOutros }}</h3>
-        <div class="outros-jogadores">
+        <p
+          v-if="store.outrosNaRodada.length >= 2 && verOutros"
+          class="dica-outros-multi"
+        >
+          Resumo da melhor tentativa — toque para ver o tabuleiro completo.
+        </p>
+        <div
+          class="outros-jogadores"
+          :class="{
+            'outros-jogadores--multi': store.outrosNaRodada.length >= 2,
+          }"
+        >
           <JogadorRodadaCard
             v-for="j in store.outrosNaRodada"
             :key="j.idJogador"
             :jogador="j"
             :ver-outros="verOutros"
+            :modo-multiplo="store.outrosNaRodada.length >= 2"
             :max-tentativas="store.maxTentativas"
           />
         </div>

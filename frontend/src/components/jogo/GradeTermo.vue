@@ -4,6 +4,7 @@ import TileLetra from "./TileLetra.vue";
 defineProps({
   linhas: { type: Array, required: true },
   compacta: { type: Boolean, default: false },
+  ultraCompacta: { type: Boolean, default: false },
   shakeLinha: { type: Number, default: null },
   editavel: { type: Boolean, default: true },
 });
@@ -12,7 +13,14 @@ const emit = defineEmits(["selecionar-celula"]);
 </script>
 
 <template>
-  <div class="grade" :class="{ 'grade-mini': compacta, 'grade-mini-compacta': compacta }">
+  <div
+    class="grade"
+    :class="{
+      'grade-mini': compacta && !ultraCompacta,
+      'grade-mini-compacta': compacta && !ultraCompacta,
+      'grade-ultra-compacta': ultraCompacta,
+    }"
+  >
     <div
       v-for="(linha, idx) in linhas"
       :key="idx"

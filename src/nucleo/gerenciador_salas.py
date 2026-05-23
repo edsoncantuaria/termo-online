@@ -14,6 +14,7 @@ from .arena_rodadas import (
     DeterminarVencedorRodada,
     DeterminarVencedoresRodadaPorVerdes,
     FormatarModoSessao,
+    MontarMensagemFimRodada,
     JogadorAtingiuMetaVitorias,
     MelhorContagemVerdes,
     ModoPontos,
@@ -997,9 +998,17 @@ class GerenciadorSalas:
             UltimoNome = Sala.Jogadores[Sala.UltimoVencedorRodadaId].NomeJogador
         UltimaRodada = (
             Sala.HistoricoRodadas[-1]
-            if Sala.HistoricoRodadas and Sala.EstadoSala == "entre_rodadas"
+            if Sala.HistoricoRodadas
+            and Sala.EstadoSala in ("entre_rodadas", "countdown")
             else {}
         )
+        MensagemFimRodada = None
+        if UltimaRodada:
+            MensagemFimRodada = MontarMensagemFimRodada(
+                Sala.HistoricoRodadas,
+                IdObservador,
+                Sala.Jogadores,
+            )
         VencedoresRodadaIds = UltimaRodada.get("vencedoresRodadaIds") or []
         VencedoresRodadaNomes = [
             Sala.Jogadores[I].NomeJogador
@@ -1064,6 +1073,7 @@ class GerenciadorSalas:
             "vencedoresRodadaIds": VencedoresRodadaIds,
             "vencedoresRodadaNomes": VencedoresRodadaNomes,
             "maxVerdesRodada": UltimaRodada.get("maxVerdes", 0),
+            "mensagemFimRodada": MensagemFimRodada,
             "progressoEvento": self._ProgressoEventoSala(Sala, IdObservador),
             "revancheRanqueada": self._RevancheRanqueadaDisponivel(Sala, IdObservador),
             "configuracao": {

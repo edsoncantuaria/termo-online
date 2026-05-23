@@ -1,20 +1,26 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { useTermoStore } from "../../stores/termo.js";
-import { AvatarEfetivo } from "../../utils/avatares.js";
 import JogadorAvatar from "../jogo/JogadorAvatar.vue";
-
-const store = useTermoStore();
 import GradeTermo from "../jogo/GradeTermo.vue";
 import { StatusJogadorRodada } from "../../utils/jogador.js";
-import { NormalizarTentativa } from "../../utils/jogo.js";
-import { TAMANHO_PALAVRA } from "../../utils/constantes.js";
+import {
+  ContarVerdesTentativa,
+  MelhorTentativaParaExibir,
+  NormalizarTentativa,
+} from "../../utils/jogo.js";
+
+const store = useTermoStore();
 
 const props = defineProps({
   jogador: { type: Object, required: true },
   verOutros: { type: Boolean, default: false },
   maxTentativas: { type: Number, default: 6 },
+  /** Vários adversários na lateral — resumo compacto com expansão. */
+  modoMultiplo: { type: Boolean, default: false },
 });
+
+const expandido = ref(false);
 
 const status = computed(() =>
   StatusJogadorRodada(props.jogador, props.maxTentativas)
@@ -30,10 +36,39 @@ const linhasMini = computed(() => {
   }));
 });
 
+const melhorTentativa = computed(() =>
+  MelhorTentativaParaExibir(props.jogador.tentativas)
+);
+
+const linhaResumo = computed(() => {
+  const melhor = melhorTentativa.value;
+  if (!melhor) return null;
+  return { ...melhor, revelada: true, atual: false };
+});
+
+const verdesMelhor = computed(() =>
+  melhorTentativa.value ? ContarVerdesTentativa(melhorTentativa.value) : 0
+);
+
+const usarResumo = computed(
+  () =>
+    props.modoMultiplo &&
+    props.verOutros &&
+    !props.jogador.espectador &&
+    linhaResumo.value &&
+    !expandido.value
+);
+
+const mostrarGradeCompleta = computed(
+  () =>
+    props.verOutros &&
+    !props.jogador.espectador &&
+    linhasMini.value.length &&
+    (!props.modoMultiplo || expandido.value)
+);
+
 const avatarId = computed(() =>
-  props.jogador.souEu
-    ? store.avatarIdEfetivo()
-    : props.jogador.avatarId
+  props.jogador.souEu ? store.avatarIdEfetivo() : props.jogador.avatarId
 );
 
 const pips = computed(() => {
@@ -43,6 +78,24 @@ const pips = computed(() => {
     acerto: props.jogador.venceu && i === usadas - 1,
   }));
 });
+
+function alternarExpansao() {
+  expandido.value = !expandido.value;
+}
+
+watch(
+  () => props.jogador.idJogador,
+  () => {
+    expandido.value = false;
+  }
+);
+
+watch(
+  () => props.jogador.tentativas?.length,
+  () => {
+    if (!props.modoMultiplo) expandido.value = false;
+  }
+);
 </script>
 
 <template>
@@ -53,6 +106,8 @@ const pips = computed(() => {
       { 'jogador-venceu': jogador.venceu },
       { 'jogador-finalizou': jogador.finalizou && !jogador.venceu },
       { 'jogador-espectador': jogador.espectador },
+      { 'jogador-rodada-card--multi': modoMultiplo },
+      { 'jogador-rodada-card--expandido': modoMultiplo && expandido },
     ]"
     :data-jogador-id="jogador.idJogador"
   >
@@ -66,12 +121,37 @@ const pips = computed(() => {
         <span class="jogador-rodada-nome">{{ jogador.nomeJogador }}</span>
         <span class="jogador-rodada-status">{{ status.texto }}</span>
       </div>
+      <span
+        v-if="usarResumo && verdesMelhor > 0"
+        class="jogador-rodada-badge-verdes"
+        :title="`${verdesMelhor} letra(s) verde(s) na melhor tentativa`"
+      >
+        {{ verdesMelhor }} verde{{ verdesMelhor === 1 ? "" : "s" }}
+      </span>
     </div>
-    <div class="jogador-rodada-corpo">
+
+    <div v-if="usarResumo" class="jogador-rodada-resumo">
       <GradeTermo
-        v-if="verOutros && !jogador.espectador && linhasMini.length"
+        :linhas="[linhaResumo]"
+        ultra-compacta
+        :editavel="false"
+      />
+      <button
+        type="button"
+        class="btn-expandir-grade"
+        :aria-expanded="false"
+        @click="alternarExpansao"
+      >
+        {{ jogador.tentativas?.length || 0 }} tentativas
+      </button>
+    </div>
+
+    <div v-else class="jogador-rodada-corpo">
+      <GradeTermo
+        v-if="mostrarGradeCompleta"
         :linhas="linhasMini"
         compacta
+        :editavel="false"
       />
       <div
         v-else-if="!jogador.espectador"
@@ -86,6 +166,15 @@ const pips = computed(() => {
         />
       </div>
       <p v-else class="jogador-rodada-hint">Acompanha a partida sem jogar.</p>
+      <button
+        v-if="modoMultiplo && verOutros && linhasMini.length && expandido"
+        type="button"
+        class="btn-expandir-grade btn-expandir-grade--fechar"
+        :aria-expanded="true"
+        @click="alternarExpansao"
+      >
+        Ocultar tentativas
+      </button>
     </div>
   </article>
 </template>

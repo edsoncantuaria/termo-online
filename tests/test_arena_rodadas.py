@@ -11,6 +11,7 @@ from nucleo.arena_rodadas import (
     MelhorContagemVerdes,
     ModoPontos,
     ModoVitorias,
+    MontarMensagemFimRodada,
     MontarPlacar,
     SessaoAtingiuLimite,
 )
@@ -133,3 +134,26 @@ def test_sem_verdes_ninguem_vence():
     assert Vencedores == []
     assert MaxV == 0
     assert MelhorContagemVerdes(J1) == 0
+
+
+def test_mensagem_fim_rodada_mais_perto():
+    J1 = JogadorSala(IdJogador="a", NomeJogador="Alpha")
+    J2 = JogadorSala(IdJogador="b", NomeJogador="Beta")
+    Historico = [
+        {
+            "rodada": 1,
+            "porVerdes": True,
+            "maxVerdes": 2,
+            "vencedoresRodadaIds": ["b"],
+            "resultados": [
+                {"idJogador": "a", "verdesMelhor": 1},
+                {"idJogador": "b", "verdesMelhor": 2},
+            ],
+        }
+    ]
+    MsgVencedor = MontarMensagemFimRodada(Historico, "b", {"a": J1, "b": J2})
+    MsgPerdedor = MontarMensagemFimRodada(Historico, "a", {"a": J1, "b": J2})
+    assert "mais perto" in MsgVencedor
+    assert "2 verde" in MsgVencedor
+    assert "Beta venceu" in MsgPerdedor
+    assert "1 suas" in MsgPerdedor

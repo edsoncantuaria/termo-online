@@ -19,6 +19,26 @@ export function NormalizarTentativa(Tent) {
   return { ...Tent, letras, estados: Tent.estados || [] };
 }
 
+export function ContarVerdesTentativa(Tent) {
+  const t = NormalizarTentativa(Tent);
+  return (t.estados || []).filter((e) => e === "correto").length;
+}
+
+/** Melhor tentativa para comparar adversários (mais letras verdes). */
+export function MelhorTentativaParaExibir(Tentativas) {
+  if (!Tentativas?.length) return null;
+  let Melhor = Tentativas[0];
+  let MaxVerdes = ContarVerdesTentativa(Melhor);
+  for (const T of Tentativas) {
+    const V = ContarVerdesTentativa(T);
+    if (V > MaxVerdes) {
+      MaxVerdes = V;
+      Melhor = T;
+    }
+  }
+  return NormalizarTentativa(Melhor);
+}
+
 export function RegistrarLetrasNoTeclado(Tent, teclado) {
   const t = NormalizarTentativa(Tent);
   const novo = { ...teclado };

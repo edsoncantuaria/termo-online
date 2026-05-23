@@ -117,6 +117,65 @@ def MontarPlacar(Jogadores: dict, Modo: str = ModoPontos, MetaVitorias: int = 5)
     )
 
 
+def MontarMensagemFimRodada(
+    HistoricoRodadas: list,
+    IdObservador: str,
+    Jogadores: dict,
+) -> str | None:
+    """Texto para o jogador ao fim da rodada (acerto, mais perto por verdes ou empate)."""
+    if not HistoricoRodadas:
+        return None
+    Ultima = HistoricoRodadas[-1]
+    Resultados = {
+        R["idJogador"]: int(R.get("verdesMelhor") or 0)
+        for R in Ultima.get("resultados") or []
+    }
+    EuVerdes = Resultados.get(IdObservador, 0)
+
+    if Ultima.get("porVerdes"):
+        MaxVerdes = int(Ultima.get("maxVerdes") or 0)
+        Ids = Ultima.get("vencedoresRodadaIds") or []
+        if MaxVerdes < 1:
+            return "Ninguém ficou perto — 0 letras verdes na melhor tentativa."
+        if len(Ids) > 1:
+            if IdObservador in Ids:
+                return (
+                    f"Empate! Você ficou na frente com {MaxVerdes} letra(s) verde(s) "
+                    f"(sua melhor tentativa: {EuVerdes})."
+                )
+            return f"Empate — {MaxVerdes} letra(s) verde(s) na melhor tentativa."
+        if len(Ids) == 1:
+            IdV = Ids[0]
+            NomeV = (
+                Jogadores[IdV].NomeJogador
+                if IdV in Jogadores
+                else "Adversário"
+            )
+            VerdesV = Resultados.get(IdV, 0)
+            if IdV == IdObservador:
+                Outros = [V for J, V in Resultados.items() if J != IdObservador]
+                MelhorOutro = max(Outros) if Outros else 0
+                return (
+                    f"Você venceu — ficou mais perto da palavra "
+                    f"({VerdesV} verde(s) vs {MelhorOutro} do adversário)."
+                )
+            return (
+                f"{NomeV} venceu — ficou mais perto da palavra "
+                f"({VerdesV} verde(s) vs {EuVerdes} suas)."
+            )
+        return None
+
+    IdVencedor = Ultima.get("vencedorRodadaId")
+    if IdVencedor and IdVencedor in Jogadores:
+        if IdVencedor == IdObservador:
+            return "Você acertou a palavra!"
+        return f"{Jogadores[IdVencedor].NomeJogador} acertou a palavra."
+
+    if EuVerdes > 0:
+        return f"Ninguém acertou. Sua melhor tentativa: {EuVerdes} letra(s) verde(s)."
+    return "Ninguém acertou nesta rodada."
+
+
 def DeterminarCampeaoSessao(Jogadores: dict, Modo: str = ModoPontos) -> str | None:
     if not Jogadores:
         return None
