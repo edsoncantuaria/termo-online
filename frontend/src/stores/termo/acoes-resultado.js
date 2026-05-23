@@ -37,6 +37,9 @@ export function mostrarResultadoSolo(venceu, palavra, pontos, modo, tentativasUs
     palavra,
     dataDia: this.dataDia,
   });
+  if (modo === "pratica") {
+    this.resultado.texto = `${this.resultado.texto} Modo treino no dispositivo — sem XP nem histórico.`;
+  }
   if (modo === "diaria") {
     const S = ObterStats();
     S.ultimaGrade = gradeTexto;

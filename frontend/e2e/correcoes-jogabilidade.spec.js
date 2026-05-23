@@ -8,8 +8,6 @@ import {
   metaArena,
   tentativasUsadasApi,
   chuteInvalidoViaWs,
-  iniciarPraticaViaApi,
-  retomarPraticaNaPagina,
 } from "./helpers/sala-arena.js";
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -138,27 +136,38 @@ test.describe("Correções de jogabilidade", () => {
     await expect(host.locator(".tentativas-dots .dot.usada")).toHaveCount(0);
   });
 
-  test("5/E. solo: sem cache local valida no servidor", async ({
+  test("5/E. prática: roda no dispositivo com dicionário em cache", async ({
     page,
     request,
   }) => {
-    await page.route("**/api/dicionario/palavras", (route) => route.abort());
-    await page.route("**/api/dicionario/info", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ hash: "e2e-sem-cache", total: 5000 }),
-      });
-    });
+    const Info = await request.get("/api/dicionario/info");
+    expect(Info.ok()).toBeTruthy();
+    const { hash } = await Info.json();
+    const Palavras = await request.get("/api/dicionario/palavras");
+    expect(Palavras.ok()).toBeTruthy();
+    const { palavras } = await Palavras.json();
 
-    const partida = await iniciarPraticaViaApi(request, "E2ESoloCache");
-    await retomarPraticaNaPagina(page, partida, "E2ESoloCache");
-    await page.waitForTimeout(3500);
-
-    await digitarPalavra(page, "termo");
-    await expect(page.locator(".toast")).toContainText(
-      /validando no servidor/i,
-      { timeout: 10000 }
+    await page.goto("/");
+    await dispensarTutorial(page);
+    await page.evaluate(
+      ([h, lista]) => {
+        localStorage.setItem("termoDicionarioHash", h);
+        localStorage.setItem("termoDicionarioPalavras", JSON.stringify(lista));
+      },
+      [hash, palavras.slice(0, 500)]
     );
+
+    await page.getByRole("button", { name: /Jogar/i }).click();
+    await page.getByRole("button", { name: /^Prática$/i }).click();
+    await expect(page.locator(".grade")).toBeVisible({ timeout: 15000 });
+
+    let bloqueouIniciar = false;
+    page.on("request", (req) => {
+      if (req.url().includes("/api/jogar/iniciar") && req.method() === "POST") {
+        bloqueouIniciar = true;
+      }
+    });
+    await page.waitForTimeout(500);
+    expect(bloqueouIniciar).toBe(false);
   });
 });

@@ -87,6 +87,9 @@ export function MontarPayloadSessao(Estado) {
       teclado: Estado.teclado,
       maximoTentativas: Estado.maxTentativas,
     };
+    if (Estado.modo === "pratica" && Estado.palavraSecreta) {
+      dados.solo.palavraSecreta = Estado.palavraSecreta;
+    }
   }
   return dados.arena || dados.ranqueada || dados.solo ? dados : null;
 }

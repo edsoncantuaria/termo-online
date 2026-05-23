@@ -41,10 +41,10 @@ def test_contar_partidas_solo_por_modo(tmp_path, monkeypatch):
     assert Contagem[ModoDueto]["partidas"] >= 1
 
     Lista = MontarListaPartidasPorModo(Contagem, 3, 1, 2, 1)
-    Pratica = next(x for x in Lista if x["modo"] == ModoPratica)
+    ModosLista = {x["modo"] for x in Lista}
+    assert ModoPratica not in ModosLista
     Ranq = next(x for x in Lista if x["modo"] == "ranqueada")
     Treino = next(x for x in Lista if x["modo"] == "treino_ranqueado")
-    assert Pratica["partidas"] >= 1
     assert Ranq["partidas"] == 3
     assert Ranq["vitorias"] == 1
     assert Treino["nome"] == "Treino!"
@@ -53,7 +53,8 @@ def test_contar_partidas_solo_por_modo(tmp_path, monkeypatch):
 
     Stats = ObterEstatisticasJogador("statsmodo")
     assert "partidasPorModo" in Stats
-    assert len(Stats["partidasPorModo"]) == 7
+    assert len(Stats["partidasPorModo"]) == 6
+    assert all(x["modo"] != ModoPratica for x in Stats["partidasPorModo"])
 
 
 def test_registrar_partida_treino_ranqueado(tmp_path, monkeypatch):

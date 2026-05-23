@@ -59,7 +59,7 @@ const gruposModos = [
         id: "pratica",
         icone: "🎯",
         nome: "Prática",
-        desc: "Uma palavra por partida, quantas vezes quiser. Ótimo para aquecer.",
+        desc: "Roda só no seu aparelho (também offline). Sem XP nem contagem no perfil.",
       },
       {
         id: "multipalavra",

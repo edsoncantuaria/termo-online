@@ -246,7 +246,7 @@ function clicarAbaRanqueado() {
               <svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 2a8 8 0 1 1-8 8 8 8 0 0 1 8-8zm-1 3v6l5 3 .9-1.45-4.4-2.55V7z"/></svg>
             </span>
             <strong>Prática</strong>
-            <span>Palavras ilimitadas · treine no seu ritmo</span>
+            <span>No dispositivo · funciona offline · sem XP</span>
           </button>
           <button type="button" class="jogar-modo-card jogar-modo-dueto" @click="jogarModo('dueto')">
             <span class="jogar-modo-icone" aria-hidden="true">

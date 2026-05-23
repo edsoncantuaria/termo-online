@@ -1,4 +1,4 @@
-# Termo Online · v1.3
+# Termo Online · v1.4
 
 Jogo de palavras em português — moderno e social. Conta opcional (visitante sem cadastro). Primeira versão de produção.
 
@@ -7,7 +7,7 @@ Jogo de palavras em português — moderno e social. Conta opcional (visitante s
 | Modo | Descrição |
 |------|-----------|
 | **Palavra do dia** | Mesma palavra para todos, **uma vez por dia** (validado no servidor) |
-| **Prática** | Palavras aleatórias — normal ou **difícil** |
+| **Prática** | Só no dispositivo (também offline) — palavras aleatórias, normal ou **difícil**; sem XP nem contagem no perfil |
 | **Dueto** | 2 palavras, 7 tentativas (um chute vale para as duas) |
 | **Quarteto** | 4 palavras, 9 tentativas |
 | **Desafio** | Mesma palavra por código (`/?desafio=CODIGO`) |

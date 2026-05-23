@@ -20,7 +20,7 @@ def cliente(tmp_path, monkeypatch):
 def test_chute_repetido_invalido(cliente):
     I = cliente.post(
         "/api/jogar/iniciar",
-        json={"nomeJogador": "teste", "modo": "pratica"},
+        json={"nomeJogador": "teste", "modo": "dueto"},
     )
     assert I.status_code == 200
     Corpo = I.json()
@@ -29,7 +29,7 @@ def test_chute_repetido_invalido(cliente):
     Payload = {
         "idPartida": Id,
         "tokenPartida": Token,
-        "palavra": "termo",
+        "palavra": "terno",
         "nomeJogador": "teste",
     }
     C1 = cliente.post("/api/jogar/chute", json=Payload)
@@ -72,7 +72,7 @@ def test_iniciar_dueto_nao_vaza_secreto(cliente):
 def test_chute_token_invalido(cliente):
     I = cliente.post(
         "/api/jogar/iniciar",
-        json={"nomeJogador": "teste", "modo": "pratica"},
+        json={"nomeJogador": "teste", "modo": "dueto"},
     )
     Id = I.json()["idPartida"]
     R = cliente.post(
@@ -80,7 +80,7 @@ def test_chute_token_invalido(cliente):
         json={
             "idPartida": Id,
             "tokenPartida": "token-errado",
-            "palavra": "termo",
+            "palavra": "terno",
             "nomeJogador": "teste",
         },
     )

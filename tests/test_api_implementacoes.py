@@ -25,7 +25,7 @@ def cliente(tmp_path, monkeypatch):
     return TestClient(CriarAplicacao())
 
 
-@pytest.mark.parametrize("modo", ["pratica", "dueto", "quarteto", "desafio"])
+@pytest.mark.parametrize("modo", ["dueto", "quarteto", "desafio"])
 def test_api_iniciar_solo_retorna_uuid(cliente, modo):
     Corpo = {"nomeJogador": "Tester", "modo": modo}
     if modo == "desafio":

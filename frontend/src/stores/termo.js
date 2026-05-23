@@ -63,6 +63,10 @@ import {
 import { acoesRanqueada } from "./termo/acoes-ranqueada.js";
 import { acoesJogoAtivo } from "./termo/acoes-jogo-ativo.js";
 import { acoesSolo } from "./termo/acoes-solo.js";
+import {
+  enviarChutePraticaLocal,
+  restaurarPraticaLocal,
+} from "./termo/acoes-pratica-local.js";
 import { acoesResultado } from "./termo/acoes-resultado.js";
 import {
   ObterSessao,
@@ -193,6 +197,8 @@ export const useTermoStore = defineStore("termo", {
 
     modo: null,
     idPartida: null,
+    /** Prática local: palavra secreta (não enviar ao servidor). */
+    palavraSecreta: null,
     tokenPartida: null,
     tokenSessao: null,
     dataDia: null,
@@ -1333,6 +1339,7 @@ export const useTermoStore = defineStore("termo", {
       this.gradesMulti = [];
       this.prepararNovaRodadaArena();
       this.arenaRodadaSync = null;
+      this.palavraSecreta = null;
       this.limparChat();
       this.mostrarToast("");
     },
@@ -1419,6 +1426,7 @@ export const useTermoStore = defineStore("termo", {
     },
 
     registrarVitoria(modo, tentativas, venceu) {
+      if (modo === "pratica") return;
       const S = ObterStats();
       S.vitorias = (S.vitorias || 0) + (venceu ? 1 : 0);
       S.sequencia = venceu ? (S.sequencia || 0) + 1 : 0;
@@ -1513,6 +1521,10 @@ export const useTermoStore = defineStore("termo", {
           );
         }
         return;
+      }
+
+      if (this.modo === "pratica") {
+        return enviarChutePraticaLocal.call(this, cacheDicionarioSet);
       }
 
       return acoesSolo.enviarChuteSolo.call(this, cacheDicionarioSet);
@@ -2694,6 +2706,15 @@ export const useTermoStore = defineStore("termo", {
       }
 
       if (salvo.solo && !retomou) {
+        if (salvo.solo.modo === "pratica" && salvo.solo.palavraSecreta) {
+          if (restaurarPraticaLocal.call(this, salvo.solo)) {
+            this.persistir();
+            this.mostrarToast("Prática retomada de onde você parou");
+            return true;
+          }
+          LimparSessao();
+          return false;
+        }
         if (salvo.solo.modo === "diaria" && DiariaJaJogadaLocal()) {
           LimparSessao();
           return false;

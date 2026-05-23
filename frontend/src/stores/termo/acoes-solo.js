@@ -21,6 +21,7 @@ import {
   SalvarNickLocal,
 } from "../../utils/sessao.js";
 import { PalavraNoCache } from "../../utils/dicionario-cache.js";
+import { iniciarPraticaLocal } from "./acoes-pratica-local.js";
 import { MontarResultadoUi } from "../../utils/jogo.js";
 import { ObterStats, DiariaJaJogadaLocal } from "../../utils/stats.js";
 
@@ -199,6 +200,10 @@ export async function iniciarModo(modo, opcoes = {}) {
   SalvarNickLocal(this.nick);
   const dificuldade = opcoes.dificuldade || this.dificuldade;
   const codigoDesafio = opcoes.codigoDesafio || null;
+
+  if (modo === "pratica") {
+    return iniciarPraticaLocal.call(this);
+  }
 
   if (modo === "diaria") {
     if (!this.conta?.podeRanqueada) {

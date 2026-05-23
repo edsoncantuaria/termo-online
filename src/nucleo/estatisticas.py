@@ -21,7 +21,6 @@ _NOMES_MODO = {
 
 _ORDEM_MODOS = [
     ModoDiaria,
-    ModoPratica,
     ModoDueto,
     ModoQuarteto,
     ModoDesafio,

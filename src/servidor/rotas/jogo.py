@@ -45,6 +45,12 @@ def IniciarPartida(Corpo: IniciarJogoRequest, Perfil: dict | None = None) -> dic
     if Perfil and not Perfil.get("ehVisitante"):
         IdConta = Perfil["idConta"]
 
+    if Corpo.modo == ModoPratica:
+        raise HTTPException(
+            status_code=410,
+            detail="A prática é só no aplicativo (modo local). Abra Jogar → Prática.",
+        )
+
     if Corpo.modo == ModoDiaria:
         _, _, DataDia = EscolherPalavraDoDia()
         if persistencia.JaConcluiuDiariaHoje(IdConta, Nome, DataDia):
@@ -124,7 +130,7 @@ def RegistrarRotasJogo(Roteador: APIRouter) -> None:
 
     @Roteador.post("/solo/chute")
     def EnviarChuteSolo(Corpo: ChuteSoloRequest, Perfil=Depends(ContaOpcional)):
-        from nucleo.progresso import RecompensaDiariaChute, RecompensaPraticaChute
+        from nucleo.progresso import RecompensaDiariaChute
 
         Partida = ObterPartida(Corpo.idPartida)
         if not Partida:
@@ -223,11 +229,6 @@ def RegistrarRotasJogo(Roteador: APIRouter) -> None:
                     Partida.Encerrada,
                     Partida.Venceu,
                 )
-            elif Partida.Modo == ModoPratica:
-                ProgressoXp = RecompensaPraticaChute(
-                    IdConta, Partida.Encerrada, Partida.Venceu
-                )
-
         Resposta = {
             "valido": True,
             "tentativa": Tentativa,
