@@ -660,6 +660,16 @@ class GerenciadorSalas:
         ):
             Vencedor = JogadorAtingiuMetaVitorias(Sala.Jogadores, Config.MetaVitorias)
             self.EncerrarSessao(Sala, VencedorForcado=Vencedor)
+        elif Config.Ranqueada:
+            from .arena_rodadas import JogadorAtingiuMetaVitorias
+            from .bot_jogador import LimparEstadosBotsSala
+
+            LimparEstadosBotsSala(Sala.CodigoSala)
+            if not JogadorAtingiuMetaVitorias(Sala.Jogadores, Config.MetaVitorias):
+                Sala.RodadaAtual += 1
+                Sala.EstadoSala = "countdown"
+                Sala.CountdownFimEpoch = time.time() + SegundosCountdown
+                self.PersistirSala(Sala)
 
     def ProximaRodada(self, Sala: SalaJogo, IdJogador: str) -> str | None:
         if Sala.CriadorId != IdJogador:
@@ -801,10 +811,12 @@ class GerenciadorSalas:
             Sala.Jogadores, Config.ModoSessao
         )
         if Config.Ranqueada:
+            from .bot_jogador import LimparEstadosBotsSala
             from .bots_ranqueados import LiberarBotsDaSala
             from .matchmaking import FilaGlobal
             from .ranqueada import ProcessarFimSalaRanqueada
 
+            LimparEstadosBotsSala(Sala.CodigoSala)
             Resultados = ProcessarFimSalaRanqueada(Sala)
             LiberarBotsDaSala(Sala)
             if Resultados:
@@ -1012,25 +1024,25 @@ class GerenciadorSalas:
         Jogador: JogadorSala,
     ) -> dict:
         EmRodada = Sala.EstadoSala == "jogando"
-        JaChutou = bool(Jogador.Tentativas)
+        NumChutes = len(Jogador.Tentativas)
         Dados = {
             "idJogador": self.IdJogadorPublico(Jogador),
             "nomeJogador": Jogador.NomeJogador,
             "avatarId": self.ResolverAvatarJogador(Jogador),
             "souEu": False,
             "modoCompetitivo": True,
-            "jaChutou": JaChutou,
+            "jaChutou": NumChutes > 0,
             "finalizou": Jogador.Finalizou,
             "conectado": Jogador.Conectado,
             "espectador": Jogador.Espectador,
             "pronto": Jogador.Pronto,
             "ausenteContinua": Jogador.AusenteContinua,
             "tentativas": [],
-            "tentativasUsadas": 0,
+            "tentativasUsadas": NumChutes,
             "pontos": 0,
             "pontosAcumulados": 0,
             "pontosUltimaRodada": 0,
-            "vitoriasRodada": 0,
+            "vitoriasRodada": Jogador.VitoriasRodada,
             "venceu": Jogador.Venceu if not EmRodada else False,
         }
         if Jogador.AusenteContinua and Jogador.DesconexaoInicioEpoch:

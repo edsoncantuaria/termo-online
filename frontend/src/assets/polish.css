@@ -3592,6 +3592,50 @@ html.tema-claro .lobby-rodape {
   color: var(--dourado);
 }
 
+.resultado-ranqueada {
+  margin: 0.75rem 0 1rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--raio-lg);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.resultado-ranqueada-delta {
+  margin: 0;
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.resultado-ranqueada-delta--ganho {
+  color: var(--verde);
+}
+
+.resultado-ranqueada-delta--perda {
+  color: #e85d5d;
+}
+
+.resultado-ranqueada-rp {
+  margin: 0.45rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--texto);
+  opacity: 0.92;
+}
+
+.resultado-ranqueada-rp span:nth-child(2) {
+  margin: 0 0.35rem;
+  opacity: 0.55;
+}
+
+.resultado-ranqueada-serie,
+.resultado-ranqueada-record {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: var(--texto-muted);
+}
+
 .resultado-acoes {
   margin-top: 0.5rem;
 }
@@ -3991,6 +4035,78 @@ html.tema-claro .resultado-grade-card {
   50% {
     box-shadow: 0 0 0 6px rgba(95, 173, 98, 0.22);
   }
+}
+
+.balao-instigacao-serie {
+  margin: 0 0 0.65rem;
+  padding: 0.55rem 1rem;
+  border-radius: var(--raio-pill);
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
+  animation: balao-serie-pulso 2.4s ease-in-out infinite;
+}
+
+.balao-instigacao-serie--overlay {
+  margin: 1rem auto 0;
+  max-width: min(22rem, 92vw);
+}
+
+.balao-instigacao-serie--entre-rodadas {
+  margin: 0.75rem 0 0;
+}
+
+.balao-instigacao-serie--vantagem {
+  color: #e8f5e9;
+  background: linear-gradient(
+    135deg,
+    rgba(56, 142, 60, 0.92),
+    rgba(27, 94, 32, 0.95)
+  );
+  border: 1px solid rgba(129, 199, 132, 0.55);
+}
+
+.balao-instigacao-serie--pressionado {
+  color: #fff3e0;
+  background: linear-gradient(
+    135deg,
+    rgba(230, 81, 0, 0.92),
+    rgba(191, 54, 12, 0.95)
+  );
+  border: 1px solid rgba(255, 183, 77, 0.5);
+}
+
+.balao-instigacao-serie--decisivo {
+  color: #fff8e1;
+  background: linear-gradient(
+    135deg,
+    rgba(201, 162, 39, 0.95),
+    rgba(141, 110, 22, 0.98)
+  );
+  border: 1px solid rgba(255, 213, 79, 0.55);
+}
+
+@keyframes balao-serie-pulso {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+.balao-serie-enter-active,
+.balao-serie-leave-active {
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+
+.balao-serie-enter-from,
+.balao-serie-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 .toast-rodada-enter-active,

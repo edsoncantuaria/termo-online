@@ -1,25 +1,69 @@
-"""Simulação de chutes para oponentes bot em duelos ranqueados."""
+"""Simulação de chutes para oponentes bot em duelos ranqueados (ritmo humano ~30s/chute)."""
 
 from __future__ import annotations
 
 import random
 import time
+from dataclasses import dataclass
 
 from .bots_ranqueados import PontosBotPorIdJogador
-from .dicionario import ObterDicionario, ObterPalavraComAcento, PalavraExisteNoDicionario
-from .logica_jogo import AvaliarChute, MaximoTentativas, PalavraFoiAcertada
+from .dicionario import NormalizarPalavra, ObterDicionario, ObterPalavraComAcento, PalavraExisteNoDicionario
 
-_ULTIMO_CHUTE: dict[str, float] = {}
-_INTERVALO_MIN = 2.8
-_INTERVALO_MAX = 6.5
+INTERVALO_ENTRE_CHUTES_SEG = 30.0
+
+# Perfis (soma 100%): falha 30%, médio 40%, lento 25%, rápido 5%
+_PERFIL_FALHA = 0.30
+_PERFIL_MEDIO = 0.40
+_PERFIL_LENTO = 0.25
+
+_ESTADOS: dict[tuple[str, str], "EstadoBotRodada"] = {}
+_RODADA_BOT: dict[str, int] = {}
 
 
-def _IntervaloChuteBot(Jogador) -> float:
-    from .bots_ranqueados import PontosBotPorIdJogador
+@dataclass
+class EstadoBotRodada:
+    Perfil: str
+    InicioEpoch: float
+    ProximoChuteEpoch: float
+    ChuteNumero: int
+    TentativaVitoria: int | None
 
-    Pontos = PontosBotPorIdJogador(Jogador.IdJogador) or 1200
-    Fator = max(0.35, min(1.0, Pontos / 2200))
-    return _INTERVALO_MIN + (1.0 - Fator) * (_INTERVALO_MAX - _INTERVALO_MIN)
+
+def LimparEstadosBotsSala(CodigoSala: str) -> None:
+    Codigo = CodigoSala.upper()
+    for Chave in list(_ESTADOS.keys()):
+        if Chave[0] == Codigo:
+            del _ESTADOS[Chave]
+    _RODADA_BOT.pop(Codigo, None)
+
+
+def _EscolherPerfil() -> tuple[str, int | None]:
+    R = random.random()
+    if R < _PERFIL_FALHA:
+        return "falha", None
+    if R < _PERFIL_FALHA + _PERFIL_MEDIO:
+        return "medio", random.randint(3, 5)
+    if R < _PERFIL_FALHA + _PERFIL_MEDIO + _PERFIL_LENTO:
+        return "lento", random.randint(4, 6)
+    return "rapido", random.randint(2, 4)
+
+
+def _GarantirEstado(Sala, Bot) -> EstadoBotRodada:
+    Codigo = Sala.CodigoSala.upper()
+    Chave = (Codigo, Bot.IdJogador)
+    Rodada = Sala.RodadaAtual
+    if _RODADA_BOT.get(Codigo) != Rodada or Chave not in _ESTADOS:
+        Perfil, Tentativa = _EscolherPerfil()
+        Agora = time.time()
+        _ESTADOS[Chave] = EstadoBotRodada(
+            Perfil=Perfil,
+            InicioEpoch=Agora,
+            ProximoChuteEpoch=Agora + INTERVALO_ENTRE_CHUTES_SEG,
+            ChuteNumero=0,
+            TentativaVitoria=Tentativa,
+        )
+        _RODADA_BOT[Codigo] = Rodada
+    return _ESTADOS[Chave]
 
 
 def _FiltrarPorFeedback(Candidatos: list[str], Tentativas: list[dict]) -> list[str]:
@@ -32,15 +76,12 @@ def _FiltrarPorFeedback(Candidatos: list[str], Tentativas: list[dict]) -> list[s
         return Candidatos
 
     Verdes: dict[int, str] = {}
-    Amarelas: list[str] = []
     Cinzas: set[str] = set()
 
     for I, (L, E) in enumerate(zip(Letras, Estados)):
         Ln = str(L).lower()
         if E == "correto":
             Verdes[I] = Ln
-        elif E == "presente":
-            Amarelas.append(Ln)
         elif E == "ausente":
             Cinzas.add(Ln)
 
@@ -57,22 +98,14 @@ def _FiltrarPorFeedback(Candidatos: list[str], Tentativas: list[dict]) -> list[s
             continue
         for Letra in Cinzas:
             if Letra not in Verdes.values() and Palavra.count(Letra) > 0:
-                if all(
-                    Estados[J] != "correto" or str(Letras[J]).lower() != Letra
-                    for J in range(len(Letras))
-                    if str(Letras[J]).lower() == Letra
-                ):
-                    if Palavra.count(Letra) > sum(
-                        1 for J in range(5) if Palavra[J] == Letra and J in Verdes
-                    ):
-                        Ok = False
-                        break
+                Ok = False
+                break
         if Ok:
             Filtradas.append(Palavra)
     return Filtradas or Candidatos
 
 
-def EscolherPalavraChute(Jogador, PalavraSecreta: str) -> str | None:
+def EscolherPalavraChute(Jogador, PalavraSecreta: str, Estado: EstadoBotRodada) -> str | None:
     _, SemAcento, _ = ObterDicionario()
     Tentadas = {
         t.get("palavra", "").lower()
@@ -83,25 +116,27 @@ def EscolherPalavraChute(Jogador, PalavraSecreta: str) -> str | None:
     if not Candidatos:
         return None
 
-    Pontos = PontosBotPorIdJogador(Jogador.IdJogador) or 1200
-    Skill = max(0.2, min(0.95, Pontos / 2600))
     Filtradas = _FiltrarPorFeedback(Candidatos, Jogador.Tentativas)
-
     TentativaNum = len(Jogador.Tentativas) + 1
-    ChanceAcerto = 0.03 + Skill * 0.24
-    if TentativaNum >= 4:
-        ChanceAcerto += Skill * 0.14
-    if TentativaNum >= 5:
-        ChanceAcerto += 0.1 + Skill * 0.05
 
-    if random.random() < ChanceAcerto:
+    if Estado.Perfil == "falha":
+        return random.choice(Filtradas[: min(800, len(Filtradas))])
+
+    if Estado.TentativaVitoria is not None and TentativaNum >= Estado.TentativaVitoria:
+        return ObterPalavraComAcento(PalavraSecreta) or PalavraSecreta
+
+    Pontos = PontosBotPorIdJogador(Jogador.IdJogador) or 1200
+    Skill = max(0.15, min(0.85, Pontos / 2600))
+    Chance = 0.02 + Skill * 0.08
+    if Estado.TentativaVitoria is not None and TentativaNum >= Estado.TentativaVitoria:
+        Chance += 0.35
+    if random.random() < Chance:
         return ObterPalavraComAcento(PalavraSecreta) or PalavraSecreta
 
     return random.choice(Filtradas[: min(800, len(Filtradas))])
 
 
 def ProcessarBotsNasSalas(Gerenciador) -> list:
-    """Retorna salas que mudaram e precisam de broadcast."""
     Alteradas = []
     Agora = time.time()
     for Sala in list(Gerenciador.Salas.values()):
@@ -117,21 +152,20 @@ def ProcessarBotsNasSalas(Gerenciador) -> list:
         for Bot in Bots:
             if Bot.Finalizou:
                 continue
-            if Agora - _ULTIMO_CHUTE.get(Bot.IdJogador, 0) < _IntervaloChuteBot(Bot):
+            Estado = _GarantirEstado(Sala, Bot)
+            if Agora < Estado.ProximoChuteEpoch:
                 continue
             PalavraSecreta, _ = Gerenciador.ObterPalavraJogador(Sala, Bot)
             if not PalavraSecreta:
                 continue
-            Palavra = EscolherPalavraChute(Bot, PalavraSecreta)
+            Palavra = EscolherPalavraChute(Bot, PalavraSecreta, Estado)
             if not Palavra:
                 continue
-            Norm = Palavra.strip().lower()
-            from .dicionario import NormalizarPalavra
-
-            Norm = NormalizarPalavra(Norm)
+            Norm = NormalizarPalavra(Palavra.strip().lower())
             if not PalavraExisteNoDicionario(Norm):
                 continue
             if Gerenciador.AplicarChuteJogador(Sala, Bot.IdJogador, Norm):
-                _ULTIMO_CHUTE[Bot.IdJogador] = Agora
+                Estado.ChuteNumero += 1
+                Estado.ProximoChuteEpoch = Agora + INTERVALO_ENTRE_CHUTES_SEG
                 Alteradas.append(Sala)
     return Alteradas

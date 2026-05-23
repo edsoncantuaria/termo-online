@@ -10,7 +10,7 @@ def FormatarModoSessao(
     Modo: str, MetaVitorias: int = 5, Ranqueada: bool = False
 ) -> str:
     if Ranqueada:
-        return "Ranqueado 1v1"
+        return "Melhor de 3 · 3 min 24 s por mapa"
     if Modo == ModoVitorias:
         return f"Primeiro a {MetaVitorias} vitórias"
     return "Pontos infinitos (maratona)"

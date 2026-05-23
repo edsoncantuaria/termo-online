@@ -32,7 +32,12 @@ const temConteudo = computed(
   () =>
     !!r.value.texto ||
     r.value.mostrarGrade ||
-    !!r.value.pontos
+    !!r.value.pontos ||
+    !!r.value.ranqueadaResumo
+);
+
+const deltaPositivo = computed(
+  () => (r.value.ranqueadaResumo?.delta ?? 0) >= 0
 );
 </script>
 
@@ -59,6 +64,31 @@ const temConteudo = computed(
     </div>
 
     <div class="dialog-scroll dialog-scroll-resultado">
+      <section
+        v-if="r.ranqueadaResumo"
+        class="resultado-ranqueada"
+        aria-label="Resumo ranqueado"
+      >
+        <p
+          class="resultado-ranqueada-delta"
+          :class="deltaPositivo ? 'resultado-ranqueada-delta--ganho' : 'resultado-ranqueada-delta--perda'"
+        >
+          {{ r.ranqueadaResumo.delta >= 0 ? "+" : "" }}{{ r.ranqueadaResumo.delta }}
+          pontos
+        </p>
+        <p class="resultado-ranqueada-rp">
+          <span>{{ r.ranqueadaResumo.pontosAntes }}</span>
+          <span aria-hidden="true">→</span>
+          <span>{{ r.ranqueadaResumo.pontosDepois }} RP</span>
+        </p>
+        <p v-if="r.ranqueadaResumo.placarSerie" class="resultado-ranqueada-serie">
+          Série {{ r.ranqueadaResumo.placarSerie }}
+        </p>
+        <p class="resultado-ranqueada-record">
+          {{ r.ranqueadaResumo.vitorias }} vitórias · {{ r.ranqueadaResumo.derrotas }} derrotas
+        </p>
+      </section>
+
       <GradeCompartilhar
         v-if="r.mostrarGrade"
         :texto="r.gradeTexto"

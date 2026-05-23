@@ -44,6 +44,7 @@ import {
   ChipsConfigLobby,
   NickExibicao,
 } from "../utils/jogador.js";
+import { CalcularInstigacaoSerie } from "../utils/instigacao-serie.js";
 import { TextoXpGanho } from "../utils/progresso.js";
 import {
   AvatarEfetivo,
@@ -378,7 +379,9 @@ export const useTermoStore = defineStore("termo", {
             ? ` · ${s.configArena.tempoLimiteTexto}`
             : "";
         const duelo =
-          s.modo === "ranqueada" ? " · duelo ranqueado" : "";
+          s.modo === "ranqueada"
+            ? " · melhor de 3 (até 3 mapas)"
+            : "";
         return `6 tentativas · 5 letras${tempo}${duelo}`;
       }
       if (s.view === "arenaLobby") {
@@ -421,7 +424,12 @@ export const useTermoStore = defineStore("termo", {
         return { tipo: "pausa", texto: "Rodada encerrada" };
       }
       if (D.estadoSala === "countdown") {
-        return { tipo: "prep", texto: "Próxima rodada em instantes…" };
+        const mapa = D.rodadaAtual || 1;
+        const txtRanq =
+          s.modo === "ranqueada" || D.configuracao?.ranqueada
+            ? `Mapa ${mapa} de 3 · melhor de 3`
+            : "Próxima rodada em instantes…";
+        return { tipo: "prep", texto: txtRanq };
       }
       if (D.estadoSala === "jogando") {
         const eu = D.jogadores?.find((j) => j.souEu);
@@ -430,6 +438,29 @@ export const useTermoStore = defineStore("termo", {
         return { tipo: "ativo", texto: "Rodada em andamento" };
       }
       return null;
+    },
+    balaoInstigacaoSerie: (s) => {
+      if (!s.porVitoriasArena || s.espectador || !s.dadosSala?.placar?.length) {
+        return null;
+      }
+      const D = s.dadosSala;
+      if (D.partidaEncerrada) return null;
+      const Estado = D.estadoSala;
+      if (
+        Estado !== "jogando" &&
+        Estado !== "countdown" &&
+        Estado !== "entre_rodadas"
+      ) {
+        return null;
+      }
+      const Eu = D.placar.find((j) => j.idJogador === s.idJogador);
+      const Opp = D.placar.find((j) => j.idJogador !== s.idJogador);
+      if (!Eu || !Opp) return null;
+      return CalcularInstigacaoSerie({
+        vitoriasEu: Eu.vitoriasRodada || 0,
+        vitoriasOpp: Opp.vitoriasRodada || 0,
+        meta: s.metaVitoriasArena,
+      });
     },
     palavraReveladaArena: (s) => {
       const D = s.dadosSala;
@@ -508,6 +539,15 @@ export const useTermoStore = defineStore("termo", {
         const eu = s.dadosSala.placar?.find((j) => j.idJogador === s.idJogador);
         const meta = s.metaVitoriasArena;
         const prefixo = s.modo === "ranqueada" ? "Ranqueado" : "Arena";
+        if (s.modo === "ranqueada" && s.porVitoriasArena) {
+          const opp = s.dadosSala.placar?.find(
+            (j) => j.idJogador !== s.idJogador
+          );
+          const a = eu?.vitoriasRodada || 0;
+          const b = opp?.vitoriasRodada || 0;
+          const mapa = s.dadosSala.rodadaAtual || 1;
+          return `${prefixo} · ${a}–${b} · mapa ${mapa}/3`;
+        }
         return s.porVitoriasArena
           ? `${prefixo} · ${eu?.vitoriasRodada || 0}/${meta} vit.`
           : `${prefixo} · R${s.dadosSala.rodadaAtual}`;

@@ -205,6 +205,9 @@ def test_matchmaking_config_ranqueada_ver_outros_false():
     Config = Fila._ConfigRanqueada()
     assert Config.VerOutros is False
     assert Config.Ranqueada is True
+    assert Config.MetaVitorias == 2
+    assert Config.NumeroRodadas == 3
+    assert Config.TempoLimiteSegundos == 204
 
 
 def test_estado_publico_ranqueado_oponente_modo_competitivo():

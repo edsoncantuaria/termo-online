@@ -45,7 +45,7 @@ def test_oponente_ranqueado_so_revela_se_chutou(DueloRanqueado):
     assert Pub["modoCompetitivo"] is True
     assert Pub["jaChutou"] is True
     assert Pub["tentativas"] == []
-    assert Pub["tentativasUsadas"] == 0
+    assert Pub["tentativasUsadas"] == 1
     assert Pub["venceu"] is False
 
 

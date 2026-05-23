@@ -60,11 +60,19 @@ export function mostrarResultadoSolo(venceu, palavra, pontos, modo, tentativasUs
 export function mostrarResultadoArena(D, venci, campeao) {
   const ehRanq = this.modo === "ranqueada" || D.configuracao?.ranqueada;
   const porVitorias = ModoVitoriasArena(D);
-  const meta = D.metaVitorias || 5;
+  const meta = ehRanq ? D.metaVitorias || 2 : D.metaVitorias || 5;
   const meuPlacar = D.placar?.find((j) => j.idJogador === this.idJogador);
   const meuRanq = (D.resultadosRanqueada || []).find(
     (r) => r.idConta && r.idConta === this.conta?.idConta
   );
+  const partidasAntes = this.conta?.partidasRanqueadas || 0;
+  const vitoriasAntes = this.conta?.vitoriasRanqueadas || 0;
+  const vitoriasTotais = vitoriasAntes + (ehRanq && venci ? 1 : 0);
+  const partidasTotais = partidasAntes + (ehRanq ? 1 : 0);
+  const derrotasTotais = Math.max(0, partidasTotais - vitoriasTotais);
+  const placarSerie = (D.placar || [])
+    .map((j) => `${j.vitoriasRodada || 0}`)
+    .join("–");
   const linhas = (D.placar || [])
     .map((j, i) =>
       porVitorias
@@ -72,7 +80,9 @@ export function mostrarResultadoArena(D, venci, campeao) {
         : `${i + 1}. ${j.nomeJogador} — ${j.pontosAcumulados} pts`
     )
     .join("\n");
-  const gradeTexto = `Termo Arena ${D.codigoSala}\nRodadas: ${D.rodadaAtual}\n\n${linhas}`;
+  const gradeTexto = ehRanq
+    ? `Termo Ranqueado · melhor de 3\nSérie ${placarSerie}\n\n${linhas}`
+    : `Termo Arena ${D.codigoSala}\nRodadas: ${D.rodadaAtual}\n\n${linhas}`;
   this.resultado = {
     titulo: ehRanq
       ? venci
@@ -82,22 +92,30 @@ export function mostrarResultadoArena(D, venci, campeao) {
         ? "Você venceu a sessão!"
         : "Sessão encerrada",
     texto: campeao
-      ? porVitorias
-        ? `Campeão: ${campeao.nomeJogador} com ${campeao.vitoriasRodada || 0} vitórias (meta ${meta}).`
-        : `Campeão: ${campeao.nomeJogador} com ${campeao.pontosAcumulados} pontos.`
+      ? ehRanq
+        ? `Melhor de 3 — ${campeao.nomeJogador} venceu a série (${campeao.vitoriasRodada || 0} mapas).`
+        : porVitorias
+          ? `Campeão: ${campeao.nomeJogador} com ${campeao.vitoriasRodada || 0} vitórias (meta ${meta}).`
+          : `Campeão: ${campeao.nomeJogador} com ${campeao.pontosAcumulados} pontos.`
       : "Obrigado por jogar!",
-    pontos: meuRanq
-      ? `${meuRanq.delta >= 0 ? "+" : ""}${meuRanq.delta} RP · ${meuRanq.pontosDepois} pts (${(meuRanq.eloDepois || "").replace(/^./, (c) => c.toUpperCase())})`
-      : meuPlacar
-        ? porVitorias
-          ? `Você: ${meuPlacar.vitoriasRodada || 0}/${meta} vitórias`
-          : `Você fez ${meuPlacar.pontosAcumulados} pontos`
-        : "",
+    pontos: "",
+    ranqueadaResumo: meuRanq
+      ? {
+          delta: meuRanq.delta,
+          pontosAntes: meuRanq.pontosAntes,
+          pontosDepois: meuRanq.pontosDepois,
+          eloDepois: meuRanq.eloDepois,
+          venceu: venci,
+          vitorias: vitoriasTotais,
+          derrotas: derrotasTotais,
+          placarSerie,
+        }
+      : null,
     confete: venci,
     gradeTexto,
-    mostrarGrade: true,
-    mostrarCopiar: true,
-    mostrarCompartilhar: true,
+    mostrarGrade: !ehRanq,
+    mostrarCopiar: !ehRanq,
+    mostrarCompartilhar: !ehRanq,
     mostrarRevanche: !!(this.souCriador && this.codigoSala),
     mostrarRevancheRanqueada: !!(ehRanq && D.revancheRanqueada?.disponivel),
     revancheOponenteNick: D.revancheRanqueada?.oponenteNick || "",
@@ -120,8 +138,10 @@ export function mostrarResultadoArena(D, venci, campeao) {
       rotuloRank: Nome,
       semRank: false,
       eloClasse: ClasseElo(EloId),
-      partidasRanqueadas: (this.conta.partidasRanqueadas || 0) + 1,
+      partidasRanqueadas: partidasTotais,
       partidasTemporada: (this.conta.partidasTemporada || 0) + 1,
+      vitoriasRanqueadas: vitoriasTotais,
+      vitoriasTemporada: (this.conta.vitoriasTemporada || 0) + (venci ? 1 : 0),
     };
     SalvarAuthLocal(this.token, this.conta);
     this.carregarRankingRanqueado();

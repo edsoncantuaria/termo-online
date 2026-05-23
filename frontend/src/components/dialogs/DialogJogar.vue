@@ -368,8 +368,9 @@ function clicarAbaRanqueado() {
                 Buscar partida ranqueada
               </button>
               <p class="jogar-ranqueado-regras">
-                Vitória <strong>+16~+20 RP</strong> · Derrota <strong>−8~−12 RP</strong> conforme o oponente.
-                Durante o duelo você só vê se o rival já chutou.
+                <strong>Melhor de 3</strong> mapas (primeiro a 2 vitórias; em 1–1, o 3º decide).
+                Até <strong>3 min 24 s</strong> por mapa. Vitória <strong>+16~+20 RP</strong> · Derrota
+                <strong>−8~−12 RP</strong>. No duelo você só vê quantos chutes o rival fez.
               </p>
             </template>
           </template>

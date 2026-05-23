@@ -88,6 +88,14 @@ function avatarPlacar(j) {
     >
       <p class="countdown-legenda">Próxima rodada</p>
       <span class="countdown-numero">{{ store.countdownSegundos }}</span>
+      <p
+        v-if="store.balaoInstigacaoSerie"
+        class="balao-instigacao-serie balao-instigacao-serie--overlay"
+        :class="`balao-instigacao-serie--${store.balaoInstigacaoSerie.tipo}`"
+        role="status"
+      >
+        {{ store.balaoInstigacaoSerie.texto }}
+      </p>
     </div>
 
     <div class="layout-jogo">
@@ -101,6 +109,21 @@ function avatarPlacar(j) {
           <span class="faixa-estado-ponto" aria-hidden="true" />
           <span>{{ store.badgeEstadoJogo.texto }}</span>
         </div>
+
+        <Transition name="balao-serie">
+          <p
+            v-if="
+              store.balaoInstigacaoSerie &&
+              store.dadosSala?.estadoSala === 'jogando'
+            "
+            class="balao-instigacao-serie"
+            :class="`balao-instigacao-serie--${store.balaoInstigacaoSerie.tipo}`"
+            role="status"
+            aria-live="polite"
+          >
+            {{ store.balaoInstigacaoSerie.texto }}
+          </p>
+        </Transition>
 
         <div class="jogo-meta">
           <span class="modo-pill">{{ store.pillModoTexto }}</span>
@@ -277,6 +300,14 @@ function avatarPlacar(j) {
             <h3>Rodada encerrada</h3>
           </div>
           <p class="entre-rodadas-resumo">{{ textoEntreRodadas }}</p>
+          <p
+            v-if="store.balaoInstigacaoSerie"
+            class="balao-instigacao-serie balao-instigacao-serie--entre-rodadas"
+            :class="`balao-instigacao-serie--${store.balaoInstigacaoSerie.tipo}`"
+            role="status"
+          >
+            {{ store.balaoInstigacaoSerie.texto }}
+          </p>
           <p
             v-if="store.dadosSala?.mensagemFimRodada"
             class="entre-rodadas-verdes"
